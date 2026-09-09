@@ -1,0 +1,926 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  USER
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  name                  String?
+  firstName             String?
+  lastName              String?
+  email                 String?                @unique
+  emailVerified         DateTime?
+  image                 String?
+  password              String?
+  role                  UserRole               @default(USER)
+  isActive              Boolean                @default(true)
+  deactivatedAt         DateTime?
+  isTwoFactorEnabled    Boolean                @default(false)
+  twoFactorSecret       String? // Secret TOTP (base32) pour l'authentification TOTP
+  isDeleted             Boolean                @default(false)
+  twoFactorConfirmation TwoFactorConfirmation?
+  accounts              Account[]
+  sessions              Session[]
+  userDevices           UserDevice[]
+  FailedLoginAttempt    FailedLoginAttempt[]
+  auditLogs             AuditLog[]
+  blogs                 Blog[]
+  blogPosts             BlogPost[]
+
+  // ── JNJL : identité étendue ──
+  profile       UserProfile?
+  permissions   UserPermission[]
+  badges        UserBadge[]
+  documents     Document[]
+  notifications Notification[]
+
+  // ── JNJL : contenus édités ──
+  news News[] @relation("NewsAuthor")
+
+  // ── JNJL : candidatures ──
+  eventApplications          EventApplication[]      @relation("EventApplicationUser")
+  reviewedEventApplications  EventApplication[]      @relation("EventApplicationReviewer")
+  leaderApplications         LeaderApplication[]     @relation("LeaderApplicationUser")
+  reviewedLeaderApplications LeaderApplication[]     @relation("LeaderApplicationReviewer")
+  ambassadorApplications     AmbassadorApplication[] @relation("AmbassadorApplicationUser")
+  reviewedAmbassadorApplications AmbassadorApplication[] @relation("AmbassadorApplicationReviewer")
+
+  // ── JNJL : pipeline ambassadeur ──
+  validatedPayments  Payment[]
+  repechageDecisions Repechage[]
+  validatedBoardings Boarding[]
+  updatedQuotas      RegionalQuota[]
+
+  // ── JNJL : participation & présence ──
+  eventParticipations EventParticipation[]
+  attendances         Attendance[]         @relation("AttendanceUser")
+  checkedAttendances  Attendance[]         @relation("AttendanceChecker")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id                  String   @id @default(cuid())
+  userId              String
+  sessionToken        String   @unique
+  refreshToken        String   @unique // Token de rafraîchissement haché (SHA-256)
+  expires             DateTime // Date d'expiration du token d'accès
+  refreshTokenExpires DateTime // Expiration du token de rafraîchissement
+  lastActivity        DateTime // Date de la dernière activité utilisateur
+
+  // Impersonation admin
+  isImpersonation Boolean @default(false) // True si cette session est une impersonation
+  impersonatedBy  String? // ID de l'admin qui a initié l'impersonation
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id      String   @id @default(cuid())
+  email   String
+  userId  String?
+  token   String   @unique
+  expires DateTime
+  tokenId String   @unique
+
+  @@unique([email, token])
+}
+
+model PasswordResetToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+  tokenId String   @unique
+
+  @@unique([email, token])
+}
+
+model TwoFactorToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorConfirmation {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+
+model FailedLoginAttempt {
+  id        String   @id @default(cuid())
+  userId    String // Clé étrangère pour l'utilisateur
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptAt DateTime @default(now()) // Timestamp de la tentative
+}
+
+model UserDevice {
+  id        String   @id @default(cuid())
+  userId    String // Clé étrangère liée à l'utilisateur
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device    String? // Informations sur l'appareil (marque, modèle)
+  os        String? // Informations sur le système d'exploitation
+  browser   String? // Informations sur le navigateur
+  ipAddress String? // Adresse IP de l'utilisateur
+  latitude  Float? // Latitude de la géolocalisation
+  longitude Float? // Longitude de la géolocalisation
+  city      String? // Ville obtenue à partir de la géolocalisation
+  country   String? // Pays obtenu à partir de la géolocalisation
+  createdAt DateTime @default(now()) // Date de la création de l'enregistrement
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String // Type de tâche, ex: "GENERATE_PDF"
+  payload     Json // Données nécessaires à la tâche
+  status      String    @default("PENDING") // "PENDING", "IN_PROGRESS", "COMPLETED", "FAILED"
+  attempts    Int       @default(0) // Nombre de tentatives
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+}
+
+model Setting {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  value          String
+  description    String?
+  isCustomizable Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGOUT" | "2FA_ENABLED" | etc.
+  ipAddress String?
+  userAgent String?
+  status    String // "SUCCESS" | "FAILURE"
+  metadata  Json? // Données contextuelles (email, raison, device…)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Modèles pour la gestion des blogs
+model Blog {
+  id          String    @id @default(cuid())
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  slug        String    @unique @db.VarChar(255)
+  isPublished Boolean   @default(false)
+  isDeleted   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  // Relations
+  authorId String
+  author   User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  posts    BlogPost[]
+
+  @@map("blogs")
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String    @db.VarChar(255)
+  content     String    @db.Text
+  excerpt     String?   @db.Text
+  slug        String    @unique @db.VarChar(255)
+  isPublished Boolean   @default(false)
+  isDeleted   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  blogId   String
+  blog     Blog   @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("blog_posts")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — RBAC fin (permissions attribuées individuellement)
+// ═══════════════════════════════════════════════════════════════════════
+
+model Permission {
+  id        String           @id @default(cuid())
+  code      String           @unique // ex: "applications.manage", "payments.validate"
+  label     String
+  category  String? // regroupement pour l'UI admin (ex: "Candidatures", "Paiements")
+  createdAt DateTime         @default(now())
+  users     UserPermission[]
+}
+
+model UserPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedAt    DateTime   @default(now())
+  grantedById  String? // id de l'admin ayant accordé la permission (non contraint en FK)
+
+  @@unique([userId, permissionId])
+}
+
+model UserProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  birthDate      DateTime?
+  regionId       String?
+  region         Region?   @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  city           String?
+  institution    String?
+  educationLevel String?
+  bio            String?   @db.Text
+  skills         String[]  @default([])
+  interests      String[]  @default([])
+  updatedAt      DateTime  @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Éditions & géographie
+// ═══════════════════════════════════════════════════════════════════════
+
+enum EditionStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  ARCHIVED
+}
+
+model Edition {
+  id          String        @id @default(cuid())
+  year        Int           @unique
+  name        String // "JNJL 2026"
+  slug        String        @unique
+  theme       String?
+  description String?       @db.Text
+  startDate   DateTime?
+  endDate     DateTime?
+  location    String?
+  status      EditionStatus @default(DRAFT)
+  isDeleted   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  programDays            ProgramDay[]
+  news                   News[]
+  partners               EditionPartner[]
+  speakers               EditionSpeaker[]
+  media                  Media[]
+  stats                  EditionStat[]
+  eventApplications      EventApplication[]
+  leaderApplications     LeaderApplication[]
+  ambassadorApplications AmbassadorApplication[]
+  eventParticipations    EventParticipation[]
+  attendances            Attendance[]
+  regionalQuotas         RegionalQuota[]
+  trainingModules        TrainingModule[]
+  quizzes                Quiz[]
+  userBadges             UserBadge[]
+
+  @@index([status])
+}
+
+// Un seul enregistrement par région du Niger — quotas/candidatures ambassadeurs
+// et localisation des profils utilisateurs s'y rattachent.
+model Region {
+  id                String                  @id @default(cuid())
+  name              String                  @unique
+  code              String                  @unique
+  userProfiles      UserProfile[]
+  quotas            RegionalQuota[]
+  applications      AmbassadorApplication[]
+  eventApplications EventApplication[]
+  boardings         Boarding[]
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Contenu du site vitrine (programme, intervenants, partenaires…)
+// ═══════════════════════════════════════════════════════════════════════
+
+enum SessionType {
+  CONFERENCE
+  PANEL
+  ATELIER
+  CEREMONIE
+  AUTRE
+}
+
+model ProgramDay {
+  id        String           @id @default(cuid())
+  editionId String
+  edition   Edition          @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  date      DateTime
+  title     String?
+  order     Int              @default(0)
+  sessions  ProgramSession[]
+
+  @@unique([editionId, date])
+}
+
+// Renommé ProgramSession pour éviter la collision avec le modèle Session (auth) déjà existant.
+model ProgramSession {
+  id           String           @id @default(cuid())
+  programDayId String
+  programDay   ProgramDay       @relation(fields: [programDayId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?          @db.Text
+  type         SessionType      @default(CONFERENCE)
+  startTime    DateTime
+  endTime      DateTime
+  location     String?
+  order        Int              @default(0)
+  speakers     SessionSpeaker[]
+  attendances  Attendance[]
+}
+
+model Speaker {
+  id           String           @id @default(cuid())
+  firstName    String
+  lastName     String
+  photo        String?
+  role         String? // fonction
+  organization String?
+  bio          String?          @db.Text
+  isDeleted    Boolean          @default(false)
+  editions     EditionSpeaker[]
+  sessions     SessionSpeaker[]
+}
+
+model EditionSpeaker {
+  id        String  @id @default(cuid())
+  editionId String
+  edition   Edition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  speakerId String
+  speaker   Speaker @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, speakerId])
+}
+
+model SessionSpeaker {
+  id        String         @id @default(cuid())
+  sessionId String
+  session   ProgramSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speakerId String
+  speaker   Speaker        @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, speakerId])
+}
+
+enum PartnerCategory {
+  INSTITUTIONNEL
+  TECHNIQUE
+  FINANCIER
+  MEDIA
+  AUTRE
+}
+
+model Partner {
+  id          String           @id @default(cuid())
+  name        String
+  logoUrl     String?
+  description String?          @db.Text
+  website     String?
+  isDeleted   Boolean          @default(false)
+  editions    EditionPartner[]
+}
+
+model EditionPartner {
+  id        String          @id @default(cuid())
+  editionId String
+  edition   Edition         @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  partnerId String
+  partner   Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  category  PartnerCategory @default(AUTRE)
+  order     Int             @default(0)
+
+  @@unique([editionId, partnerId])
+}
+
+model News {
+  id          String    @id @default(cuid())
+  editionId   String?
+  edition     Edition?  @relation(fields: [editionId], references: [id], onDelete: SetNull)
+  title       String
+  slug        String    @unique
+  coverImage  String?
+  excerpt     String?   @db.Text
+  content     String    @db.Text
+  category    String?
+  authorId    String?
+  author      User?     @relation("NewsAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  isPublished Boolean   @default(false)
+  isDeleted   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+model Media {
+  id        String    @id @default(cuid())
+  editionId String
+  edition   Edition   @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  type      MediaType
+  url       String
+  caption   String?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+}
+
+// Chiffres clés administrables (page d'accueil, éditions passées…)
+model EditionStat {
+  id        String  @id @default(cuid())
+  editionId String
+  edition   Edition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  label     String // "Participants", "Régions représentées"...
+  value     Int
+  order     Int     @default(0)
+
+  @@unique([editionId, label])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Candidatures (participant / jeune leader / ambassadeur)
+// ═══════════════════════════════════════════════════════════════════════
+
+enum ApplicationStatus {
+  BROUILLON
+  SOUMIS
+  EN_COURS_ANALYSE
+  RETENU
+  NON_RETENU
+  LISTE_ATTENTE
+}
+
+// Candidature publique pour participer à une édition — sans compte obligatoire (Règle 1).
+model EventApplication {
+  id           String            @id @default(cuid())
+  editionId    String
+  edition      Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  userId       String? // renseigné uniquement si le candidat possède déjà un compte
+  user         User?             @relation("EventApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
+  firstName    String
+  lastName     String
+  email        String
+  phone        String
+  regionId     String?
+  region       Region?           @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  motivation   String?           @db.Text
+  documents    Document[]
+  status       ApplicationStatus @default(SOUMIS)
+  reviewedById String?
+  reviewedBy   User?             @relation("EventApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  participation EventParticipation?
+
+  @@index([editionId, status])
+}
+
+// Candidature pour devenir Jeune Leader — nécessite un compte (Règle 2).
+model LeaderApplication {
+  id           String            @id @default(cuid())
+  editionId    String
+  edition      Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User              @relation("LeaderApplicationUser", fields: [userId], references: [id], onDelete: Cascade)
+  motivation   String?           @db.Text
+  documents    Document[]
+  status       ApplicationStatus @default(SOUMIS)
+  reviewedById String?
+  reviewedBy   User?             @relation("LeaderApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([editionId, userId])
+  @@index([editionId, status])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Pipeline Ambassadeur (candidature → … → attestation)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Étape courante dans le pipeline — vue synthétique en plus des statuts détaillés
+// portés par chaque sous-étape (Payment, Selection, Repechage, Engagement, Boarding).
+enum AmbassadorStage {
+  CANDIDATURE
+  PAIEMENT
+  FORMATION
+  QCM
+  CLASSEMENT
+  SELECTION
+  REPECHAGE
+  DOCUMENTS
+  ENGAGEMENT
+  BADGE
+  EMBARQUEMENT
+  PRESENCE
+  ATTESTATION
+}
+
+// Candidature Ambassadeur — jamais un second compte (Règle 3) : rattachée à l'utilisateur existant.
+model AmbassadorApplication {
+  id               String            @id @default(cuid())
+  editionId        String
+  edition          Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  userId           String?
+  user             User?             @relation("AmbassadorApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
+  regionId         String
+  region           Region            @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  firstName        String
+  lastName         String
+  email            String
+  phone            String
+  gender           String?
+  birthDate        DateTime?
+  birthPlace       String?
+  educationLevel   String?
+  hasDisability    Boolean           @default(false)
+  disabilityDetails String?
+  status           ApplicationStatus @default(SOUMIS)
+  stage            AmbassadorStage   @default(CANDIDATURE)
+  reviewedById     String?
+  reviewedBy       User?             @relation("AmbassadorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  quizScore        Float?
+  rank             Int? // classement régional après QCM
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  payment          Payment?
+  trainingProgress TrainingProgress[]
+  quizAttempts     QuizAttempt[]
+  selection        Selection?
+  repechage        Repechage?
+  engagement       Engagement?
+  boarding         Boarding?
+  documents        Document[]
+
+  @@index([editionId, email])
+  @@index([editionId, regionId, status])
+}
+
+// Quota de sélection par région et par édition (Règle 10).
+// Modifiable en cours de campagne par un Admin — updatedById/updatedAt tracent le dernier changement.
+model RegionalQuota {
+  id          String   @id @default(cuid())
+  editionId   String
+  edition     Edition  @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  regionId    String
+  region      Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  quota       Int
+  updatedById String?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([editionId, regionId])
+}
+
+enum PaymentMethod {
+  ONLINE
+  MANUAL
+}
+
+enum PaymentStatus {
+  EN_ATTENTE_DE_VALIDATION
+  VALIDE
+  REFUSE
+}
+
+// Frais d'inscription Ambassadeur — 5 000 FCFA (Règle 8).
+// Pour le moment, seul le circuit MANUAL est utilisé : le point focal régional saisit
+// lui-même le paiement reçu en espèces et le valide dans la foulée (validatedBy = lui-même),
+// puis génère le reçu (Document, type PAYMENT_RECEIPT). ONLINE est prévu pour une intégration
+// future (agrégateur mobile money) mais n'est pas implémenté dans un premier temps.
+model Payment {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String                @unique
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  amount                  Int                   @default(5000) // FCFA
+  method                  PaymentMethod         @default(MANUAL)
+  provider                String? // ex: "point_focal", ou agrégateur mobile money plus tard
+  reference               String?
+  status                  PaymentStatus         @default(EN_ATTENTE_DE_VALIDATION)
+  validatedById           String?
+  validatedBy             User?                 @relation(fields: [validatedById], references: [id], onDelete: SetNull)
+  validatedAt             DateTime?
+  createdAt               DateTime              @default(now())
+
+  receipt Document?
+}
+
+model TrainingModule {
+  id        String             @id @default(cuid())
+  editionId String
+  edition   Edition            @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  title     String
+  content   String?            @db.Text
+  videoUrl  String?
+  order     Int                @default(0)
+  progress  TrainingProgress[]
+}
+
+model TrainingProgress {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  moduleId                String
+  module                  TrainingModule        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  completedAt             DateTime?
+
+  @@unique([ambassadorApplicationId, moduleId])
+}
+
+model Quiz {
+  id           String        @id @default(cuid())
+  editionId    String
+  edition      Edition       @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  title        String
+  durationMin  Int
+  passingScore Float?
+  questions    Question[]
+  attempts     QuizAttempt[]
+}
+
+model Question {
+  id      String   @id @default(cuid())
+  quizId  String
+  quiz    Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  label   String   @db.Text
+  points  Float    @default(1)
+  order   Int      @default(0)
+  choices Choice[]
+}
+
+model Choice {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String
+  isCorrect  Boolean  @default(false)
+}
+
+// Une tentative par candidat et par quiz (§11) — les réponses brutes restent en JSON,
+// le score est recalculé et figé à la soumission (Règle 11 : classement basé sur le QCM).
+model QuizAttempt {
+  id                      String                @id @default(cuid())
+  quizId                  String
+  quiz                    Quiz                  @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  ambassadorApplicationId String
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  answers                 Json // { questionId: choiceId }
+  score                   Float?
+  startedAt               DateTime              @default(now())
+  submittedAt             DateTime?
+
+  @@unique([quizId, ambassadorApplicationId])
+}
+
+enum SelectionStatus {
+  SELECTIONNE
+  NON_SELECTIONNE
+}
+
+// Résultat de la sélection automatique par quota régional (§12).
+model Selection {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String                @unique
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  status                  SelectionStatus
+  rank                    Int?
+  decidedAt               DateTime              @default(now())
+}
+
+enum RepechageStatus {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+// Repêchage manuel — toujours justifié et tracé (Règle 12).
+model Repechage {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String                @unique
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  justification           String                @db.Text
+  decidedById             String
+  decidedBy               User                  @relation(fields: [decidedById], references: [id], onDelete: Restrict)
+  status                  RepechageStatus       @default(EN_ATTENTE)
+  createdAt               DateTime              @default(now())
+}
+
+// Acceptation de la fiche d'engagement numérique (§15) — condition bloquante pour le badge.
+model Engagement {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String                @unique
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  acceptedAt              DateTime
+}
+
+enum BoardingStatus {
+  EN_ATTENTE
+  EMBARQUE
+  ANNULE
+}
+
+// Validation de l'embarquement vers Niamey par le point focal régional (§17, Règle 14).
+model Boarding {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String                @unique
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  regionId                String
+  region                  Region                @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  status                  BoardingStatus        @default(EN_ATTENTE)
+  validatedById           String?
+  validatedBy             User?                 @relation(fields: [validatedById], references: [id], onDelete: SetNull)
+  validatedAt             DateTime?
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Participation & présence (Règle 15)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Participation effective à une édition — peut découler d'une EventApplication retenue,
+// d'un badge Ambassadeur, ou être créée directement pour un utilisateur avec compte.
+model EventParticipation {
+  id                 String            @id @default(cuid())
+  editionId          String
+  edition            Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  eventApplicationId String?           @unique
+  eventApplication   EventApplication? @relation(fields: [eventApplicationId], references: [id], onDelete: SetNull)
+  createdAt          DateTime          @default(now())
+
+  attendances Attendance[]
+}
+
+// Pointage de présence — sur une session précise ou sur l'événement en général.
+model Attendance {
+  id              String              @id @default(cuid())
+  editionId       String
+  edition         Edition             @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  participationId String?
+  participation   EventParticipation? @relation(fields: [participationId], references: [id], onDelete: SetNull)
+  userId          String?
+  user            User?               @relation("AttendanceUser", fields: [userId], references: [id], onDelete: SetNull)
+  sessionId       String?
+  session         ProgramSession?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  checkedAt       DateTime            @default(now())
+  checkedById     String
+  checkedBy       User                @relation("AttendanceChecker", fields: [checkedById], references: [id], onDelete: Restrict)
+
+  @@index([editionId, userId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Badges & distinctions (Règle 5 : un utilisateur, plusieurs badges)
+// ═══════════════════════════════════════════════════════════════════════
+
+enum BadgeCode {
+  JEUNE_LEADER
+  AMBASSADEUR
+  PARTICIPANT
+  ALUMNI
+  MENTOR
+  FORMATEUR
+  VOLONTAIRE
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  code        BadgeCode   @unique
+  label       String
+  description String?
+  iconUrl     String?
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  editionId String? // nul pour un badge non lié à une édition (ex: Alumni, Mentor)
+  edition   Edition? @relation(fields: [editionId], references: [id], onDelete: SetNull)
+  number    String?  @unique // numéro unique du badge (impression / QR)
+  qrCode    String?
+  status    String   @default("ACTIF")
+  awardedAt DateTime @default(now())
+
+  @@unique([userId, badgeId, editionId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Documents générés (permission, ordre de mission, attestation…)
+// ═══════════════════════════════════════════════════════════════════════
+
+enum DocumentType {
+  PERMISSION_REQUEST
+  MISSION_ORDER
+  CERTIFICATE
+  PAYMENT_RECEIPT
+  OTHER
+}
+
+// Un seul modèle avec `type` plutôt que plusieurs tables quasi identiques
+// (PermissionRequest / MissionOrder / Certificate du §24) — mêmes champs, même cycle de vie.
+// Fichiers hébergés sur Cloudflare (R2) — `fileUrl` reste une simple URL, indépendante du stockage.
+model Document {
+  id                      String                 @id @default(cuid())
+  type                    DocumentType
+  fileUrl                 String
+  userId                  String?
+  user                    User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ambassadorApplicationId String?
+  ambassadorApplication   AmbassadorApplication? @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  eventApplicationId      String?
+  eventApplication        EventApplication?      @relation(fields: [eventApplicationId], references: [id], onDelete: Cascade)
+  leaderApplicationId     String?
+  leaderApplication       LeaderApplication?     @relation(fields: [leaderApplicationId], references: [id], onDelete: Cascade)
+  paymentId               String?                @unique // reçu émis par le point focal (type PAYMENT_RECEIPT)
+  payment                 Payment?               @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  generatedAt             DateTime               @default(now())
+
+  @@index([type])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Notifications (espace personnel de l'utilisateur)
+// ═══════════════════════════════════════════════════════════════════════
+
+// In-app uniquement pour le moment (pas d'email/SMS) — consultées depuis /dashboard/notifications.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String    @db.Text
+  link      String? // ex: lien vers la candidature/le document concerné
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+}
