@@ -106,6 +106,7 @@ export async function acceptAmbassadorApplicationAction(id: string) {
           ),
           role: UserRole.USER,
           isActive: true,
+          emailVerified: new Date(),
           profile: { create: { regionId: application.regionId } },
         },
       });
