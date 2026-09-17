@@ -83,6 +83,11 @@ const PERMISSIONS: { code: string; label: string; category: string }[] = [
   },
   { code: "quiz.manage", label: "Gérer les QCM", category: "Ambassadeurs" },
   {
+    code: "ambassadors.accounts.manage",
+    label: "Gérer les comptes ambassadeurs (activation, mot de passe)",
+    category: "Ambassadeurs",
+  },
+  {
     code: "selection.manage",
     label: "Lancer et consulter la sélection",
     category: "Ambassadeurs",
@@ -120,6 +125,11 @@ const PERMISSIONS: { code: string; label: string; category: string }[] = [
   {
     code: "media.manage",
     label: "Gérer la galerie médias",
+    category: "Contenus",
+  },
+  {
+    code: "contact.manage",
+    label: "Consulter les messages de contact",
     category: "Contenus",
   },
 
@@ -190,6 +200,7 @@ const USERS: SeedUser[] = [
       "editions.publish",
       "editions.archive",
       "news.manage",
+      "contact.manage",
       "program.manage",
       "speakers.manage",
       "partners.manage",
@@ -197,6 +208,7 @@ const USERS: SeedUser[] = [
       "applications.event.manage",
       "applications.leader.manage",
       "applications.ambassador.manage",
+      "ambassadors.accounts.manage",
     ],
   },
   {

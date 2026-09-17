@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
 import { SidebarClear } from "@/components/Sidebarr/SidebarClear/SidebarClear";
 import HeaderClear from "@/components/Sidebarr/SidebarClear/Header";
-import { Sidebar2 } from "@/components/Sidebar2/Sidebar2";
 import { Loader } from "@/components/common/Loader";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 

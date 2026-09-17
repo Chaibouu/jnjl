@@ -81,6 +81,27 @@ export const sendLoginNotificationEmail = async (
   await transporter.sendMail(mailOptions);
 };
 
+export const sendContactMessageEmail = async (input: {
+  name: string;
+  email: string;
+  subject?: string;
+  message: string;
+}) => {
+  const mailOptions = {
+    from: `${appConfig.appName} <${emailUser}>`,
+    to: emailUser,
+    replyTo: input.email,
+    subject: `[Contact ${appConfig.appName}] ${input.subject || "Nouveau message"}`,
+    html: `
+      <p><strong>De :</strong> ${input.name} (${input.email})</p>
+      ${input.subject ? `<p><strong>Sujet :</strong> ${input.subject}</p>` : ""}
+      <p><strong>Message :</strong></p>
+      <p>${input.message.replace(/\n/g, "<br />")}</p>
+    `,
+  };
+  await transporter.sendMail(mailOptions);
+};
+
 export const sendChangeEmailVerification = async (
   email: string,
   verificationToken: string

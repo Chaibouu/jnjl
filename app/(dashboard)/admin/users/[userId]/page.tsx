@@ -26,8 +26,8 @@ export default async function AdminUserDetailsPage({
             </h1>
             <p className="mt-1 text-muted-foreground">{user.email}</p>
           </div>
-          <Button asChild>
-            <Link href={`/admin/users/${user.id}/edit`}>Modifier</Link>
+          <Button nativeButton={false} render={<Link href={`/admin/users/${user.id}/edit`} />}>
+            Modifier
           </Button>
         </div>
         <dl className="mt-8 grid gap-5 sm:grid-cols-2">

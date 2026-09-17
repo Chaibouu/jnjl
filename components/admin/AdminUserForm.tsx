@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { UserRole } from "@prisma/client";
 import {
   createAdminUserAction,
@@ -8,7 +9,16 @@ import {
 } from "@/actions/admin-user-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import charter from "@/settings/charter";
 
 type PermissionItem = { code: string; label: string; category: string | null };
 type UserItem = {
@@ -45,12 +55,29 @@ const emptyForm: UserForm = {
   permissions: [],
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: "Super admin",
+  ADMIN: "Admin",
+  STAFF: "Staff",
+  USER: "Utilisateur",
+  ASSOCIATION: "Association",
+  MEMBER: "Membre",
+  MODERATOR: "Modérateur",
+  CITIZEN: "Citoyen",
+};
+
 export function AdminUserForm({
   user,
   permissions,
+  embedded = false,
+  onSuccess,
+  onCancel,
 }: {
   user?: UserItem;
   permissions: PermissionItem[];
+  embedded?: boolean;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }) {
   const [form, setForm] = useState<UserForm>(
     user
@@ -89,7 +116,11 @@ export function AdminUserForm({
         } else {
           await createAdminUserAction(form);
         }
-        window.location.href = "/admin/users";
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          window.location.href = "/admin/users";
+        }
       } catch (actionError) {
         setError(
           actionError instanceof Error
@@ -103,80 +134,93 @@ export function AdminUserForm({
   return (
     <form
       onSubmit={submit}
-      className="max-w-3xl space-y-6 rounded-xl border bg-card p-6 shadow-sm"
+      className={
+        embedded
+          ? "space-y-5"
+          : "max-w-3xl space-y-5 rounded-xl border bg-card p-6 shadow-sm"
+      }
     >
       {error && (
         <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </p>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
           label="Nom complet"
           value={form.name}
           onChange={value => update("name", value)}
           required
         />
-        <Field
-          label="Prénom"
-          value={form.firstName}
-          onChange={value => update("firstName", value)}
-        />
-        <Field
-          label="Nom"
-          value={form.lastName}
-          onChange={value => update("lastName", value)}
-        />
-        <Field
+        <FormField
           label="Email"
           type="email"
           value={form.email}
           onChange={value => update("email", value)}
           required
         />
-        <Field
+        <FormField
+          label="Prénom"
+          value={form.firstName}
+          onChange={value => update("firstName", value)}
+        />
+        <FormField
+          label="Nom"
+          value={form.lastName}
+          onChange={value => update("lastName", value)}
+        />
+        <FormField
           label={user ? "Nouveau mot de passe (optionnel)" : "Mot de passe"}
           type="password"
           value={form.password}
           onChange={value => update("password", value)}
           required={!user}
         />
+        <Field>
+          <FieldLabel>Rôle</FieldLabel>
+          <Select
+            value={form.role}
+            onValueChange={value => update("role", value as UserRole)}
+          >
+            <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+              <SelectValue placeholder="Choisir un rôle">
+                {(value: string) => ROLE_LABEL[value] ?? value}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Object.values(UserRole).map(role => (
+                <SelectItem key={role} value={role}>
+                  {ROLE_LABEL[role] ?? role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
       </div>
-      <label className="block space-y-2 text-sm font-medium">
-        Rôle
-        <select
-          className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-          value={form.role}
-          onChange={event => update("role", event.target.value)}
-        >
-          {Object.values(UserRole).map(role => (
-            <option key={role} value={role}>
-              {role}
-            </option>
-          ))}
-        </select>
-      </label>
+
       <div className="flex flex-wrap gap-5">
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={form.isActive}
-            onChange={event => update("isActive", event.target.checked)}
+            onCheckedChange={checked => update("isActive", Boolean(checked))}
           />
           Compte actif
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={form.emailVerified}
-            onChange={event => update("emailVerified", event.target.checked)}
+            onCheckedChange={checked =>
+              update("emailVerified", Boolean(checked))
+            }
           />
           Email vérifié
         </label>
       </div>
+
       <fieldset>
         <legend className="mb-2 text-sm font-medium">Permissions</legend>
-        <div className="grid gap-4 rounded-md border p-4 md:grid-cols-2">
+        <div className="grid gap-4 rounded-none border border-border bg-muted/40 p-4 md:grid-cols-2">
           {Object.entries(grouped).map(([category, items]) => (
             <div key={category}>
               <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
@@ -187,13 +231,13 @@ export function AdminUserForm({
                   key={permission.code}
                   className="flex items-start gap-2 py-1 text-sm"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
+                    className="mt-0.5"
                     checked={form.permissions.includes(permission.code)}
-                    onChange={event =>
+                    onCheckedChange={checked =>
                       update(
                         "permissions",
-                        event.target.checked
+                        checked
                           ? [...form.permissions, permission.code]
                           : form.permissions.filter(
                               code => code !== permission.code
@@ -208,23 +252,43 @@ export function AdminUserForm({
           ))}
         </div>
       </fieldset>
-      <div className="flex gap-3">
-        <Button type="submit" disabled={isPending}>
+
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: charter.orange }}
+        >
           {isPending
             ? "Enregistrement..."
             : user
               ? "Enregistrer"
               : "Créer l’utilisateur"}
         </Button>
-        <Button type="button" variant="outline" asChild>
-          <Link href="/admin/users">Annuler</Link>
-        </Button>
+        {onCancel ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="border-red-500 text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
+          >
+            Annuler
+          </Button>
+        ) : (
+          <Link
+            href="/admin/users"
+            className="inline-flex h-8 items-center justify-center rounded-lg border border-red-500 bg-background px-2.5 text-sm font-medium text-red-600 transition-colors hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
+          >
+            Annuler
+          </Link>
+        )}
       </div>
     </form>
   );
 }
 
-function Field({
+function FormField({
   label,
   value,
   onChange,
@@ -238,14 +302,15 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <label className="block space-y-2 text-sm font-medium">
-      {label}
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
       <Input
         type={type}
         value={value}
         onChange={event => onChange(event.target.value)}
         required={required}
+        className="h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
       />
-    </label>
+    </Field>
   );
 }

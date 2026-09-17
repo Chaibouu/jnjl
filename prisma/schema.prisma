@@ -467,6 +467,19 @@ model News {
   @@index([isPublished, publishedAt])
 }
 
+// Messages soumis via le formulaire de contact du site public.
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isRead, createdAt])
+}
+
 enum MediaType {
   PHOTO
   VIDEO
@@ -691,49 +704,139 @@ model TrainingProgress {
   @@unique([ambassadorApplicationId, moduleId])
 }
 
-model Quiz {
-  id           String        @id @default(cuid())
-  editionId    String
-  edition      Edition       @relation(fields: [editionId], references: [id], onDelete: Cascade)
-  title        String
-  durationMin  Int
-  passingScore Float?
-  questions    Question[]
-  attempts     QuizAttempt[]
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+
+enum QuizStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum QuizAttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+// Banque de questions réutilisable entre QCM et éditions (regroupées par thème).
+model QuestionCategory {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  isDeleted   Boolean    @default(false)
+  questions   Question[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Question {
-  id      String   @id @default(cuid())
-  quizId  String
-  quiz    Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  label   String   @db.Text
-  points  Float    @default(1)
-  order   Int      @default(0)
-  choices Choice[]
+  id            String           @id @default(cuid())
+  categoryId    String
+  category      QuestionCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  type          QuestionType     @default(SINGLE_CHOICE)
+  text          String           @db.Text
+  explanation   String?          @db.Text
+  points        Int              @default(1)
+  isActive      Boolean          @default(true)
+  isDeleted     Boolean          @default(false)
+  options       QuestionOption[]
+  quizQuestions QuizQuestion[]
+  answers       QuizAnswer[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([categoryId])
 }
 
-model Choice {
+model QuestionOption {
   id         String   @id @default(cuid())
   questionId String
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  label      String
+  text       String
   isCorrect  Boolean  @default(false)
+  position   Int      @default(0)
+
+  @@index([questionId])
 }
 
-// Une tentative par candidat et par quiz (§11) — les réponses brutes restent en JSON,
-// le score est recalculé et figé à la soumission (Règle 11 : classement basé sur le QCM).
+// Un QCM par édition (ex. "Évaluation formation Ambassadeurs 2026") assemblé
+// depuis la banque de questions — jamais de question codée en dur (§11).
+model Quiz {
+  id                 String         @id @default(cuid())
+  editionId          String
+  edition            Edition        @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?        @db.Text
+  status             QuizStatus     @default(DRAFT)
+  durationMinutes    Int?
+  passingScore       Float          @default(70)
+  maxAttempts        Int            @default(1)
+  shuffleQuestions   Boolean        @default(false)
+  shuffleOptions     Boolean        @default(false)
+  showScore          Boolean        @default(true)
+  showCorrectAnswers Boolean        @default(false)
+  questions          QuizQuestion[]
+  attempts           QuizAttempt[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([editionId, status])
+}
+
+// Pivot Quiz ↔ Question : porte l'ordre d'affichage et un nombre de points
+// propre au QCM (indépendant du barème par défaut de la question).
+model QuizQuestion {
+  id         String   @id @default(cuid())
+  quizId     String
+  quiz       Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  position   Int      @default(0)
+  points     Int?
+
+  @@unique([quizId, questionId])
+  @@index([quizId])
+}
+
+// Une tentative par candidat, par QCM et par essai (§11) — la correction est
+// recalculée et figée côté serveur à la soumission (Règle 11 : classement basé sur le QCM).
 model QuizAttempt {
   id                      String                @id @default(cuid())
   quizId                  String
   quiz                    Quiz                  @relation(fields: [quizId], references: [id], onDelete: Cascade)
   ambassadorApplicationId String
   ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
-  answers                 Json // { questionId: choiceId }
-  score                   Float?
+  attemptNumber           Int                   @default(1)
+  status                  QuizAttemptStatus     @default(IN_PROGRESS)
+  questionOrder           String[] // ids QuizQuestion, ordre figé à la création (support du mélange)
   startedAt               DateTime              @default(now())
   submittedAt             DateTime?
+  score                   Float?
+  totalPoints             Int?
+  percentage              Float?
+  passed                  Boolean?
+  answers                 QuizAnswer[]
 
-  @@unique([quizId, ambassadorApplicationId])
+  @@index([quizId, ambassadorApplicationId])
+}
+
+model QuizAnswer {
+  id                String      @id @default(cuid())
+  attemptId         String
+  attempt           QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId        String
+  question          Question    @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOptionIds String[]
+  isCorrect         Boolean?
+  points            Float?
+  answeredAt        DateTime    @default(now())
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
 }
 
 enum SelectionStatus {

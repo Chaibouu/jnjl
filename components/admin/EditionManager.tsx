@@ -2,8 +2,10 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Eye, Pencil, Plus, Search } from "lucide-react";
+import { Check, Eye, Pencil, Search } from "lucide-react";
 import { activateEditionAction } from "@/actions/edition-actions";
+import { listEditionsAction } from "@/actions/edition-actions";
+import { EditionCreateDialog } from "@/components/admin/EditionCreateDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -78,6 +80,21 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
     });
   };
 
+  const refreshAfterCreate = () => {
+    startTransition(async () => {
+      try {
+        setItems(await listEditionsAction());
+        setMessage("Édition créée avec succès.");
+      } catch (actionError) {
+        setError(
+          actionError instanceof Error
+            ? actionError.message
+            : "Impossible de rafraîchir les éditions"
+        );
+      }
+    });
+  };
+
   return (
     <section className="space-y-6">
       <header className="flex flex-col gap-4 rounded-2xl border bg-card p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between">
@@ -90,12 +107,7 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
             Gérez les éditions de la JNJL, année par année.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/admin/editions/create">
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter une édition
-          </Link>
-        </Button>
+        <EditionCreateDialog onCreated={refreshAfterCreate} />
       </header>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -137,7 +149,7 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
               {filtered.map(edition => (
                 <tr
                   key={edition.id}
-                  className="transition-colors hover:bg-muted/30"
+                  className="group transition-colors hover:bg-muted/50"
                 >
                   <td className="px-5 py-4">
                     <p className="font-medium">{edition.name}</p>
@@ -159,32 +171,40 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex justify-end gap-1">
-                      <Button asChild size="icon" variant="ghost" title="Voir">
-                        <Link href={`/admin/editions/${edition.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        title="Voir"
+                        nativeButton={false}
+                        className="hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"
+                        render={<Link href={`/admin/editions/${edition.id}`} />}
+                      >
+                        <Eye className="h-4 w-4" />
                       </Button>
                       <Button
-                        asChild
                         size="icon"
-                        variant="ghost"
+                        variant="outline"
                         title="Modifier"
+                        nativeButton={false}
+                        className="hover:border-green-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-500/10"
+                        render={
+                          <Link href={`/admin/editions/${edition.id}/edit`} />
+                        }
                       >
-                        <Link href={`/admin/editions/${edition.id}/edit`}>
-                          <Pencil className="h-4 w-4" />
-                        </Link>
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       {edition.status !== "ACTIVE" && (
                         <Button
                           type="button"
                           size="icon"
-                          variant="ghost"
+                          variant="outline"
                           title="Activer cette édition"
                           onClick={() => activate(edition)}
                           disabled={isPending}
+                          className="text-green-600 hover:border-green-500 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-500/10"
                         >
-                          <Check className="h-4 w-4 text-green-600" />
+                          <Check className="h-4 w-4" />
                         </Button>
                       )}
                     </div>

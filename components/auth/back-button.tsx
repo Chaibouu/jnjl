@@ -18,11 +18,10 @@ export const BackButton = ({
       variant="link"
       className="font-normal w-full"
       size="sm"
-      asChild
+      nativeButton={false}
+      render={<Link href={href} />}
     >
-      <Link href={href}>
-        {label}
-      </Link>
+      {label}
     </Button>
   );
 };

@@ -12,37 +12,33 @@ export const Navbar = () => {
   return (
     <nav className="bg-secondary flex justify-between items-center p-4 rounded-xl w-[600px] shadow-sm">
       <div className="flex gap-x-2">
-        <Button 
-          asChild
+        <Button
           variant={pathname === "/server" ? "default" : "outline"}
+          nativeButton={false}
+          render={<Link href="/server" />}
         >
-          <Link href="/server">
-            Server
-          </Link>
+          Server
         </Button>
-        <Button 
-          asChild
+        <Button
           variant={pathname === "/client" ? "default" : "outline"}
+          nativeButton={false}
+          render={<Link href="/client" />}
         >
-          <Link href="/client">
-            Client
-          </Link>
+          Client
         </Button>
-        <Button 
-          asChild
+        <Button
           variant={pathname === "/admin" ? "default" : "outline"}
+          nativeButton={false}
+          render={<Link href="/admin" />}
         >
-          <Link href="/admin">
-            Admin
-          </Link>
+          Admin
         </Button>
-        <Button 
-          asChild
+        <Button
           variant={pathname === "/settings" ? "default" : "outline"}
+          nativeButton={false}
+          render={<Link href="/settings" />}
         >
-          <Link href="/settings">
-            Settings
-          </Link>
+          Settings
         </Button>
       </div>
       <UserButton />

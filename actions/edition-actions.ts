@@ -3,7 +3,21 @@
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { getUser } from "@/actions/getUser";
+import { ForbiddenError } from "@/lib/forbidden-error";
 import { editionSchema, type EditionInput } from "@/schemas/edition";
+
+/** Liste allégée réservée au peuplement de sélecteurs dans d'autres modules admin (aucune permission dédiée requise, authentification suffit). */
+export async function listEditionsForSelectAction() {
+  const result = await getUser();
+  if (!result?.user?.user) throw new ForbiddenError("Authentification requise");
+
+  return db.edition.findMany({
+    where: { isDeleted: false },
+    select: { id: true, name: true, year: true, status: true },
+    orderBy: { year: "desc" },
+  });
+}
 
 /**
  * §2.1 — Créer/modifier une édition. Le statut (DRAFT/PUBLISHED/ACTIVE/ARCHIVED)
@@ -121,6 +135,18 @@ async function assertUnique(data: EditionInput, excludeId?: string) {
   if (slugConflict) {
     throw new Error("Ce slug est déjà utilisé par une autre édition");
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Lecture publique
+// ─────────────────────────────────────────────────────────────
+
+export async function getActiveEditionOverviewAction() {
+  const edition = await db.edition.findFirst({
+    where: { status: EditionStatus.ACTIVE, isDeleted: false },
+    include: { stats: { orderBy: { order: "asc" } } },
+  });
+  return edition;
 }
 
 function toDate(value?: string) {

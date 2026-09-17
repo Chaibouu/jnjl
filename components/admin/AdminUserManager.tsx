@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Eye,
   Pencil,
-  Plus,
   Search,
   Trash2,
   UserCheck,
@@ -14,8 +13,10 @@ import {
 import { UserRole } from "@prisma/client";
 import {
   deleteAdminUserAction,
+  listAdminUsersAction,
   toggleAdminUserAction,
 } from "@/actions/admin-user-actions";
+import { AdminUserCreateDialog } from "@/components/admin/AdminUserCreateDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -35,6 +36,7 @@ type PermissionItem = { code: string; label: string; category: string | null };
 
 export function AdminUserManager({
   users: initialUsers,
+  permissions,
 }: {
   users: UserItem[];
   permissions: PermissionItem[];
@@ -77,6 +79,24 @@ export function AdminUserManager({
     });
   };
 
+  const refreshAfterCreate = () => {
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const { users: refreshed } = await listAdminUsersAction();
+        setUsers(refreshed);
+        setMessage("Utilisateur créé avec succès.");
+      } catch (actionError) {
+        setError(
+          actionError instanceof Error
+            ? actionError.message
+            : "Impossible de rafraîchir les utilisateurs"
+        );
+      }
+    });
+  };
+
   const remove = (user: UserItem) => {
     if (
       !window.confirm(
@@ -113,12 +133,10 @@ export function AdminUserManager({
             Gérez les comptes et leurs niveaux d’accès.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/admin/users/create">
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter un utilisateur
-          </Link>
-        </Button>
+        <AdminUserCreateDialog
+          permissions={permissions}
+          onCreated={refreshAfterCreate}
+        />
       </header>
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -265,8 +283,8 @@ function ActionLink({
   icon: React.ReactNode;
 }) {
   return (
-    <Button asChild size="icon" variant="ghost" title={label}>
-      <Link href={href}>{icon}</Link>
+    <Button size="icon" variant="ghost" title={label} nativeButton={false} render={<Link href={href} />}>
+      {icon}
     </Button>
   );
 }

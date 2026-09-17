@@ -29,6 +29,7 @@ const profileSelect = {
       bio: true,
       skills: true,
       interests: true,
+      updatedAt: true,
     },
   },
 } as const;

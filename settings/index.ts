@@ -19,9 +19,15 @@ const appConfig = {
     "/",
     "/ambassadeurs/candidature",
     "/api/applications/ambassador",
+    "/actualites",
+    "/partenaires",
+    "/intervenants",
+    "/programme",
   ],
   defaultLoginRedirect: "/test",
-  primaryColor: "#000000",
+  primaryColor: "#F07321",
+  secondaryColor: "#FFBC01",
+  tertiaryColor: "#000000",
 
   // Ajout d'une option pour autoriser ou non les connexions multiples
   allowMultipleSessions: false, // ou false pour invalider les anciennes sessions

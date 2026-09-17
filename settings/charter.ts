@@ -10,6 +10,7 @@ const charter = {
   orange: "#F07321", // Orange JNJL — action principale — 10%
   orangeDark: "#D6650F", // hover / dégradé
   gold: "#FFBC01", // Or Leader — accents, badges, highlights
+  tertiary: "#000000", // Noir — structure et contraste
   green: "#6D9743", // Vert Patrie — touche secondaire, réussite
   border: "#E7E7EA",
 } as const;

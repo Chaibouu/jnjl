@@ -2,10 +2,17 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { createEditionAction, updateEditionAction } from "@/actions/edition-actions";
+import { Calendar, Hash, MapPin } from "lucide-react";
+import {
+  createEditionAction,
+  updateEditionAction,
+} from "@/actions/edition-actions";
 import type { EditionInput } from "@/schemas/edition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldLabel } from "@/components/ui/field";
+import charter from "@/settings/charter";
 
 type EditionItem = {
   id: string;
@@ -56,7 +63,17 @@ function slugify(value: string) {
     .replace(/(^-+|-+$)/g, "");
 }
 
-export function EditionForm({ edition }: { edition?: EditionItem }) {
+export function EditionForm({
+  edition,
+  embedded = false,
+  onSuccess,
+  onCancel,
+}: {
+  edition?: EditionItem;
+  embedded?: boolean;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}) {
   const [form, setForm] = useState<EditionFormState>(
     edition
       ? {
@@ -98,7 +115,11 @@ export function EditionForm({ edition }: { edition?: EditionItem }) {
         } else {
           await createEditionAction(input);
         }
-        window.location.href = "/admin/editions";
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          window.location.href = "/admin/editions";
+        }
       } catch (actionError) {
         setError(
           actionError instanceof Error
@@ -112,29 +133,35 @@ export function EditionForm({ edition }: { edition?: EditionItem }) {
   return (
     <form
       onSubmit={submit}
-      className="max-w-3xl space-y-6 rounded-xl border bg-card p-6 shadow-sm"
+      className={
+        embedded
+          ? "space-y-5"
+          : "max-w-3xl space-y-5 rounded-xl border bg-card p-6 shadow-sm"
+      }
     >
       {error && (
         <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </p>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <FormField
           label="Année"
           type="number"
           value={form.year}
           onChange={value => update("year", value)}
           required
         />
-        <Field
+        <FormField
           label="Nom"
           value={form.name}
           onChange={handleNameChange}
           required
           placeholder="JNJL 2026"
+          className="sm:col-span-2"
         />
-        <Field
+        <FormField
           label="Slug"
           value={form.slug}
           onChange={value => {
@@ -143,62 +170,99 @@ export function EditionForm({ edition }: { edition?: EditionItem }) {
           }}
           required
           placeholder="jnjl-2026"
+          icon={Hash}
+          monospace
+          className="sm:col-span-2"
         />
-        <Field
+        <FormField
           label="Thème"
           value={form.theme}
           onChange={value => update("theme", value)}
+          placeholder="Leadership et engagement citoyen"
         />
-        <Field
+        <FormField
           label="Lieu"
           value={form.location}
           onChange={value => update("location", value)}
           placeholder="Niamey"
+          icon={MapPin}
         />
-        <Field
+        <FormField
           label="Date de début"
           type="date"
           value={form.startDate}
           onChange={value => update("startDate", value)}
+          icon={Calendar}
         />
-        <Field
+        <FormField
           label="Date de fin"
           type="date"
           value={form.endDate}
           onChange={value => update("endDate", value)}
+          icon={Calendar}
         />
       </div>
-      <label className="block space-y-2 text-sm font-medium">
-        Description
-        <textarea
-          className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+
+      <Field>
+        <FieldLabel>Description</FieldLabel>
+        <Textarea
+          className="min-h-[120px] rounded-none border border-border bg-muted/40 transition-colors focus-visible:border-ring focus-visible:bg-white"
+          placeholder="Présentez le thème, les objectifs et les temps forts de cette édition..."
           value={form.description}
           onChange={event => update("description", event.target.value)}
         />
-      </label>
-      <div className="flex gap-3">
-        <Button type="submit" disabled={isPending}>
+      </Field>
+
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: charter.orange }}
+        >
           {isPending
             ? "Enregistrement..."
             : edition
               ? "Enregistrer"
               : "Créer l’édition"}
         </Button>
-        <Button type="button" variant="outline" asChild>
-          <Link href="/admin/editions">Annuler</Link>
-        </Button>
+        {onCancel ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="border-red-500 text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
+          >
+            Annuler
+          </Button>
+        ) : (
+          <Link
+            href="/admin/editions"
+            className="inline-flex h-8 items-center justify-center rounded-lg border border-red-500 bg-background px-2.5 text-sm font-medium text-red-600 transition-colors hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
+          >
+            Annuler
+          </Link>
+        )}
       </div>
     </form>
   );
 }
 
-function Field({
+// Compose Field.Root + Field.Label (Base UI) avec notre <Input> déjà stylé —
+// https://base-ui.com/react/components/field : "You can omit [Field.Control]
+// and use any Base UI input component instead. For example, Input... will
+// work with Field out of the box." Ça garantit le lien label/champ accessible
+// sans dupliquer la logique de rendu d'un <input>.
+function FormField({
   label,
   value,
   onChange,
   type = "text",
   required = false,
   placeholder,
+  icon: Icon,
+  monospace = false,
+  className,
 }: {
   label: string;
   value: string;
@@ -206,17 +270,26 @@ function Field({
   type?: string;
   required?: boolean;
   placeholder?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  monospace?: boolean;
+  className?: string;
 }) {
   return (
-    <label className="block space-y-2 text-sm font-medium">
-      {label}
-      <Input
-        type={type}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        required={required}
-        placeholder={placeholder}
-      />
-    </label>
+    <Field className={className}>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="relative">
+        {Icon && (
+          <Icon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        )}
+        <Input
+          type={type}
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          required={required}
+          placeholder={placeholder}
+          className={`h-11 rounded-none border border-border bg-muted/40 transition-colors focus-visible:border-ring focus-visible:bg-white ${Icon ? "pl-9" : "px-3.5"} ${monospace ? "font-mono" : ""}`}
+        />
+      </div>
+    </Field>
   );
 }

@@ -4,15 +4,39 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { ApplicationStatus, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
+import { getUser } from "@/actions/getUser";
 import { requirePermission } from "@/actions/requirePermission";
+import { hasAnyPermission } from "@/lib/permissions";
+import { ForbiddenError } from "@/lib/forbidden-error";
 import { generatePasswordResetToken } from "@/lib/tokens";
 import { sendPasswordResetEmail } from "@/lib/mail";
+import type { User } from "@/types/user";
 
 const applicationInclude = {
   region: { select: { id: true, name: true, code: true } },
   edition: { select: { id: true, name: true, year: true } },
-  user: { select: { id: true, name: true, email: true } },
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      emailVerified: true,
+      isTwoFactorEnabled: true,
+      deactivatedAt: true,
+    },
+  },
 } as const;
+
+async function requireAnyPermission(codes: string[]): Promise<User> {
+  const result = await getUser();
+  const user = result?.user?.user as User | undefined;
+  if (!user) throw new ForbiddenError("Authentification requise");
+  if (!hasAnyPermission(user, codes)) {
+    throw new ForbiddenError(`Permission requise : ${codes.join(" ou ")}`);
+  }
+  return user;
+}
 
 export async function listAmbassadorApplicationsAction() {
   await requirePermission("applications.ambassador.manage");
@@ -23,13 +47,28 @@ export async function listAmbassadorApplicationsAction() {
 }
 
 export async function getAmbassadorApplicationAction(id: string) {
-  await requirePermission("applications.ambassador.manage");
+  await requireAnyPermission([
+    "applications.ambassador.manage",
+    "ambassadors.accounts.manage",
+  ]);
   const application = await db.ambassadorApplication.findUnique({
     where: { id },
     include: applicationInclude,
   });
   if (!application) throw new Error("Candidature introuvable");
-  return application;
+
+  const lastQuizAttempt = await db.quizAttempt.findFirst({
+    where: { ambassadorApplicationId: id, status: "COMPLETED" },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      percentage: true,
+      passed: true,
+      submittedAt: true,
+      quiz: { select: { title: true } },
+    },
+  });
+
+  return { ...application, lastQuizAttempt };
 }
 
 export async function acceptAmbassadorApplicationAction(id: string) {

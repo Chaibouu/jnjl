@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/context/SessionContext";
@@ -10,6 +10,9 @@ import NextTopLoader from "nextjs-toploader";
 import appConfig from "@/settings";
 import { headers } from "next/headers";
 import { Loader } from "@/components/common/Loader";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -39,7 +42,7 @@ export default async function RootLayout({
   const nonce = headersList.get("x-nonce") ?? undefined;
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
         <ErrorBoundary>
           <Suspense fallback={<Loader size="md" />}>

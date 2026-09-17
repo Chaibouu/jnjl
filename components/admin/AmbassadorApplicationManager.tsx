@@ -175,12 +175,18 @@ export function AmbassadorApplicationManager({
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-1">
-                      <Button asChild size="icon" variant="ghost" title="Voir">
-                        <Link
-                          href={`/admin/ambassadeurs/candidatures/${application.id}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Voir"
+                        nativeButton={false}
+                        render={
+                          <Link
+                            href={`/admin/ambassadeurs/candidatures/${application.id}`}
+                          />
+                        }
+                      >
+                        <Eye className="h-4 w-4" />
                       </Button>
                       {["SOUMIS", "EN_COURS_ANALYSE", "LISTE_ATTENTE"].includes(
                         application.status

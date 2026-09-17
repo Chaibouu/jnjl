@@ -52,7 +52,12 @@ export async function middleware(req: NextRequest) {
   try {
     const isApiRoute = nextUrl.pathname.startsWith("/api");
     const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
-    const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
+    // Une entrée publique couvre son chemin exact ainsi que ses sous-routes
+    // (ex : "/actualites" autorise aussi "/actualites/mon-article").
+    const isPublicRoute = publicRoutes.some(
+      route =>
+        nextUrl.pathname === route || nextUrl.pathname.startsWith(`${route}/`)
+    );
     const isAuthRoute = authRoutes.includes(nextUrl.pathname);
 
     // ─── Nonce CSP — généré pour chaque requête HTML ───────────────────────
