@@ -35,5 +35,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# fichiers générés ou téléversés en local (PDF d'engagement, attestations, documents…)
+/public/uploads/
+
 #prisma
 /prisma/migrations/

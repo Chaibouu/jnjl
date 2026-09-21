@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Plus, Pencil, Search, Trash2 } from "lucide-react";
 import { deleteRegionAction } from "@/actions/region-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import { RegionDialog } from "@/components/admin/RegionDialog";
 import charter from "@/settings/charter";
@@ -41,6 +42,7 @@ export function RegionManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -76,8 +78,14 @@ export function RegionManager({
     setMessage(editingRegion ? "Région modifiée" : "Région créée");
   };
 
-  const remove = (region: Region) => {
-    if (!window.confirm(`Supprimer la région ${region.name} ?`)) return;
+  const remove = async (region: Region) => {
+    const confirmed = await confirm({
+      title: `Supprimer la région ${region.name} ?`,
+      description: "Une région déjà utilisée (candidatures, quotas…) ne peut pas être supprimée.",
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
 

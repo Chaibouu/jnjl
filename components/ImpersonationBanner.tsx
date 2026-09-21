@@ -66,7 +66,7 @@ export function ImpersonationBanner() {
       <button
         onClick={handleEnd}
         disabled={isPending}
-        className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition-colors rounded-md px-3 py-1 text-white text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition-colors px-3 py-1 text-white text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isPending ? (
           <>

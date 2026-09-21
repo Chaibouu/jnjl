@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { Calendar, FileText, MapPin, Sparkles } from "lucide-react";
 import { getEditionAction } from "@/actions/edition-actions";
+import { getUser } from "@/actions/getUser";
+import { listEditionMediaAction, listEditionStatsAction } from "@/actions/edition-content-actions";
+import { EditionContentManager } from "@/components/admin/EditionContentManager";
+import { hasPermission } from "@/lib/permissions";
+import type { User } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import charter from "@/settings/charter";
 
@@ -25,6 +30,15 @@ export default async function EditionDetailsPage({
 }) {
   const { editionId } = await params;
   const edition = await getEditionAction(editionId);
+
+  const session = await getUser();
+  const currentUser = session?.user?.user as User | undefined;
+  const canManageStats = !!currentUser && hasPermission(currentUser, "editions.manage");
+  const canManageMedia = !!currentUser && hasPermission(currentUser, "media.manage");
+  const [stats, media] = await Promise.all([
+    canManageStats ? listEditionStatsAction(editionId) : [],
+    canManageMedia ? listEditionMediaAction(editionId) : [],
+  ]);
 
   return (
     <section className="space-y-6">
@@ -96,6 +110,14 @@ export default async function EditionDetailsPage({
           </div>
         </div>
       </div>
+
+      <EditionContentManager
+        editionId={edition.id}
+        initialStats={stats}
+        initialMedia={media}
+        canManageStats={canManageStats}
+        canManageMedia={canManageMedia}
+      />
     </section>
   );
 }

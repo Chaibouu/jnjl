@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Clock, Loader2 } from "lucide-react";
+import { AlertCircle, Clock } from "lucide-react";
 import { saveQuizAnswerAction, submitQuizAttemptAction } from "@/actions/quiz-attempt-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Checkbox } from "@/components/ui/checkbox";
 import charter from "@/settings/charter";
 
@@ -41,6 +42,7 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const submittedRef = useRef(false);
+  const { confirm } = useConfirm();
 
   const deadline = initialAttempt.deadlineAt ? new Date(initialAttempt.deadlineAt) : null;
   const [remainingMs, setRemainingMs] = useState(
@@ -204,22 +206,19 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
         {isLast ? (
           <Button
             type="button"
-            disabled={submitting}
-            onClick={() => {
-              if (window.confirm("Terminer et soumettre le QCM ? Vous ne pourrez plus modifier vos réponses.")) {
-                submit();
-              }
+            loading={submitting}
+            onClick={async () => {
+              const confirmed = await confirm({
+                title: "Terminer et soumettre le QCM ?",
+                description: "Vous ne pourrez plus modifier vos réponses après l'envoi.",
+                confirmLabel: "Soumettre",
+              });
+              if (confirmed) submit();
             }}
             className="rounded-none text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: charter.orange }}
           >
-            {submitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Envoi...
-              </>
-            ) : (
-              "Terminer le QCM"
-            )}
+            {submitting ? "Envoi..." : "Terminer le QCM"}
           </Button>
         ) : (
           <Button

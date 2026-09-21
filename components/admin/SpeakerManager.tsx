@@ -5,6 +5,7 @@ import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { deleteSpeakerAction, listSpeakersAction } from "@/actions/speaker-actions";
 import { SpeakerDialog } from "@/components/admin/SpeakerDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import charter from "@/settings/charter";
 
@@ -38,6 +39,7 @@ export function SpeakerManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -79,8 +81,14 @@ export function SpeakerManager({
     });
   };
 
-  const remove = (speaker: Speaker) => {
-    if (!window.confirm(`Supprimer ${speaker.firstName} ${speaker.lastName} ?`)) return;
+  const remove = async (speaker: Speaker) => {
+    const confirmed = await confirm({
+      title: "Supprimer cet intervenant ?",
+      description: `${speaker.firstName} ${speaker.lastName} ne sera plus affiché sur le site.`,
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

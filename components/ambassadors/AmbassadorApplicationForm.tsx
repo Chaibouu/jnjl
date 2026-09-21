@@ -446,7 +446,6 @@ function IdentityStep({
         options={[
           ["MASCULIN", "Masculin"],
           ["FEMININ", "Féminin"],
-          ["AUTRE", "Autre"],
         ]}
       />
       <Field

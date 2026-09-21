@@ -219,7 +219,7 @@ export const RegisterForm = () => {
               <FormError message={error} />
               <FormSuccess message={success} />
               <Button
-                disabled={isPending}
+                loading={isPending}
                 type="submit"
                 className="h-11 w-full gap-1.5 text-sm font-semibold text-white transition-all hover:opacity-90"
                 style={{ backgroundColor: charter.orange }}

@@ -8,6 +8,7 @@ import {
 } from "@/actions/question-category-actions";
 import { QuestionCategoryDialog } from "@/components/admin/QuestionCategoryDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import charter from "@/settings/charter";
 
@@ -26,6 +27,7 @@ export function QuestionCategoryManager({ categories }: { categories: Category[]
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -61,8 +63,14 @@ export function QuestionCategoryManager({ categories }: { categories: Category[]
     });
   };
 
-  const remove = (category: Category) => {
-    if (!window.confirm(`Supprimer la catégorie ${category.name} ?`)) return;
+  const remove = async (category: Category) => {
+    const confirmed = await confirm({
+      title: `Supprimer la catégorie ${category.name} ?`,
+      description: "Une catégorie qui contient des questions ne peut pas être supprimée.",
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

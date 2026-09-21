@@ -5,6 +5,7 @@ import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { deletePartnerAction, listPartnersAction } from "@/actions/partner-actions";
 import { PartnerDialog } from "@/components/admin/PartnerDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import charter from "@/settings/charter";
 
@@ -45,6 +46,7 @@ export function PartnerManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -82,8 +84,14 @@ export function PartnerManager({
     });
   };
 
-  const remove = (partner: Partner) => {
-    if (!window.confirm(`Supprimer le partenaire ${partner.name} ?`)) return;
+  const remove = async (partner: Partner) => {
+    const confirmed = await confirm({
+      title: "Supprimer ce partenaire ?",
+      description: `${partner.name} ne sera plus affiché sur le site.`,
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

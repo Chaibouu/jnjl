@@ -9,6 +9,7 @@ import {
   toggleAmbassadorAccountAction,
 } from "@/actions/ambassador-account-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -48,6 +49,7 @@ export function AmbassadorAccountManager({
   const [error, setError] = useState("");
   const [passwordTarget, setPasswordTarget] = useState<Account | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -88,13 +90,13 @@ export function AmbassadorAccountManager({
     });
   };
 
-  const sendResetLink = (account: Account) => {
-    if (
-      !window.confirm(
-        `Envoyer un lien de réinitialisation de mot de passe à ${account.email} ?`
-      )
-    )
-      return;
+  const sendResetLink = async (account: Account) => {
+    const confirmed = await confirm({
+      title: "Envoyer un lien de réinitialisation ?",
+      description: `Un email permettant de définir un nouveau mot de passe sera envoyé à ${account.email}.`,
+      confirmLabel: "Envoyer le lien",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {
@@ -336,13 +338,13 @@ function SetPasswordDialog({
           </p>
         </form>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="cancel" onClick={onClose}>
             Annuler
           </Button>
           <Button
             type="submit"
             form="set-ambassador-password"
-            disabled={isPending || password.length < 8}
+            loading={isPending} disabled={password.length < 8}
           >
             {isPending ? "Enregistrement..." : "Enregistrer"}
           </Button>

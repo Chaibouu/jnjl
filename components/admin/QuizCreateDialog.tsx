@@ -17,7 +17,15 @@ import charter from "@/settings/charter";
 
 type EditionOption = { id: string; name: string; year: number };
 
-export function QuizCreateDialog({ editions }: { editions: EditionOption[] }) {
+type CourseOption = { id: string; title: string; editionId: string };
+
+export function QuizCreateDialog({
+  editions,
+  courses,
+}: {
+  editions: EditionOption[];
+  courses: CourseOption[];
+}) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -45,6 +53,7 @@ export function QuizCreateDialog({ editions }: { editions: EditionOption[] }) {
         <div className="p-6">
           <QuizForm
             editions={editions}
+            courses={courses}
             onSuccess={quizId => {
               setOpen(false);
               router.push(`/admin/qcm/${quizId}`);

@@ -20,6 +20,7 @@ import { Particles } from "@/components/ui/particles";
 import { AnimatedGradientText } from "@/components/ui/animated-gradient-text";
 import { SectionHeader } from "@/components/site/SectionHeader";
 import { WaveDivider } from "@/components/site/WaveDivider";
+import { AboutSection } from "@/components/site/AboutSection";
 import { Reveal } from "@/components/site/Reveal";
 import { HeroScene } from "@/components/site/HeroScene";
 import { ContactForm, ContactInfo } from "@/components/site/ContactForm";
@@ -31,7 +32,7 @@ const TRACKS = [
     icon: Users,
     title: "Participant",
     description: "Prenez part aux activités, ateliers et rencontres de l'édition en cours.",
-    href: null,
+    href: "/participer",
   },
   {
     icon: GraduationCap,
@@ -214,6 +215,8 @@ export default async function HomePage() {
       </section>
 
       <WaveDivider className="-mt-1 h-10 bg-white" />
+
+      <AboutSection />
 
       {/* Stats band */}
       {edition && edition.stats.length > 0 && (
@@ -468,7 +471,7 @@ export default async function HomePage() {
       </section>
 
       {/* Contact */}
-      <section className="px-4 py-20 sm:px-6 sm:py-28" style={{ backgroundColor: charter.bg }}>
+      <section id="contact" className="px-4 py-20 sm:px-6 sm:py-28" style={{ backgroundColor: charter.bg }}>
         <div className="mx-auto max-w-6xl">
           <SectionHeader
             eyebrow="Contact"

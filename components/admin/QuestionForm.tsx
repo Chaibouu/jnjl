@@ -272,7 +272,7 @@ export function QuestionForm({
       <div className="flex gap-3 pt-2">
         <Button
           type="submit"
-          disabled={isPending}
+          loading={isPending}
           className="text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: charter.orange }}
         >
@@ -281,19 +281,13 @@ export function QuestionForm({
         {onCancel ? (
           <Button
             type="button"
-            variant="outline"
+            variant="cancel"
             onClick={onCancel}
-            className="border-red-500 text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
           >
             Annuler
           </Button>
         ) : (
-          <Link
-            href="/admin/qcm/questions"
-            className="inline-flex h-8 items-center justify-center rounded-lg border border-red-500 bg-background px-2.5 text-sm font-medium text-red-600 transition-colors hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
-          >
-            Annuler
-          </Link>
+          <Button nativeButton={false} variant="cancel" render={<Link href="/admin/qcm/questions" />}>Annuler</Button>
         )}
       </div>
     </form>

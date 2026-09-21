@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFromFormData, validateFile } from "@/lib/upload";
-import { handleApiError, ValidationError } from "@/lib/errors";
+import { AuthenticationError, AuthorizationError, handleApiError, ValidationError } from "@/lib/errors";
+import { getUser } from "@/actions/getUser";
+import type { User } from "@/types/user";
 import { logger } from "@/lib/logger";
+import { storagePaths } from "@/lib/storage-paths";
 
 /**
  * API route pour uploader des fichiers
@@ -9,6 +12,14 @@ import { logger } from "@/lib/logger";
  */
 export async function POST(req: NextRequest) {
   try {
+    // Réservé aux comptes internes : évite qu'un anonyme remplisse le stockage.
+    const session = await getUser();
+    const user = session?.user?.user as User | undefined;
+    if (!user) throw new AuthenticationError("Authentification requise");
+    if (!["SUPER_ADMIN", "ADMIN", "STAFF"].includes(user.role)) {
+      throw new AuthorizationError("Accès refusé");
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 
@@ -18,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     // Options d'upload (peuvent être personnalisées selon vos besoins)
     const uploadOptions = {
-      maxSize: 10 * 1024 * 1024, // 10MB
+      maxSize: 4 * 1024 * 1024, // 4MB (limite des fonctions Vercel : 4,5MB)
       allowedTypes: [
         "image/jpeg",
         "image/png",
@@ -26,7 +37,7 @@ export async function POST(req: NextRequest) {
         "image/gif",
         "application/pdf",
       ],
-      destination: "public/uploads",
+      destination: storagePaths.misc(),
     };
 
     // Valider le fichier

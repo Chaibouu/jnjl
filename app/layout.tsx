@@ -1,6 +1,7 @@
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmProvider } from "@/components/ui/confirm-provider";
 import { SessionProvider } from "@/context/SessionContext";
 import { getUser } from "@/actions/getUser";
 import { generateMetadata as generateAppMetadata } from "@/lib/generateMetadata";
@@ -55,7 +56,7 @@ export default async function RootLayout({
                 showSpinner={false}
                 nonce={nonce}
               />
-              {children}
+              <ConfirmProvider>{children}</ConfirmProvider>
               <Toaster />
             </SessionProvider>
           </Suspense>

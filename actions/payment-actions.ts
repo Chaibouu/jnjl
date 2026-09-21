@@ -11,6 +11,7 @@ import {
   type RecordManualPaymentInput,
 } from "@/schemas/payment";
 import type { User } from "@/types/user";
+import { notify } from "@/lib/notify";
 
 /**
  * §9 — Paiement Ambassadeur, circuit MANUAL uniquement pour le moment : le
@@ -99,6 +100,13 @@ export async function recordManualPaymentAction(
       where: { id: ambassadorApplicationId },
       data: { stage: "FORMATION" },
     });
+  });
+
+  await notify({
+    userId: application.userId,
+    title: "Paiement validé",
+    message: "Votre paiement a été enregistré. Vous pouvez commencer votre formation.",
+    link: "/ambassadeur/formation",
   });
 
   return { id: ambassadorApplicationId };

@@ -22,6 +22,7 @@ import {
 import { QuizAddQuestionDialog } from "@/components/admin/QuizAddQuestionDialog";
 import { QuizForm } from "@/components/admin/QuizForm";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import charter from "@/settings/charter";
 
@@ -39,6 +40,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 type Quiz = Awaited<ReturnType<typeof getQuizAction>>;
 type EditionOption = { id: string; name: string; year: number };
+type CourseOption = { id: string; title: string; editionId: string };
 type BankQuestion = {
   id: string;
   text: string;
@@ -49,10 +51,12 @@ type BankQuestion = {
 export function QuizBuilder({
   quiz: initialQuiz,
   editions,
+  courses,
   bankQuestions,
 }: {
   quiz: Quiz;
   editions: EditionOption[];
+  courses: CourseOption[];
   bankQuestions: BankQuestion[];
 }) {
   const [quiz, setQuiz] = useState(initialQuiz);
@@ -61,6 +65,7 @@ export function QuizBuilder({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const refresh = (successMessage?: string) => {
     startTransition(async () => {
@@ -97,8 +102,14 @@ export function QuizBuilder({
     });
   };
 
-  const remove = (quizQuestionId: string) => {
-    if (!window.confirm("Retirer cette question du QCM ?")) return;
+  const remove = async (quizQuestionId: string) => {
+    const confirmed = await confirm({
+      title: "Retirer cette question du QCM ?",
+      description: "Elle reste disponible dans la banque de questions.",
+      confirmLabel: "Retirer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {
@@ -183,7 +194,7 @@ export function QuizBuilder({
           {quiz.status === "DRAFT" && (
             <Button
               type="button"
-              disabled={isPending}
+              loading={isPending}
               onClick={() => changeStatus("publish")}
               className="text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: charter.orange }}
@@ -196,7 +207,7 @@ export function QuizBuilder({
             <Button
               type="button"
               variant="outline"
-              disabled={isPending}
+              loading={isPending}
               onClick={() => changeStatus("unpublish")}
               className="rounded-none"
             >
@@ -207,7 +218,7 @@ export function QuizBuilder({
             <Button
               type="button"
               variant="outline"
-              disabled={isPending}
+              loading={isPending}
               onClick={() => changeStatus("archive")}
               className="rounded-none border-red-500 text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
             >
@@ -302,6 +313,7 @@ export function QuizBuilder({
           <QuizForm
             quiz={quiz}
             editions={editions}
+            courses={courses}
             onSuccess={() => {
               setSettingsOpen(false);
               refresh("Paramètres enregistrés");

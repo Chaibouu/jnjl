@@ -8,6 +8,7 @@ import {
   rejectAmbassadorApplicationAction,
 } from "@/actions/ambassador-application-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 
 type Application = {
@@ -40,6 +41,7 @@ export function AmbassadorApplicationManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm, prompt } = useConfirm();
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return query
@@ -51,13 +53,13 @@ export function AmbassadorApplicationManager({
       : applications;
   }, [applications, search]);
 
-  const accept = (application: Application) => {
-    if (
-      !window.confirm(
-        `Accepter la candidature de ${application.firstName} ${application.lastName} ?`
-      )
-    )
-      return;
+  const accept = async (application: Application) => {
+    const confirmed = await confirm({
+      title: "Accepter cette candidature ?",
+      description: `${application.firstName} ${application.lastName} sera retenu(e) : son compte sera créé et un email lui sera envoyé pour définir son mot de passe.`,
+      confirmLabel: "Accepter",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {
@@ -80,8 +82,15 @@ export function AmbassadorApplicationManager({
       }
     });
   };
-  const reject = (application: Application) => {
-    const reason = window.prompt("Motif du rejet", "Candidature non retenue");
+  const reject = async (application: Application) => {
+    const reason = await prompt({
+      title: "Rejeter cette candidature ?",
+      description: `${application.firstName} ${application.lastName} sera informé(e) du motif par notification et par email.`,
+      label: "Motif du rejet",
+      defaultValue: "Candidature non retenue",
+      confirmLabel: "Rejeter",
+      variant: "destructive",
+    });
     if (reason === null) return;
     setMessage("");
     setError("");

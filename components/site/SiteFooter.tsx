@@ -22,12 +22,16 @@ export function SiteFooter() {
               <li><Link href="/programme" className="text-white/70 transition-colors hover:text-white">Programme</Link></li>
               <li><Link href="/intervenants" className="text-white/70 transition-colors hover:text-white">Intervenants</Link></li>
               <li><Link href="/partenaires" className="text-white/70 transition-colors hover:text-white">Partenaires</Link></li>
+              <li><Link href="/editions" className="text-white/70 transition-colors hover:text-white">Éditions précédentes</Link></li>
+              <li><Link href="/#contact" className="text-white/70 transition-colors hover:text-white">Contact</Link></li>
             </ul>
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-white/40">Participer</p>
             <ul className="mt-4 space-y-2.5 text-sm">
+              <li><Link href="/participer" className="text-white/70 transition-colors hover:text-white">Participer à l&apos;événement</Link></li>
               <li><Link href="/ambassadeurs/candidature" className="text-white/70 transition-colors hover:text-white">Candidature Ambassadeur</Link></li>
+              <li><Link href="/auth/signup" className="text-white/70 transition-colors hover:text-white">Devenir Jeune Leader</Link></li>
               <li><Link href="/auth/login" className="text-white/70 transition-colors hover:text-white">Espace connexion</Link></li>
             </ul>
           </div>

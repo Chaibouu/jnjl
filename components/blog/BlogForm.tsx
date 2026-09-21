@@ -87,7 +87,7 @@ export function BlogForm() {
 
           <Button 
             type="submit" 
-            disabled={isPending}
+            loading={isPending}
             className="w-full"
           >
             {isPending ? "Création..." : "Créer le blog"}

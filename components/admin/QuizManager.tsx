@@ -24,13 +24,24 @@ type Quiz = {
   title: string;
   status: string;
   passingScore: number;
+  countsForRanking: boolean;
+  course: { id: string; title: string } | null;
   edition: { id: string; name: string; year: number };
   _count: { questions: number; attempts: number };
 };
 
 type EditionOption = { id: string; name: string; year: number };
+type CourseOption = { id: string; title: string; editionId: string };
 
-export function QuizManager({ quizzes, editions }: { quizzes: Quiz[]; editions: EditionOption[] }) {
+export function QuizManager({
+  quizzes,
+  editions,
+  courses,
+}: {
+  quizzes: Quiz[];
+  editions: EditionOption[];
+  courses: CourseOption[];
+}) {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -48,7 +59,7 @@ export function QuizManager({ quizzes, editions }: { quizzes: Quiz[]; editions: 
             Assemblez vos QCM depuis la banque de questions, sans jamais coder une question.
           </p>
         </div>
-        <QuizCreateDialog editions={editions} />
+        <QuizCreateDialog editions={editions} courses={courses} />
       </header>
 
       {editions.length === 0 && (
@@ -92,7 +103,11 @@ export function QuizManager({ quizzes, editions }: { quizzes: Quiz[]; editions: 
                 <tr key={quiz.id} className="group transition-colors hover:bg-muted/50">
                   <td className="px-5 py-4">
                     <p className="font-medium">{quiz.title}</p>
-                    <p className="text-xs text-muted-foreground">Seuil : {quiz.passingScore}%</p>
+                    <p className="text-xs text-muted-foreground">
+                      Seuil : {quiz.passingScore}% ·{" "}
+                      {quiz.course ? `Suite de « ${quiz.course.title} »` : "QCM libre"}
+                      {quiz.countsForRanking ? " · Classement" : ""}
+                    </p>
                   </td>
                   <td className="px-5 py-4 text-muted-foreground">
                     {quiz.edition.name} ({quiz.edition.year})

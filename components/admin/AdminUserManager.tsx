@@ -18,6 +18,7 @@ import {
 } from "@/actions/admin-user-actions";
 import { AdminUserCreateDialog } from "@/components/admin/AdminUserCreateDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 
 type UserItem = {
@@ -46,6 +47,7 @@ export function AdminUserManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
     return query
@@ -97,13 +99,14 @@ export function AdminUserManager({
     });
   };
 
-  const remove = (user: UserItem) => {
-    if (
-      !window.confirm(
-        `Supprimer ${user.name ?? user.email ?? "cet utilisateur"} ?`
-      )
-    )
-      return;
+  const remove = async (user: UserItem) => {
+    const confirmed = await confirm({
+      title: "Supprimer cet utilisateur ?",
+      description: `${user.name ?? user.email ?? "Cet utilisateur"} sera désactivé et déconnecté. Ses données historiques sont conservées.`,
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

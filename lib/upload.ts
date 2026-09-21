@@ -2,10 +2,8 @@
  * Utilitaires pour la gestion des uploads de fichiers
  */
 
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { randomUUID } from "crypto";
+import { saveFile } from "@/lib/storage";
 
 export interface UploadOptions {
   maxSize?: number;       // Taille maximale en bytes
@@ -20,7 +18,7 @@ export interface UploadResult {
   mimetype: string;
 }
 
-const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const DEFAULT_MAX_SIZE = 4 * 1024 * 1024; // 4 MB (limite des fonctions Vercel : 4,5 MB)
 const DEFAULT_DESTINATION = "public/uploads";
 
 // ─── Magic Numbers ────────────────────────────────────────────────────────────
@@ -136,13 +134,9 @@ export async function uploadFile(
     );
   }
 
-  // 3. Préparer le chemin de destination
+  // 3. Dossier de destination (relatif à `uploads/`)
   const destination = options.destination ?? DEFAULT_DESTINATION;
-  const uploadDir = join(process.cwd(), destination);
-
-  if (!existsSync(uploadDir)) {
-    await mkdir(uploadDir, { recursive: true });
-  }
+  const folder = destination.replace(/^public\/?/, "").replace(/^uploads\/?/, "");
 
   // 4. Nom de fichier sécurisé : UUID + extension assainie (pas de path traversal possible)
   const extension = sanitizeExtension(file.name);
@@ -151,14 +145,18 @@ export async function uploadFile(
   }
 
   const filename = `${randomUUID()}.${extension}`;
-  const filepath = join(uploadDir, filename);
 
-  // 5. Écriture sur le disque
-  await writeFile(filepath, new Uint8Array(buffer));
+  // 5. Écriture (disque local en dev, Cloudflare R2 en production)
+  const url = await saveFile({
+    folder,
+    filename,
+    body: new Uint8Array(buffer),
+    contentType: file.type,
+  });
 
   return {
     filename,
-    path: `/${destination}/${filename}`,
+    path: url,
     size: file.size,
     mimetype: file.type,
   };
@@ -186,6 +184,8 @@ export async function uploadFromFormData(
  */
 export async function deleteUploadedFile(filepath: string): Promise<void> {
   const { unlink } = await import("fs/promises");
+  const { existsSync } = await import("fs");
+  const { join } = await import("path");
   const fullPath = join(process.cwd(), filepath);
 
   if (existsSync(fullPath)) {

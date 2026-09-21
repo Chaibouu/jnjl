@@ -7,6 +7,34 @@ const transporter = nodemailer.createTransport(
   appConfig.mailOptions as TransportOptions
 );
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+/** Email générique d'information (statut de candidature, badge, etc.). */
+export const sendNotificationEmail = async (
+  to: string,
+  title: string,
+  message: string,
+  link?: string | null
+) => {
+  const url = link ? `${domain}${link}` : null;
+  await transporter.sendMail({
+    from: `${appConfig.appName} <${emailUser}>`,
+    to,
+    subject: `${appConfig.appName} — ${title}`,
+    html: `
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(message).replace(/\n/g, "<br />")}</p>
+      ${url ? `<p><a href="${escapeHtml(url)}">Ouvrir mon espace</a></p>` : ""}
+    `,
+  });
+};
+
 export const sendTwoFactorTokenEmail = async (email: string, token: string) => {
   const mailOptions = {
     from: `${appConfig.appName} ${emailUser}`,
@@ -93,10 +121,10 @@ export const sendContactMessageEmail = async (input: {
     replyTo: input.email,
     subject: `[Contact ${appConfig.appName}] ${input.subject || "Nouveau message"}`,
     html: `
-      <p><strong>De :</strong> ${input.name} (${input.email})</p>
-      ${input.subject ? `<p><strong>Sujet :</strong> ${input.subject}</p>` : ""}
+      <p><strong>De :</strong> ${escapeHtml(input.name)} (${escapeHtml(input.email)})</p>
+      ${input.subject ? `<p><strong>Sujet :</strong> ${escapeHtml(input.subject)}</p>` : ""}
       <p><strong>Message :</strong></p>
-      <p>${input.message.replace(/\n/g, "<br />")}</p>
+      <p>${escapeHtml(input.message).replace(/\n/g, "<br />")}</p>
     `,
   };
   await transporter.sendMail(mailOptions);

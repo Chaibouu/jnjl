@@ -18,10 +18,15 @@ import {
 import charter from "@/settings/charter";
 
 type EditionOption = { id: string; name: string; year: number };
+type CourseOption = { id: string; title: string; editionId: string };
+
+const NO_COURSE = "__none__";
 
 type QuizItem = {
   id: string;
   editionId: string;
+  courseId: string | null;
+  countsForRanking: boolean;
   title: string;
   description: string | null;
   durationMinutes: number | null;
@@ -36,11 +41,13 @@ type QuizItem = {
 export function QuizForm({
   quiz,
   editions,
+  courses,
   onSuccess,
   onCancel,
 }: {
   quiz?: QuizItem;
   editions: EditionOption[];
+  courses: CourseOption[];
   onSuccess: (quizId: string) => void;
   onCancel?: () => void;
 }) {
@@ -48,6 +55,8 @@ export function QuizForm({
     quiz
       ? {
           editionId: quiz.editionId,
+          courseId: quiz.courseId ?? "",
+          countsForRanking: quiz.countsForRanking,
           title: quiz.title,
           description: quiz.description ?? "",
           durationMinutes: quiz.durationMinutes ?? "",
@@ -60,6 +69,8 @@ export function QuizForm({
         }
       : {
           editionId: editions[0]?.id ?? "",
+          courseId: "",
+          countsForRanking: false,
           title: "",
           description: "",
           durationMinutes: "",
@@ -76,6 +87,8 @@ export function QuizForm({
 
   const update = <K extends keyof QuizInput>(field: K, value: QuizInput[K]) =>
     setForm(current => ({ ...current, [field]: value }));
+
+  const editionCourses = courses.filter(course => course.editionId === form.editionId);
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -113,7 +126,14 @@ export function QuizForm({
         </Field>
         <Field className="sm:col-span-2">
           <FieldLabel>Édition</FieldLabel>
-          <Select value={form.editionId} onValueChange={value => update("editionId", value as string)}>
+          <Select
+            value={form.editionId}
+            onValueChange={value => {
+              if (!value) return;
+              // La formation liée doit appartenir à l'édition : on la réinitialise au changement.
+              setForm(current => ({ ...current, editionId: value as string, courseId: "" }));
+            }}
+          >
             <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
               <SelectValue placeholder="Choisir une édition">
                 {(value: string) => {
@@ -130,6 +150,35 @@ export function QuizForm({
               ))}
             </SelectContent>
           </Select>
+        </Field>
+        <Field className="sm:col-span-2">
+          <FieldLabel>Formation liée (optionnel)</FieldLabel>
+          <Select
+            value={form.courseId || NO_COURSE}
+            onValueChange={value => value && update("courseId", value === NO_COURSE ? "" : (value as string))}
+          >
+            <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+              <SelectValue>
+                {(value: string) =>
+                  value === NO_COURSE
+                    ? "Aucune — QCM libre"
+                    : (editionCourses.find(course => course.id === value)?.title ?? "Aucune — QCM libre")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_COURSE}>Aucune — QCM libre</SelectItem>
+              {editionCourses.map(course => (
+                <SelectItem key={course.id} value={course.id}>
+                  {course.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Lié : l&apos;ambassadeur doit terminer cette formation avant de passer le QCM, qui conditionne son
+            attestation. Libre : accessible sans formation.
+          </p>
         </Field>
       </div>
 
@@ -199,12 +248,23 @@ export function QuizForm({
           checked={form.showCorrectAnswers}
           onChange={checked => update("showCorrectAnswers", checked)}
         />
+        <div className="sm:col-span-2">
+          <ToggleRow
+            label="Compte pour le classement régional"
+            checked={form.countsForRanking}
+            onChange={checked => update("countsForRanking", checked)}
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            À activer uniquement pour le QCM du parcours ambassadeur : son score alimente le classement et la
+            sélection. Les autres QCM n&apos;ont aucun effet sur le parcours.
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-3 pt-2">
         <Button
           type="submit"
-          disabled={isPending}
+          loading={isPending}
           className="text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: charter.orange }}
         >
@@ -213,9 +273,8 @@ export function QuizForm({
         {onCancel && (
           <Button
             type="button"
-            variant="outline"
+            variant="cancel"
             onClick={onCancel}
-            className="border-red-500 text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
           >
             Annuler
           </Button>

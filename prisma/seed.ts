@@ -98,6 +98,11 @@ const PERMISSIONS: { code: string; label: string; category: string }[] = [
     category: "Ambassadeurs",
   },
   {
+    code: "engagement.manage",
+    label: "Gérer la fiche d'engagement",
+    category: "Ambassadeurs",
+  },
+  {
     code: "boarding.manage",
     label: "Valider les embarquements",
     category: "Ambassadeurs",
@@ -147,6 +152,13 @@ const PERMISSIONS: { code: string; label: string; category: string }[] = [
     category: "Documents",
   },
   { code: "badges.manage", label: "Gérer les badges", category: "Documents" },
+
+  // Statistiques
+  {
+    code: "stats.view",
+    label: "Consulter les statistiques et exporter les données",
+    category: "Statistiques",
+  },
 
   // Paramètres
   {
@@ -209,6 +221,16 @@ const USERS: SeedUser[] = [
       "applications.leader.manage",
       "applications.ambassador.manage",
       "ambassadors.accounts.manage",
+      "training.manage",
+      "quotas.manage",
+      "selection.manage",
+      "repechage.manage",
+      "documents.manage",
+      "engagement.manage",
+      "badges.manage",
+      "boarding.manage",
+      "attendance.manage",
+      "stats.view",
     ],
   },
   {

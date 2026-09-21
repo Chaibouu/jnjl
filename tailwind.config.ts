@@ -21,6 +21,11 @@ const config = {
     },
     extend: {
       colors: {
+        // Couleur principale du projet (charte JNJL : orange) — utilisée par les boutons.
+        brand: {
+          DEFAULT: "#F07321",
+          dark: "#D6650F",
+        },
         border: "oklch(var(--border) / <alpha-value>)",
         input: "oklch(var(--input) / <alpha-value>)",
         ring: "oklch(var(--ring) / <alpha-value>)",

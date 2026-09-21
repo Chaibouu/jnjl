@@ -42,7 +42,7 @@ export function ImpersonateButton({ targetUserId, targetName }: ImpersonateButto
     <button
       onClick={handleImpersonate}
       disabled={isPending}
-      className="inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="inline-flex items-center gap-1.5 bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {isPending ? (
         <>

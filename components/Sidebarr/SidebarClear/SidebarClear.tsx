@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { adminNavigation } from "@/settings/navigation";
+import { adminNavigation, type NavigationItem } from "@/settings/navigation";
+import { useSession } from "@/context/SessionContext";
+import { filterNavigation } from "@/utils/filter-navigation";
 import appConfig from "@/settings";
 import { Icon } from "@iconify/react";
 import { ChevronDown, Menu, X, PanelLeft, PanelLeftClose } from "lucide-react";
@@ -129,6 +131,20 @@ function SidebarContent({
   isMobile,
   onNavigate,
 }: SidebarContentProps) {
+  const { user } = useSession();
+
+  // Seuls les modules auxquels l'utilisateur a droit sont affichés (rôle, permission, compte ambassadeur).
+  const navigation = useMemo(() => filterNavigation(adminNavigation, user), [user]);
+
+  // Une seule entrée active : la correspondance la plus précise (évite que « Dashboard »
+  // reste surligné sur /dashboard/notifications).
+  const activePath = useMemo(() => {
+    const paths = navigation.flatMap(item => [item.path, ...(item.children?.map(child => child.path) ?? [])]);
+    return paths
+      .filter(path => path !== "#" && (pathname === path || pathname.startsWith(`${path}/`)))
+      .sort((a, b) => b.length - a.length)[0];
+  }, [navigation, pathname]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header : logo + bouton pin */}
@@ -164,11 +180,11 @@ function SidebarContent({
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         <nav className="space-y-0.5">
-          {adminNavigation.map((item, idx) => (
+          {navigation.map(item => (
             <NavItem
-              key={idx}
+              key={item.path + item.title}
               item={item}
-              pathname={pathname}
+              activePath={activePath}
               open={open}
               onNavigate={onNavigate}
             />
@@ -265,18 +281,18 @@ function Logo({ open }: { open: boolean }) {
 /* ─── NavItem ────────────────────────────────────────────────────── */
 
 interface NavItemProps {
-  item: any;
-  pathname: string;
+  item: NavigationItem;
+  /** Chemin de l'entrée de menu active (correspondance la plus précise). */
+  activePath?: string;
   open: boolean;
   onNavigate?: () => void;
 }
 
-function NavItem({ item, pathname, open, onNavigate }: NavItemProps) {
-  const hasChildren = item.children && item.children.length > 0;
+function NavItem({ item, activePath, open, onNavigate }: NavItemProps) {
+  const hasChildren = !!item.children && item.children.length > 0;
   const isActive =
-    pathname === item.path ||
-    (hasChildren && item.children?.some((c: any) => pathname === c.path)) ||
-    (item.path !== "/" && pathname.startsWith(item.path));
+    !!activePath &&
+    (item.path === activePath || !!item.children?.some(child => child.path === activePath));
 
   const [expanded, setExpanded] = useState(isActive);
 
@@ -368,8 +384,8 @@ function NavItem({ item, pathname, open, onNavigate }: NavItemProps) {
                 className="ml-5 mt-0.5 mb-1 space-y-0.5 pl-3"
                 style={{ borderLeft: "1px solid rgba(255,255,255,0.2)" }}
               >
-                {item.children.map((child: any, idx: number) => {
-                  const isChildActive = pathname === child.path;
+                {item.children!.map((child, idx) => {
+                  const isChildActive = activePath === child.path;
                   return (
                     <motion.div
                       key={idx}

@@ -129,7 +129,7 @@ export function BlogFormEdit({ blogId, initialData }: BlogFormEditProps) {
 
           <Button 
             type="submit" 
-            disabled={isPending}
+            loading={isPending}
             className="w-full"
           >
             {isPending ? "Modification..." : "Modifier le blog"}

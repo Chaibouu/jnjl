@@ -23,6 +23,14 @@ import { isRouteProtected } from "./utils/is-route-protected";
 function buildCspWithNonce(nonce: string): string {
   const isDev = process.env.NODE_ENV === "development";
 
+  // Origine publique du stockage R2 (vide si non configuré).
+  let r2Origin = "";
+  try {
+    if (process.env.R2_PUBLIC_URL) r2Origin = new URL(process.env.R2_PUBLIC_URL).origin;
+  } catch {
+    r2Origin = "";
+  }
+
   // En dev, Next.js/Turbopack utilise eval() et des scripts inline pour le HMR.
   // On doit donc autoriser 'unsafe-eval' et 'unsafe-inline' (sans 'strict-dynamic'
   // ni nonce qui casseraient le HMR).
@@ -34,7 +42,10 @@ function buildCspWithNonce(nonce: string): string {
     "default-src 'self'",
     scriptSrc,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://firebasestorage.googleapis.com",
+    // Images saisies par les admins (R2, CDN…) : les images ne peuvent pas exécuter de code.
+    "img-src 'self' data: blob: https:",
+    // Vidéos intégrées + aperçu des PDF générés (engagement, attestations), sur le site ou sur R2.
+    `frame-src 'self' ${r2Origin} https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com`,
     "font-src 'self' data:",
     isDev ? "connect-src 'self' ws: wss: http: https:" : "connect-src 'self'",
     "frame-ancestors 'none'",

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import { requirePermission } from "@/actions/requirePermission";
+import { describeGate, getQuizGate } from "@/lib/training-progress";
 import type { User } from "@/types/user";
 
 async function getCurrentUser(): Promise<User> {
@@ -37,7 +38,10 @@ function shuffle<T>(items: T[]): T[] {
 // Espace ambassadeur
 // ─────────────────────────────────────────────────────────────
 
-/** Retourne le QCM publié de l'édition active pour l'ambassadeur connecté, avec l'état de ses tentatives. */
+/**
+ * Retourne tous les QCM publiés de l'édition active pour l'ambassadeur connecté, avec pour chacun :
+ * l'état de ses tentatives et, si le QCM est verrouillé, la formation à terminer d'abord.
+ */
 export async function getMyQuizStatusAction() {
   const user = await getCurrentUser();
   const edition = await db.edition.findFirst({ where: { status: "ACTIVE", isDeleted: false } });
@@ -48,8 +52,9 @@ export async function getMyQuizStatusAction() {
   });
   if (!application) return null;
 
-  const quiz = await db.quiz.findFirst({
+  const quizzes = await db.quiz.findMany({
     where: { editionId: edition.id, status: "PUBLISHED" },
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
       title: true,
@@ -57,29 +62,43 @@ export async function getMyQuizStatusAction() {
       durationMinutes: true,
       passingScore: true,
       maxAttempts: true,
+      courseId: true,
+      countsForRanking: true,
+      editionId: true,
+      course: { select: { id: true, title: true } },
       _count: { select: { questions: true } },
     },
   });
-  if (!quiz) return null;
 
-  const attempts = await db.quizAttempt.findMany({
-    where: { quizId: quiz.id, ambassadorApplicationId: application.id },
-    orderBy: { attemptNumber: "desc" },
-  });
+  const items = await Promise.all(
+    quizzes.map(async quiz => {
+      const [gate, attempts] = await Promise.all([
+        getQuizGate(quiz, application.id),
+        db.quizAttempt.findMany({
+          where: { quizId: quiz.id, ambassadorApplicationId: application.id },
+          orderBy: { attemptNumber: "desc" },
+        }),
+      ]);
 
-  const inProgress = attempts.find(attempt => attempt.status === "IN_PROGRESS");
-  const attemptsUsed = attempts.filter(attempt => attempt.status !== "IN_PROGRESS").length;
+      const inProgress = attempts.find(attempt => attempt.status === "IN_PROGRESS");
+      const attemptsUsed = attempts.filter(attempt => attempt.status !== "IN_PROGRESS").length;
 
-  return {
-    quiz,
-    attemptsUsed,
-    attemptsRemaining: Math.max(0, quiz.maxAttempts - attemptsUsed),
-    inProgressAttemptId: inProgress?.id ?? null,
-    lastCompletedAttempt: attempts.find(attempt => attempt.status !== "IN_PROGRESS") ?? null,
-  };
+      return {
+        quiz,
+        gate,
+        attemptsUsed,
+        attemptsRemaining: Math.max(0, quiz.maxAttempts - attemptsUsed),
+        inProgressAttemptId: inProgress?.id ?? null,
+        lastCompletedAttempt: attempts.find(attempt => attempt.status !== "IN_PROGRESS") ?? null,
+        passed: attempts.some(attempt => attempt.passed === true),
+      };
+    })
+  );
+
+  return { quizzes: items };
 }
 
-/** Démarre (ou reprend) une tentative pour le QCM actif — ne renvoie jamais les bonnes réponses. */
+/** Démarre (ou reprend) une tentative — ne renvoie jamais les bonnes réponses. */
 export async function startQuizAttemptAction(quizId: string) {
   const quiz = await db.quiz.findUnique({
     where: { id: quizId },
@@ -90,6 +109,11 @@ export async function startQuizAttemptAction(quizId: string) {
   }
 
   const application = await getMyAmbassadorApplication(quiz.editionId);
+
+  const gate = await getQuizGate(quiz, application.id);
+  if (!gate.unlocked) {
+    throw new Error(describeGate(gate));
+  }
 
   const existing = await db.quizAttempt.findFirst({
     where: { quizId, ambassadorApplicationId: application.id, status: "IN_PROGRESS" },
@@ -204,7 +228,7 @@ export async function submitQuizAttemptAction(attemptId: string) {
     where: { id: attemptId },
     include: {
       quiz: { include: { questions: { include: { question: { include: { options: true } } } } } },
-      ambassadorApplication: { select: { id: true, userId: true } },
+      ambassadorApplication: { select: { id: true, userId: true, stage: true } },
       answers: true,
     },
   });
@@ -255,10 +279,19 @@ export async function submitQuizAttemptAction(attemptId: string) {
         passed,
       },
     });
-    await transaction.ambassadorApplication.update({
-      where: { id: attempt.ambassadorApplication.id },
-      data: { quizScore: percentage, stage: "CLASSEMENT" },
-    });
+    // Seul le QCM de classement alimente le score régional et fait avancer le parcours.
+    // Un QCM de formation ou un QCM libre n'a aucun effet sur le classement.
+    if (attempt.quiz.countsForRanking) {
+      const stage = attempt.ambassadorApplication.stage;
+      await transaction.ambassadorApplication.update({
+        where: { id: attempt.ambassadorApplication.id },
+        data: {
+          quizScore: percentage,
+          // Ne jamais faire reculer un ambassadeur déjà plus avancé dans le parcours.
+          ...(stage === "FORMATION" || stage === "QCM" ? { stage: "CLASSEMENT" } : {}),
+        },
+      });
+    }
   });
 
   return getAttemptResultAction(attemptId);

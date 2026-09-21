@@ -2,6 +2,10 @@ import { z } from "zod";
 
 export const quizSchema = z.object({
   editionId: z.string().trim().min(1, "L'édition est requise"),
+  // Formation à terminer avant ce QCM — vide = QCM libre, non lié à une formation.
+  courseId: z.string().trim().optional().or(z.literal("")),
+  // Le score de ce QCM alimente le classement régional (parcours ambassadeur).
+  countsForRanking: z.boolean().default(false),
   title: z.string().trim().min(2, "Le titre est requis").max(200),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   durationMinutes: z.coerce.number().int().min(1).max(600).optional().or(z.literal("")),

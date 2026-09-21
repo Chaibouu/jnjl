@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -29,6 +30,7 @@ model User {
   isTwoFactorEnabled    Boolean                @default(false)
   twoFactorSecret       String? // Secret TOTP (base32) pour l'authentification TOTP
   isDeleted             Boolean                @default(false)
+  createdAt             DateTime               @default(now())
   twoFactorConfirmation TwoFactorConfirmation?
   accounts              Account[]
   sessions              Session[]
@@ -303,6 +305,7 @@ model Edition {
   slug        String        @unique
   theme       String?
   description String?       @db.Text
+  engagementText String?    @db.Text
   startDate   DateTime?
   endDate     DateTime?
   location    String?
@@ -323,6 +326,7 @@ model Edition {
   eventParticipations    EventParticipation[]
   attendances            Attendance[]
   regionalQuotas         RegionalQuota[]
+  trainingCourses        TrainingCourse[]
   trainingModules        TrainingModule[]
   quizzes                Quiz[]
   userBadges             UserBadge[]
@@ -532,6 +536,7 @@ model EventApplication {
   lastName     String
   email        String
   phone        String
+  gender       String? // MASCULIN | FEMININ
   regionId     String?
   region       Region?           @relation(fields: [regionId], references: [id], onDelete: SetNull)
   motivation   String?           @db.Text
@@ -682,15 +687,37 @@ model Payment {
   receipt Document?
 }
 
+// Une formation regroupe des modules. Elle peut être suivie d'un ou plusieurs QCM
+// (Quiz.courseId) et donner lieu à une attestation (hasCertificate).
+model TrainingCourse {
+  id             String           @id @default(cuid())
+  editionId      String
+  edition        Edition          @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?          @db.Text
+  order          Int              @default(0)
+  isRequired     Boolean          @default(true) // obligatoire pour passer de l'étape FORMATION à QCM du parcours ambassadeur
+  hasCertificate Boolean          @default(true) // une attestation de formation peut être délivrée
+  modules        TrainingModule[]
+  quizzes        Quiz[]
+  documents      Document[]
+
+  @@index([editionId])
+}
+
 model TrainingModule {
   id        String             @id @default(cuid())
   editionId String
   edition   Edition            @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    TrainingCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   title     String
   content   String?            @db.Text
   videoUrl  String?
   order     Int                @default(0)
   progress  TrainingProgress[]
+
+  @@index([courseId])
 }
 
 model TrainingProgress {
@@ -699,6 +726,7 @@ model TrainingProgress {
   ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
   moduleId                String
   module                  TrainingModule        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  startedAt               DateTime? // ouverture du module dans le lecteur : requise avant de le terminer
   completedAt             DateTime?
 
   @@unique([ambassadorApplicationId, moduleId])
@@ -779,12 +807,18 @@ model Quiz {
   shuffleOptions     Boolean        @default(false)
   showScore          Boolean        @default(true)
   showCorrectAnswers Boolean        @default(false)
+  // Formation à terminer avant ce QCM (nul = QCM libre, non lié à une formation).
+  courseId           String?
+  course             TrainingCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  // Le score de ce QCM alimente le classement régional du parcours ambassadeur.
+  countsForRanking   Boolean        @default(false)
   questions          QuizQuestion[]
   attempts           QuizAttempt[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
   @@index([editionId, status])
+  @@index([courseId])
 }
 
 // Pivot Quiz ↔ Question : porte l'ordre d'affichage et un nombre de points
@@ -877,6 +911,8 @@ model Engagement {
   id                      String                @id @default(cuid())
   ambassadorApplicationId String                @unique
   ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  signatureName           String
+  fileUrl                 String
   acceptedAt              DateTime
 }
 
@@ -983,6 +1019,7 @@ enum DocumentType {
   PERMISSION_REQUEST
   MISSION_ORDER
   CERTIFICATE
+  TRAINING_CERTIFICATE
   PAYMENT_RECEIPT
   OTHER
 }
@@ -1004,9 +1041,12 @@ model Document {
   leaderApplication       LeaderApplication?     @relation(fields: [leaderApplicationId], references: [id], onDelete: Cascade)
   paymentId               String?                @unique // reçu émis par le point focal (type PAYMENT_RECEIPT)
   payment                 Payment?               @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  trainingCourseId        String? // attestation de formation (type TRAINING_CERTIFICATE)
+  trainingCourse          TrainingCourse?        @relation(fields: [trainingCourseId], references: [id], onDelete: SetNull)
   generatedAt             DateTime               @default(now())
 
   @@index([type])
+  @@index([trainingCourseId])
 }
 
 // ═══════════════════════════════════════════════════════════════════════

@@ -119,6 +119,30 @@ export async function activateEditionAction(id: string) {
   );
 }
 
+/**
+ * Change le statut d'une édition hors activation : archivage (édition terminée, visible dans
+ * « Éditions précédentes ») ou remise en « Publiée » (brouillon ou archive restaurée).
+ * L'édition active ne peut pas être archivée : il faut d'abord en activer une autre.
+ */
+export async function setEditionStatusAction(id: string, status: "ARCHIVED" | "PUBLISHED") {
+  await requirePermission(status === "ARCHIVED" ? "editions.archive" : "editions.publish");
+
+  const edition = await db.edition.findFirst({
+    where: { id, isDeleted: false },
+    select: { id: true, status: true },
+  });
+  if (!edition) throw new Error("Édition introuvable");
+  if (edition.status === EditionStatus.ACTIVE) {
+    throw new Error("L'édition active ne peut pas être archivée : activez d'abord une autre édition");
+  }
+
+  return db.edition.update({
+    where: { id },
+    data: { status: status === "ARCHIVED" ? EditionStatus.ARCHIVED : EditionStatus.PUBLISHED },
+    select: { id: true, status: true },
+  });
+}
+
 async function assertUnique(data: EditionInput, excludeId?: string) {
   const notClause = excludeId ? { NOT: { id: excludeId } } : {};
 

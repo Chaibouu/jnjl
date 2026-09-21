@@ -6,6 +6,7 @@ import { Eye, Pencil, Search, Trash2 } from "lucide-react";
 import { deleteNewsAction, listNewsAction } from "@/actions/news-actions";
 import { NewsCreateDialog } from "@/components/admin/NewsCreateDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 
 type NewsItem = {
@@ -25,6 +26,7 @@ export function NewsManager({ news }: { news: NewsItem[] }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -50,8 +52,14 @@ export function NewsManager({ news }: { news: NewsItem[] }) {
     });
   };
 
-  const remove = (item: NewsItem) => {
-    if (!window.confirm(`Supprimer l’actualité « ${item.title} » ?`)) return;
+  const remove = async (item: NewsItem) => {
+    const confirmed = await confirm({
+      title: "Supprimer cette actualité ?",
+      description: `« ${item.title} » ne sera plus visible sur le site.`,
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

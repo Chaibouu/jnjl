@@ -2,11 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Eye, Pencil, Search } from "lucide-react";
-import { activateEditionAction } from "@/actions/edition-actions";
+import { Archive, ArchiveRestore, Check, Eye, Pencil, Search } from "lucide-react";
+import { activateEditionAction, setEditionStatusAction } from "@/actions/edition-actions";
 import { listEditionsAction } from "@/actions/edition-actions";
 import { EditionCreateDialog } from "@/components/admin/EditionCreateDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 
 type EditionItem = {
@@ -40,6 +41,7 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -76,6 +78,32 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
             ? actionError.message
             : "Impossible d’activer l’édition"
         );
+      }
+    });
+  };
+
+  const changeStatus = async (edition: EditionItem, status: "ARCHIVED" | "PUBLISHED") => {
+    if (status === "ARCHIVED") {
+      const confirmed = await confirm({
+        title: `Archiver ${edition.name} ?`,
+        description: "L'édition apparaîtra dans « Éditions précédentes » sur le site public.",
+        confirmLabel: "Archiver",
+      });
+      if (!confirmed) return;
+    }
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const updated = await setEditionStatusAction(edition.id, status);
+        setItems(current =>
+          current.map(item => (item.id === updated.id ? { ...item, status: updated.status } : item))
+        );
+        setMessage(
+          status === "ARCHIVED" ? `${edition.name} est archivée.` : `${edition.name} est de nouveau publiée.`
+        );
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Impossible de changer le statut");
       }
     });
   };
@@ -194,6 +222,31 @@ export function EditionManager({ editions }: { editions: EditionItem[] }) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      {edition.status !== "ACTIVE" && edition.status !== "ARCHIVED" && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          title="Archiver cette édition"
+                          onClick={() => changeStatus(edition, "ARCHIVED")}
+                          disabled={isPending}
+                          className="text-amber-600 hover:border-amber-500 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-500/10"
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {edition.status === "ARCHIVED" && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          title="Restaurer (publiée)"
+                          onClick={() => changeStatus(edition, "PUBLISHED")}
+                          disabled={isPending}
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                        </Button>
+                      )}
                       {edition.status !== "ACTIVE" && (
                         <Button
                           type="button"

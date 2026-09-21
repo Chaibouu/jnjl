@@ -10,6 +10,7 @@ import {
 import { ProgramDayDialog } from "@/components/admin/ProgramDayDialog";
 import { ProgramSessionDialog } from "@/components/admin/ProgramSessionDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import {
   Select,
   SelectContent,
@@ -66,6 +67,7 @@ export function ProgramManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const loadDays = (id: string) => {
     startTransition(async () => {
@@ -85,8 +87,14 @@ export function ProgramManager({
     if (editionId) loadDays(editionId);
   }, [editionId]);
 
-  const removeDay = (day: ProgramDay) => {
-    if (!window.confirm("Supprimer ce jour et toutes ses sessions ?")) return;
+  const removeDay = async (day: ProgramDay) => {
+    const confirmed = await confirm({
+      title: "Supprimer ce jour ?",
+      description: "Toutes les sessions de ce jour seront également supprimées.",
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {
@@ -102,8 +110,13 @@ export function ProgramManager({
     });
   };
 
-  const removeSession = (session: Session) => {
-    if (!window.confirm(`Supprimer la session « ${session.title} » ?`)) return;
+  const removeSession = async (session: Session) => {
+    const confirmed = await confirm({
+      title: `Supprimer la session « ${session.title} » ?`,
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

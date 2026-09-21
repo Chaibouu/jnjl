@@ -131,7 +131,7 @@ export function ContactForm() {
 
       <Button
         type="submit"
-        disabled={isPending}
+        loading={isPending}
         className="h-12 w-full gap-2 rounded-none text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90 sm:w-auto sm:px-10"
         style={{ backgroundColor: charter.orange }}
       >

@@ -9,9 +9,19 @@ export async function listQuizzesAction() {
   return db.quiz.findMany({
     include: {
       edition: { select: { id: true, name: true, year: true } },
+      course: { select: { id: true, title: true } },
       _count: { select: { questions: true, attempts: true } },
     },
     orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Formations proposées dans le formulaire QCM pour lier un QCM à une formation. */
+export async function listCourseOptionsAction() {
+  await requirePermission("quiz.manage");
+  return db.trainingCourse.findMany({
+    select: { id: true, title: true, editionId: true },
+    orderBy: [{ editionId: "asc" }, { order: "asc" }],
   });
 }
 
@@ -35,6 +45,16 @@ export async function getQuizAction(id: string) {
   return quiz;
 }
 
+/** Une formation liée doit exister et appartenir à la même édition que le QCM. */
+async function resolveCourseId(editionId: string, courseId?: string) {
+  if (!courseId) return null;
+  const course = await db.trainingCourse.findUnique({ where: { id: courseId } });
+  if (!course || course.editionId !== editionId) {
+    throw new Error("La formation choisie n'appartient pas à l'édition de ce QCM");
+  }
+  return course.id;
+}
+
 export async function createQuizAction(input: QuizInput) {
   await requirePermission("quiz.manage");
   const data = quizSchema.parse(input);
@@ -42,6 +62,8 @@ export async function createQuizAction(input: QuizInput) {
   return db.quiz.create({
     data: {
       editionId: data.editionId,
+      courseId: await resolveCourseId(data.editionId, data.courseId),
+      countsForRanking: data.countsForRanking,
       title: data.title,
       description: emptyToNull(data.description),
       durationMinutes: data.durationMinutes ? Number(data.durationMinutes) : null,
@@ -66,6 +88,8 @@ export async function updateQuizAction(id: string, input: QuizInput) {
     where: { id },
     data: {
       editionId: data.editionId,
+      courseId: await resolveCourseId(data.editionId, data.courseId),
+      countsForRanking: data.countsForRanking,
       title: data.title,
       description: emptyToNull(data.description),
       durationMinutes: data.durationMinutes ? Number(data.durationMinutes) : null,

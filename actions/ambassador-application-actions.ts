@@ -11,6 +11,7 @@ import { ForbiddenError } from "@/lib/forbidden-error";
 import { generatePasswordResetToken } from "@/lib/tokens";
 import { sendPasswordResetEmail } from "@/lib/mail";
 import type { User } from "@/types/user";
+import { notify } from "@/lib/notify";
 
 const applicationInclude = {
   region: { select: { id: true, name: true, code: true } },
@@ -137,6 +138,12 @@ export async function acceptAmbassadorApplicationAction(id: string) {
     );
   }
 
+  await notify({
+    userId: account.id,
+    title: "Candidature retenue",
+    message: "Votre candidature ambassadeur est retenue. Prochaine étape : le paiement des frais d'inscription auprès de votre point focal.",
+  });
+
   return { userId: account.id };
 }
 
@@ -161,6 +168,13 @@ export async function rejectAmbassadorApplicationAction(
       reviewedAt: new Date(),
       rejectionReason: reason.trim() || "Candidature non retenue",
     },
+  });
+  await notify({
+    userId: application.userId,
+    email: application.email,
+    title: "Candidature ambassadeur non retenue",
+    message: `Votre candidature ambassadeur n'a pas été retenue. Motif : ${reason.trim() || "non précisé"}.`,
+    sendEmail: true,
   });
   return { id };
 }

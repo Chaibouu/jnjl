@@ -117,7 +117,7 @@ export function ProfileEditor({ profile }: Props) {
           <button
             type="button"
             onClick={() => setTab("profile")}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${tab === "profile" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${tab === "profile" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
           >
             <UserRound className="h-4 w-4" />
             Informations personnelles
@@ -125,7 +125,7 @@ export function ProfileEditor({ profile }: Props) {
           <button
             type="button"
             onClick={() => setTab("security")}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${tab === "security" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm ${tab === "security" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
           >
             <KeyRound className="h-4 w-4" />
             Sécurité
@@ -225,7 +225,7 @@ export function ProfileEditor({ profile }: Props) {
                 onChange={event => update("bio", event.target.value)}
               />
             </label>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" loading={isPending}>
               <Save className="mr-2 h-4 w-4" />
               {isPending
                 ? "Enregistrement..."
@@ -267,7 +267,7 @@ export function ProfileEditor({ profile }: Props) {
               }
               required
             />
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" loading={isPending}>
               <KeyRound className="mr-2 h-4 w-4" />
               {isPending ? "Modification..." : "Modifier le mot de passe"}
             </Button>

@@ -1,4 +1,4 @@
-import { getQuizAction } from "@/actions/quiz-actions";
+import { getQuizAction, listCourseOptionsAction } from "@/actions/quiz-actions";
 import { listEditionsForSelectAction } from "@/actions/edition-actions";
 import { listQuestionsAction } from "@/actions/question-actions";
 import { QuizBuilder } from "@/components/admin/QuizBuilder";
@@ -9,10 +9,11 @@ export default async function QuizBuilderPage({
   params: Promise<{ quizId: string }>;
 }) {
   const { quizId } = await params;
-  const [quiz, editions, questions] = await Promise.all([
+  const [quiz, editions, questions, courses] = await Promise.all([
     getQuizAction(quizId),
     listEditionsForSelectAction(),
     listQuestionsAction(),
+    listCourseOptionsAction(),
   ]);
 
   const bankQuestions = questions
@@ -24,5 +25,7 @@ export default async function QuizBuilderPage({
       category: question.category,
     }));
 
-  return <QuizBuilder quiz={quiz} editions={editions} bankQuestions={bankQuestions} />;
+  return (
+    <QuizBuilder quiz={quiz} editions={editions} courses={courses} bankQuestions={bankQuestions} />
+  );
 }

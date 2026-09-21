@@ -192,15 +192,14 @@ export function SpeakerDialog({
           <DialogFooter className="rounded-none">
             <Button
               type="button"
-              variant="outline"
+              variant="cancel"
               onClick={() => onOpenChange(false)}
-              className="border-red-500 text-red-600 hover:border-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-500/10"
             >
               Annuler
             </Button>
             <Button
               type="submit"
-              disabled={isPending}
+              loading={isPending}
               className="text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: charter.orange }}
             >

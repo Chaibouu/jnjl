@@ -1,11 +1,12 @@
-import { listQuizzesAction } from "@/actions/quiz-actions";
+import { listCourseOptionsAction, listQuizzesAction } from "@/actions/quiz-actions";
 import { listEditionsForSelectAction } from "@/actions/edition-actions";
 import { QuizManager } from "@/components/admin/QuizManager";
 
 export default async function QuizzesPage() {
-  const [quizzes, editions] = await Promise.all([
+  const [quizzes, editions, courses] = await Promise.all([
     listQuizzesAction(),
     listEditionsForSelectAction(),
+    listCourseOptionsAction(),
   ]);
-  return <QuizManager quizzes={quizzes} editions={editions} />;
+  return <QuizManager quizzes={quizzes} editions={editions} courses={courses} />;
 }

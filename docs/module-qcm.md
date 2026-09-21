@@ -1,5 +1,8 @@
 # Module QCM — Documentation
 
+> **Mise à jour** : un QCM peut désormais être **lié à une formation** (débloqué à la fin de celle-ci, avec attestation), **libre** (sans formation) et/ou **compter pour le classement**. Les sections ci-dessous décrivent le socle ; voir [guide-super-admin.md](./guide-super-admin.md) §10.4–10.5 pour les règles actuelles d'accès et de score.
+
+
 Ce document explique le module QCM (Questionnaire à Choix Multiples) de la plateforme
 JNJL : à quoi il sert, comment il fonctionne techniquement, et comment l'utiliser
 (côté administrateur et côté ambassadeur).

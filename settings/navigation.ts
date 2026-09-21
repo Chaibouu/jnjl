@@ -4,6 +4,8 @@ export interface ChildrenItem {
   allowedRoles: string[];
   /** Permission fine requise en plus du rôle (ignorée pour SUPER_ADMIN — accès global). */
   requiredPermission?: string;
+  /** Affiché seulement si le compte est rattaché à une candidature ambassadeur. */
+  requiresAmbassadorAccount?: boolean;
 }
 export interface NavigationItem {
   title: string;
@@ -13,6 +15,8 @@ export interface NavigationItem {
   allowedRoles: string[];
   /** Permission fine requise en plus du rôle (ignorée pour SUPER_ADMIN — accès global). */
   requiredPermission?: string;
+  /** Affiché seulement si le compte est rattaché à une candidature ambassadeur. */
+  requiresAmbassadorAccount?: boolean;
 }
 
 export const adminNavigation: NavigationItem[] = [
@@ -20,7 +24,7 @@ export const adminNavigation: NavigationItem[] = [
     title: "Dashboard",
     icon: "material-symbols:dashboard",
     path: "/dashboard",
-    allowedRoles: ["USER", "ADMIN"],
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF", "USER"],
   },
   {
     title: "Mon profil",
@@ -29,22 +33,52 @@ export const adminNavigation: NavigationItem[] = [
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF", "USER"],
   },
   {
-    title: "Mon QCM",
+    title: "Notifications",
+    icon: "material-symbols:notifications",
+    path: "/dashboard/notifications",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF", "USER"],
+  },
+  {
+    title: "Mes formations",
+    icon: "material-symbols:school",
+    path: "/ambassadeur/formation",
+    allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
+  },
+  {
+    title: "Mes QCM",
     icon: "material-symbols:quiz",
     path: "/ambassadeur/qcm",
     allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
   },
   {
-    title: "Test",
-    icon: "material-symbols:dashboard",
-    path: "/test",
-    allowedRoles: ["ADMIN", "USER"],
+    title: "Mon engagement",
+    icon: "material-symbols:signature",
+    path: "/ambassadeur/engagement",
+    allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
   },
   {
-    title: "Paramètres",
-    icon: "material-symbols:settings",
-    path: "/dashboard/settings",
-    allowedRoles: ["ADMIN"],
+    title: "Mon badge",
+    icon: "material-symbols:badge",
+    path: "/ambassadeur/badge",
+    allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
+  },
+  {
+    title: "Mon attestation",
+    icon: "material-symbols:workspace-premium",
+    path: "/ambassadeur/attestation",
+    allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
+  },
+  {
+    title: "Statistiques",
+    icon: "material-symbols:bar-chart",
+    path: "/admin/statistiques",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "stats.view",
   },
   {
     title: "Éditions",
@@ -59,6 +93,13 @@ export const adminNavigation: NavigationItem[] = [
     path: "/admin/regions",
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
     requiredPermission: "regions.manage",
+  },
+  {
+    title: "Candidatures Participants",
+    icon: "material-symbols:groups",
+    path: "/admin/candidatures/participants",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "applications.event.manage",
   },
   {
     title: "Ambassadeurs",
@@ -124,6 +165,69 @@ export const adminNavigation: NavigationItem[] = [
     requiredPermission: "program.manage",
   },
   {
+    title: "Formations",
+    icon: "material-symbols:school",
+    path: "/admin/formation",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "training.manage",
+  },
+  {
+    title: "Classement & Sélection",
+    icon: "material-symbols:leaderboard",
+    path: "/admin/selection",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "selection.manage",
+  },
+  {
+    title: "Repêchage",
+    icon: "material-symbols:support",
+    path: "/admin/repechage",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "repechage.manage",
+  },
+  {
+    title: "Documents",
+    icon: "material-symbols:description",
+    path: "/admin/documents",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "documents.manage",
+  },
+  {
+    title: "Engagement",
+    icon: "material-symbols:signature",
+    path: "/admin/engagement",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "engagement.manage",
+  },
+  {
+    title: "Badges",
+    icon: "material-symbols:badge",
+    path: "/admin/badges",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "badges.manage",
+  },
+  {
+    title: "Embarquement",
+    icon: "material-symbols:directions-bus",
+    path: "/admin/embarquement",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "boarding.manage",
+  },
+  {
+    title: "Présence",
+    icon: "material-symbols:how-to-reg",
+    path: "/admin/presence",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "attendance.manage",
+  },
+  {
+    title: "Attestations",
+    icon: "material-symbols:workspace-premium",
+    path: "/admin/attestations",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "documents.manage",
+  },
+  {
     title: "QCM",
     icon: "material-symbols:quiz",
     path: "/admin/qcm",
@@ -149,23 +253,5 @@ export const adminNavigation: NavigationItem[] = [
         requiredPermission: "quiz.manage",
       },
     ],
-  },
-  {
-    title: "Pages",
-    icon: "eos-icons:admin",
-    path: "#",
-    children: [
-      {
-        title: "Client",
-        path: "/dashboard/client",
-        allowedRoles: ["USER"],
-      },
-      {
-        title: "Server",
-        path: "/dashboard/server",
-        allowedRoles: ["USER"],
-      },
-    ],
-    allowedRoles: ["USER"],
   },
 ];

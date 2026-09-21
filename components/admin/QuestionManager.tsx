@@ -6,6 +6,7 @@ import { Pencil, Search, Trash2 } from "lucide-react";
 import { deleteQuestionAction, listQuestionsAction } from "@/actions/question-actions";
 import { QuestionCreateDialog } from "@/components/admin/QuestionCreateDialog";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -46,6 +47,7 @@ export function QuestionManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -69,8 +71,14 @@ export function QuestionManager({
     });
   };
 
-  const remove = (question: Question) => {
-    if (!window.confirm("Supprimer cette question ?")) return;
+  const remove = async (question: Question) => {
+    const confirmed = await confirm({
+      title: "Supprimer cette question ?",
+      description: "Une question utilisée dans un QCM ne peut pas être supprimée.",
+      confirmLabel: "Supprimer",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {

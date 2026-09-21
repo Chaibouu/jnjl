@@ -9,6 +9,8 @@ export type User = {
   image?: string;
   /** Codes des permissions attribuées individuellement (vide pour SUPER_ADMIN — accès global). */
   permissions: string[];
+  /** Vrai si le compte est rattaché à une candidature ambassadeur (modules « Mes formations », « Mon badge »…). */
+  hasAmbassadorApplication?: boolean;
 };
 
 /** Métadonnées d'une session d'impersonation admin */

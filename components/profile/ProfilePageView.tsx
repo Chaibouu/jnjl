@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import {
   changeCurrentPasswordAction,
   updateCurrentProfileAction,
 } from "@/actions/profile-actions";
+import { AvatarPicker } from "@/components/profile/AvatarPicker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,6 +60,8 @@ export function ProfilePageView({ initialProfile }: Props) {
   const [profile, setProfile] = useState(initialProfile);
   const [activeTab, setActiveTab] = useState<Tab>("details");
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -188,10 +192,10 @@ export function ProfilePageView({ initialProfile }: Props) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setActiveTab("infos")}
+                  onClick={() => setShowAvatarDialog(true)}
                   className="absolute bottom-0 right-0 rounded-full p-2 text-white shadow-lg ring-4 ring-white transition-all hover:scale-110"
                   style={{ backgroundColor: charter.orange }}
-                  aria-label="Modifier le profil"
+                  aria-label="Modifier ma photo de profil"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -376,8 +380,8 @@ export function ProfilePageView({ initialProfile }: Props) {
                 <div className="flex justify-end md:col-span-2">
                   <Button
                     type="submit"
-                    disabled={isPending}
-                    className="rounded-xl px-6 py-3 text-sm font-semibold text-white shadow"
+                    loading={isPending}
+                    className="px-6 py-3 text-sm font-semibold text-white shadow"
                     style={{ backgroundColor: charter.orange }}
                   >
                     {isPending ? "Enregistrement..." : "Enregistrer"}
@@ -388,6 +392,16 @@ export function ProfilePageView({ initialProfile }: Props) {
           )}
         </div>
       </div>
+
+      <AvatarPicker
+        open={showAvatarDialog}
+        onOpenChange={setShowAvatarDialog}
+        currentImage={profile.image}
+        onChanged={image => {
+          setProfile(current => ({ ...current, image }));
+          router.refresh();
+        }}
+      />
 
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent className="sm:max-w-md">
@@ -440,12 +454,12 @@ export function ProfilePageView({ initialProfile }: Props) {
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
-                variant="outline"
+                variant="cancel"
                 onClick={() => setShowPasswordDialog(false)}
               >
                 Annuler
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" loading={isPending}>
                 {isPending ? "Modification..." : "Confirmer"}
               </Button>
             </div>

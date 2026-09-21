@@ -106,12 +106,12 @@ export function RecordPaymentDialog({
             />
           </label>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="cancel" onClick={() => setOpen(false)}>
               Annuler
             </Button>
             <Button
               type="submit"
-              disabled={isPending}
+              loading={isPending}
               className="text-white hover:opacity-90"
               style={{ backgroundColor: charter.green }}
             >

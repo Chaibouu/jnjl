@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getAmbassadorApplicationAction } from "@/actions/ambassador-application-actions";
 import { getPaymentStatusAction } from "@/actions/payment-actions";
+import { formatGender } from "@/lib/gender";
 
 const STATUS_LABEL: Record<string, string> = {
   SOUMIS: "Soumise",
@@ -121,7 +122,7 @@ export default async function AmbassadorApplicationDetailsPage({
               <InfoTile
                 icon={User}
                 label="Sexe"
-                value={application.gender ?? "—"}
+                value={formatGender(application.gender)}
               />
               <InfoTile
                 icon={Cake}

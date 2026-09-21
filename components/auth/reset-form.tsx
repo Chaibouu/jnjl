@@ -81,7 +81,7 @@ export const ResetForm = () => {
           <FormError message={error} />
           <FormSuccess message={success} />
           <Button
-            disabled={isPending}
+            loading={isPending}
             type="submit"
             className="w-full text-white transition-colors hover:opacity-90"
             style={{ backgroundColor: charter.orange }}

@@ -55,6 +55,7 @@ export async function getUserById(userId: string) {
         isActive: true,
         image: true,
         permissions: { select: { permission: { select: { code: true } } } },
+        _count: { select: { ambassadorApplications: true } },
       },
     });
 
@@ -62,9 +63,10 @@ export async function getUserById(userId: string) {
       throw new Error("Utilisateur non trouvé");
     }
 
-    const { permissions, ...rest } = user;
+    const { permissions, _count, ...rest } = user;
     return {
       ...rest,
+      hasAmbassadorApplication: _count.ambassadorApplications > 0,
       // Le Super Admin a un accès global : pas besoin de lister ses permissions (lib/permissions.ts).
       permissions: permissions.map((p) => p.permission.code),
     };

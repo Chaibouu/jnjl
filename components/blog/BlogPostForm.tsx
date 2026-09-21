@@ -112,7 +112,7 @@ export function BlogPostForm({ blogId, blogTitle }: BlogPostFormProps) {
 
           <Button 
             type="submit" 
-            disabled={isPending}
+            loading={isPending}
             className="w-full"
           >
             {isPending ? "Création..." : "Créer le post"}

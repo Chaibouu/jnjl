@@ -2,6 +2,11 @@
 const nextConfig = {
     // Optimisations pour Next.js 15
     experimental: {
+        // Envois de fichiers via les actions serveur (documents, images de l'éditeur) :
+        // 4 Mo maximum, la limite des fonctions Vercel étant de 4,5 Mo.
+        serverActions: {
+            bodySizeLimit: '4mb',
+        },
         // Amélioration des performances
         optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
         // Amélioration du bundling
@@ -72,6 +77,17 @@ const nextConfig = {
                     },
                     // Content-Security-Policy définie dynamiquement dans middleware.ts
                     // (avec nonce par requête pour supprimer unsafe-inline des scripts)
+                ],
+            },
+            {
+                // Les fichiers générés (engagement, attestations…) peuvent être affichés en aperçu
+                // dans une page de ce même site — mais jamais dans un site tiers.
+                source: '/uploads/:path*',
+                headers: [
+                    {
+                        key: 'X-Frame-Options',
+                        value: 'SAMEORIGIN',
+                    },
                 ],
             },
         ];
