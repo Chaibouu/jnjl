@@ -23,9 +23,10 @@ quel ordre l'utiliser, les règles appliquées par le système et les pièges à
 11. [Statistiques et exports](#11-statistiques-et-exports)
 12. [Notifications et emails](#12-notifications-et-emails)
 13. [Stockage des fichiers](#13-stockage-des-fichiers)
-14. [Limites connues](#14-limites-connues)
-15. [Dépannage](#15-dépannage)
-16. [Annexe — permissions et comptes de démonstration](#16-annexe--permissions-et-comptes-de-démonstration)
+14. [Référencement (SEO)](#14-référencement-seo)
+15. [Limites connues](#15-limites-connues)
+16. [Dépannage](#16-dépannage)
+17. [Annexe — permissions et comptes de démonstration](#17-annexe--permissions-et-comptes-de-démonstration)
 
 ---
 
@@ -78,7 +79,7 @@ c'est elle qui alimente l'accueil du site, les candidatures publiques et les esp
   si la permission manque (message « Permission requise : … »).
 - En tant que Super Admin vous voyez **tous** les modules, y compris les pages « Mon badge », « Mon QCM »…
   destinées aux ambassadeurs ; elles afficheront simplement « aucune candidature » pour votre compte.
-- La liste complète des permissions est en [annexe](#16-annexe--permissions-et-comptes-de-démonstration).
+- La liste complète des permissions est en [annexe](#17-annexe--permissions-et-comptes-de-démonstration).
 
 ---
 
@@ -205,7 +206,7 @@ Notes :
 - L'accueil et les pages publiques lisent l'**édition active** : sans édition active, ces sections restent vides.
 - La section « À propos » (vision, mission, objectifs, valeurs) et le **formulaire de contact** sont dans l'accueil.
   Les messages de contact sont enregistrés et envoyés par email à l'adresse configurée (`MAIL_AUTH_USER`) ; **il n'existe pas
-  encore d'écran d'administration pour les relire** (voir [limites](#14-limites-connues)).
+  encore d'écran d'administration pour les relire** (voir [limites](#15-limites-connues)).
 - La rubrique « Blogs » du menu est un reste du modèle de départ, sans lien avec le fonctionnement JNJL.
 
 ---
@@ -488,7 +489,25 @@ Regrouper par édition permet d'archiver ou de purger une édition entière. Les
 
 ---
 
-## 14. Limites connues
+## 14. Référencement (SEO)
+
+Le site public est prêt pour les moteurs de recherche :
+
+- **Titre, description, URL canonique, Open Graph et Twitter** propres à chaque page (`lib/seo.ts`, `buildMetadata()`). Les actualités et les éditions passées utilisent leur propre titre, résumé et image.
+- **Données structurées (schema.org)** : Organisation et Site sur l'accueil, Événement (édition), Article (actualités), fil d'Ariane.
+- **`/sitemap.xml`** généré automatiquement (pages publiques + actualités publiées + éditions archivées) et **`/robots.txt`**.
+- **Zones privées** (admin, ambassadeur, dashboard, profil, connexion, API) : exclues de `robots.txt` et marquées `noindex` par en-tête HTTP.
+- Image de partage `public/og-image.jpg` (1200×630), manifeste web, langue du site déclarée en français.
+
+**À faire une fois en production** (par le propriétaire du site) :
+1. Vérifier que `NEXT_PUBLIC_APP_URL` vaut l'adresse publique exacte (`https://…`, sans `/` final) : elle sert à toutes les URL du sitemap, canonical et Open Graph.
+2. Créer la propriété dans **Google Search Console** et **Bing Webmaster Tools**, puis renseigner dans Vercel `GOOGLE_VERIFICATION` (et `BING_VERIFICATION`) avec le code de vérification fourni.
+3. Soumettre `https://<votre-domaine>/sitemap.xml` dans les deux outils.
+4. Pour un bon classement : publier régulièrement des actualités (titre clair, résumé de 1 à 2 phrases, image de couverture), ajouter des photos avec le nom de l'édition, et remplacer le numéro de téléphone provisoire du pied de page/contact.
+
+---
+
+## 15. Limites connues
 
 À savoir avant de compter dessus :
 
@@ -510,7 +529,7 @@ Regrouper par édition permet d'archiver ou de purger une édition entière. Les
 
 ---
 
-## 15. Dépannage
+## 16. Dépannage
 
 ### 15.1 Problèmes courants
 
@@ -553,7 +572,7 @@ Regrouper par édition permet d'archiver ou de purger une édition entière. Les
 
 ---
 
-## 16. Annexe — permissions et comptes de démonstration
+## 17. Annexe — permissions et comptes de démonstration
 
 ### 16.1 Catalogue des permissions
 

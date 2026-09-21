@@ -2,8 +2,14 @@ import Link from "next/link";
 import { CalendarDays, MapPin } from "lucide-react";
 import { listPastEditionsAction } from "@/actions/edition-content-actions";
 import charter from "@/settings/charter";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata = { title: "Éditions précédentes — JNJL" };
+export const metadata = buildMetadata({
+  title: "Éditions précédentes",
+  description:
+    "Revivez les éditions précédentes de la Journée Nationale du Jeune Leader (JNJL) : photos, vidéos, chiffres clés et temps forts.",
+  path: "/editions",
+});
 export const dynamic = "force-dynamic";
 
 export default async function PastEditionsPage() {

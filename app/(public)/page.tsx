@@ -26,6 +26,11 @@ import { HeroScene } from "@/components/site/HeroScene";
 import { ContactForm, ContactInfo } from "@/components/site/ContactForm";
 import appConfig from "@/settings";
 import charter from "@/settings/charter";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { buildMetadata, eventJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
+
+// Titre par défaut (défini dans le layout racine) ; seul le canonical est précisé ici.
+export const metadata = { alternates: buildMetadata({ title: "", path: "/" }).alternates };
 
 const TRACKS = [
   {
@@ -64,6 +69,26 @@ export default async function HomePage() {
 
   return (
     <div className="overflow-hidden">
+      <JsonLd
+        data={[
+          organizationJsonLd(),
+          websiteJsonLd(),
+          ...(edition
+            ? [
+                eventJsonLd({
+                  name: edition.name,
+                  description: edition.description,
+                  theme: edition.theme,
+                  location: edition.location,
+                  startDate: edition.startDate,
+                  endDate: edition.endDate,
+                  path: "/",
+                }),
+              ]
+            : []),
+        ]}
+      />
+
       {/* Hero */}
       <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20" style={{ backgroundColor: charter.bg }}>
         <div

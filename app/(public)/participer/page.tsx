@@ -3,6 +3,14 @@ import { db } from "@/lib/db";
 import { SectionHeader } from "@/components/site/SectionHeader";
 import { ParticipantApplicationForm } from "@/components/participants/ParticipantApplicationForm";
 import charter from "@/settings/charter";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Participer à la JNJL",
+  description:
+    "Inscrivez-vous pour participer à la Journée Nationale du Jeune Leader (JNJL) au Niger : ateliers, rencontres et activités de leadership pour les jeunes.",
+  path: "/participer",
+});
 
 export const dynamic = "force-dynamic";
 

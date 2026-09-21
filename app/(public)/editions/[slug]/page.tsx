@@ -4,12 +4,28 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { getPastEditionBySlugAction } from "@/actions/edition-content-actions";
 import { toEmbedUrl } from "@/lib/video-embed";
 import charter from "@/settings/charter";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { breadcrumbJsonLd, buildMetadata, eventJsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 const DATE_OPTIONS = { day: "numeric", month: "long", year: "numeric" } as const;
 
-export default async function PastEditionPage({ params }: { params: Promise<{ slug: string }> }) {
+type Params = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Params) {
+  const { slug } = await params;
+  const edition = await getPastEditionBySlugAction(slug);
+  if (!edition) return { title: "Édition introuvable", robots: { index: false, follow: false } };
+  return buildMetadata({
+    title: `${edition.name} — édition ${edition.year}`,
+    description: edition.description || edition.theme || `Revivez l'édition ${edition.year} de la Journée Nationale du Jeune Leader.`,
+    path: `/editions/${edition.slug}`,
+    image: edition.media.find(item => item.type === "PHOTO")?.url,
+  });
+}
+
+export default async function PastEditionPage({ params }: Params) {
   const { slug } = await params;
   const edition = await getPastEditionBySlugAction(slug);
   if (!edition) notFound();
@@ -19,6 +35,25 @@ export default async function PastEditionPage({ params }: { params: Promise<{ sl
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+      <JsonLd
+        data={[
+          eventJsonLd({
+            name: edition.name,
+            description: edition.description,
+            theme: edition.theme,
+            location: edition.location,
+            startDate: edition.startDate,
+            endDate: edition.endDate,
+            path: `/editions/${edition.slug}`,
+            image: photos[0]?.url,
+          }),
+          breadcrumbJsonLd([
+            { name: "Accueil", path: "/" },
+            { name: "Éditions précédentes", path: "/editions" },
+            { name: edition.name, path: `/editions/${edition.slug}` },
+          ]),
+        ]}
+      />
       <Link href="/editions" className="text-sm text-muted-foreground hover:text-foreground">
         ← Toutes les éditions
       </Link>

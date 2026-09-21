@@ -1,6 +1,14 @@
 import { Clock, MapPin } from "lucide-react";
 import { listActiveEditionProgramAction } from "@/actions/program-actions";
 import charter from "@/settings/charter";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Programme",
+  description:
+    "Découvrez le programme de la Journée Nationale du Jeune Leader : conférences, ateliers, rencontres et activités jour par jour, à Niamey.",
+  path: "/programme",
+});
 
 const TYPE_LABEL: Record<string, string> = {
   CONFERENCE: "Conférence",

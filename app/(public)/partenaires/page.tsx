@@ -1,5 +1,13 @@
 import { listActiveEditionPartnersAction } from "@/actions/partner-actions";
 import charter from "@/settings/charter";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Partenaires",
+  description:
+    "Les partenaires institutionnels et privés qui soutiennent la Journée Nationale du Jeune Leader (JNJL) et la jeunesse nigérienne.",
+  path: "/partenaires",
+});
 
 const CATEGORY_LABEL: Record<string, string> = {
   INSTITUTIONNEL: "Partenaires institutionnels",

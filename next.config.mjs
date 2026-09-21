@@ -90,6 +90,17 @@ const nextConfig = {
                     },
                 ],
             },
+            {
+                // Zones privées : jamais indexées, même si un lien externe y pointe
+                // (complète robots.txt, qui n'empêche que l'exploration).
+                source: '/:zone(admin|ambassadeur|dashboard|profile|auth|unauthorized|blogs|test|api)/:path*',
+                headers: [
+                    {
+                        key: 'X-Robots-Tag',
+                        value: 'noindex, nofollow, noarchive',
+                    },
+                ],
+            },
         ];
     },
 

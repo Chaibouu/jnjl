@@ -4,6 +4,14 @@ import { AmbassadorApplicationForm } from "@/components/ambassadors/AmbassadorAp
 import charter from "@/settings/charter";
 import appConfig from "@/settings";
 import Image from "next/image";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Devenir Ambassadeur JNJL",
+  description:
+    "Candidatez pour devenir Ambassadeur de la JNJL et représenter votre région : formation au leadership, engagement citoyen et rayonnement de la jeunesse nigérienne.",
+  path: "/ambassadeurs/candidature",
+});
 
 export const dynamic = "force-dynamic";
 

@@ -1,5 +1,13 @@
 import { listActiveEditionSpeakersAction } from "@/actions/speaker-actions";
 import charter from "@/settings/charter";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Intervenants",
+  description:
+    "Les intervenants et personnalités de la Journée Nationale du Jeune Leader (JNJL) : experts, leaders et acteurs engagés pour la jeunesse du Niger.",
+  path: "/intervenants",
+});
 
 export default async function SpeakersPage() {
   const speakers = await listActiveEditionSpeakersAction();

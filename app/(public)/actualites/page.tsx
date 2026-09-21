@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { listPublishedNewsAction } from "@/actions/news-actions";
 import charter from "@/settings/charter";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Actualités",
+  description:
+    "Toute l'actualité de la Journée Nationale du Jeune Leader (JNJL) : annonces, comptes rendus, témoignages et nouvelles de la jeunesse nigérienne.",
+  path: "/actualites",
+});
 
 export default async function NewsListPage() {
   const news = await listPublishedNewsAction();
