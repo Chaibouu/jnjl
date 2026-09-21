@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 export async function verifyEmail(token: string) {
   try {
     // Vérifier si le token est présent
@@ -9,7 +11,7 @@ export async function verifyEmail(token: string) {
 
     // Envoyer une requête à /api/auth/verify avec le token
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/change-email/confirm`,
+      `${getAppUrl()}/api/auth/change-email/confirm`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,6 +1,8 @@
+import { getAppUrl } from "@/lib/app-url";
+
 export const refreshUserToken = async (refreshToken: string) => {
   const refreshResponse = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/refresh`,
+    `${getAppUrl()}/api/auth/refresh`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -17,7 +19,7 @@ export const refreshUserToken = async (refreshToken: string) => {
 export const getUserInfo = async (accessToken: string) => {
   // Utiliser le nouveau token d'accès pour récupérer les informations de l'utilisateur
   const userResponse = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/profile`,
+    `${getAppUrl()}/api/profile`,
     {
       method: "GET",
       headers: {

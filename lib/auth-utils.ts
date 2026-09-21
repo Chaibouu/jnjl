@@ -1,3 +1,4 @@
+import { getAppUrl } from "@/lib/app-url";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { refreshUserToken } from "@/lib/user";
@@ -106,7 +107,7 @@ export async function authenticatedApiCall<T = any>(
   const { accessToken } = await getAuthenticatedUser();
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL}${endpoint}`,
+    `${getAppUrl()}${endpoint}`,
     {
       method,
       headers: {

@@ -1,10 +1,12 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 export const resendVerification = async (email: string) => {
   try {
     // Appeler l'API resend-verification
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/resend-verification`,
+      `${getAppUrl()}/api/auth/resend-verification`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

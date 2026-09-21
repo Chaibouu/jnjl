@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { LoginSchema } from "@/schemas";
 import { setMultipleCookies } from "./setMultipleCookies";
 
@@ -24,7 +26,7 @@ export const login = async (data: {
   try {
     // Appeler l'API login
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/login`,
+      `${getAppUrl()}/api/auth/login`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

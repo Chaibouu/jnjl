@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { SignupSchema } from "@/schemas";
 
 export const signup = async (data: {
@@ -22,7 +24,7 @@ export const signup = async (data: {
   try {
     // Appeler l'API signup
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/signup`,
+      `${getAppUrl()}/api/auth/signup`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

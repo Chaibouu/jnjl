@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { resetPasswordSchema } from "@/schemas";
 
 export const resetPassword = async (data: {
@@ -21,7 +23,7 @@ export const resetPassword = async (data: {
   try {
     // Appeler l'API reset-password
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/reset-password`,
+      `${getAppUrl()}/api/auth/reset-password`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

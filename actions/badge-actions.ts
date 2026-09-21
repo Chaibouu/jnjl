@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { readFile } from "fs/promises";
 import { join } from "path";
 import QRCode from "qrcode";
@@ -209,7 +211,7 @@ async function loadLogo(): Promise<Uint8Array | null> {
     return new Uint8Array(await readFile(join(process.cwd(), "public", "jnjl.jpg")));
   } catch {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/jnjl.jpg`);
+      const response = await fetch(`${getAppUrl()}/jnjl.jpg`);
       if (response.ok) return new Uint8Array(await response.arrayBuffer());
     } catch {
       // Sans logo, le badge est quand même généré.

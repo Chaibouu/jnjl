@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { PasswordResetSchema } from "@/schemas";
 
 export const forgotPassword = async (data: { email: string }) => {
@@ -18,7 +20,7 @@ export const forgotPassword = async (data: { email: string }) => {
   try {
     // Appeler l'API forgot-password
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/forgot-password`,
+      `${getAppUrl()}/api/auth/forgot-password`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

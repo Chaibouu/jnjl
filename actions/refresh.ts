@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { cookies } from "next/headers";
 
 export const refresh = async () => {
@@ -13,7 +15,7 @@ export const refresh = async () => {
 
     // Appeler l'API de rafraîchissement
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/refresh`,
+      `${getAppUrl()}/api/auth/refresh`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

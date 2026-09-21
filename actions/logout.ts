@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { cookies } from "next/headers";
 import { refreshUserToken } from "@/lib/user";
 
@@ -26,7 +28,7 @@ export const logout = async () => {
 
     // Appeler l'API logout et envoyer le token d'accès
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/logout`,
+      `${getAppUrl()}/api/auth/logout`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

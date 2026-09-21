@@ -1,5 +1,7 @@
 "use server";
 
+import { getAppUrl } from "@/lib/app-url";
+
 import { cookies } from "next/headers";
 
 // ─── Démarrer une session d'impersonation ─────────────────────────────────────
@@ -13,7 +15,7 @@ export async function startImpersonation(targetUserId: string) {
   }
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/admin/impersonate`,
+    `${getAppUrl()}/api/admin/impersonate`,
     {
       method: "POST",
       headers: {
@@ -61,7 +63,7 @@ export async function endImpersonation() {
   }
 
   // Supprimer la session en base de données
-  await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/impersonate/end`, {
+  await fetch(`${getAppUrl()}/api/admin/impersonate/end`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${impersonationToken}` },
   });

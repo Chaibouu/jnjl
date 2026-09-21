@@ -1,7 +1,8 @@
+import { getAppUrl } from "@/lib/app-url";
 import nodemailer, { TransportOptions } from "nodemailer";
 import appConfig from "@/settings";
 
-const domain = process.env.NEXT_PUBLIC_APP_URL;
+const domain = getAppUrl();
 const emailUser = process.env.MAIL_AUTH_USER;
 const transporter = nodemailer.createTransport(
   appConfig.mailOptions as TransportOptions
