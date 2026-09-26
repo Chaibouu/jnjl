@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MediaUploadField } from "@/components/admin/MediaUploadField";
 import {
   createSpeakerAction,
   updateSpeakerAction,
@@ -129,15 +130,12 @@ export function SpeakerDialog({
               />
             </Field>
           </div>
-          <Field>
-            <FieldLabel>Photo (URL)</FieldLabel>
-            <Input
-              value={form.photo}
-              onChange={event => update("photo", event.target.value)}
-              placeholder="https://..."
-              className="h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
-            />
-          </Field>
+          <MediaUploadField
+            label="Photo"
+            kind="speakerPhoto"
+            value={form.photo}
+            onChange={value => update("photo", value)}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel>Fonction</FieldLabel>

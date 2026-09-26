@@ -15,12 +15,15 @@ import {
 import charter from "@/settings/charter";
 
 type PermissionItem = { code: string; label: string; category: string | null };
+type RegionItem = { id: string; name: string; code: string };
 
 export function AdminUserCreateDialog({
   permissions,
+  regions,
   onCreated,
 }: {
   permissions: PermissionItem[];
+  regions: RegionItem[];
   onCreated: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -49,6 +52,7 @@ export function AdminUserCreateDialog({
           <AdminUserForm
             embedded
             permissions={permissions}
+            regions={regions}
             onSuccess={() => {
               setOpen(false);
               onCreated();

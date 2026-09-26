@@ -77,9 +77,11 @@ export function CertificatesManager({
       <header className="flex flex-col gap-4 rounded-2xl border bg-card p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-primary">Ambassadeurs</p>
-          <h1 className="mt-1 text-3xl font-bold">Attestations</h1>
+          <h1 className="mt-1 text-3xl font-bold">Attestation de participation JNJL</h1>
           <p className="mt-2 text-muted-foreground">
-            Générez l&apos;attestation de participation des ambassadeurs pointés présents.
+            Document officiel délivré en fin de parcours, une fois l&apos;ambassadeur pointé présent
+            à l&apos;événement — à ne pas confondre avec les attestations de formation ci-dessous,
+            liées à chaque module.
           </p>
         </div>
         <div className="w-full sm:w-64">

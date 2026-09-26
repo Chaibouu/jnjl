@@ -22,6 +22,13 @@ export const editionSchema = z.object({
   theme: z.string().trim().max(200).optional().or(z.literal("")),
   description: z.string().trim().max(5000).optional().or(z.literal("")),
   location: z.string().trim().max(200).optional().or(z.literal("")),
+  // Couleur de fond du badge ambassadeur (hex) — laisser vide pour la couleur par défaut.
+  badgeBackgroundColor: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide (format hex, ex. #282828)")
+    .optional()
+    .or(z.literal("")),
   // Chaînes ISO (yyyy-mm-dd) issues d'un <input type="date"> — converties en Date dans l'action.
   startDate: z.string().trim().optional().or(z.literal("")),
   endDate: z.string().trim().optional().or(z.literal("")),

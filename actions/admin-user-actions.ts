@@ -23,12 +23,14 @@ const userSelect = {
   emailVerified: true,
   image: true,
   isTwoFactorEnabled: true,
+  focalRegionId: true,
+  focalRegion: { select: { id: true, name: true, code: true } },
   permissions: { select: { permission: { select: { code: true } } } },
 } as const;
 
 export async function listAdminUsersAction() {
   await requirePermission("users.manage");
-  const [users, permissions] = await Promise.all([
+  const [users, permissions, regions] = await Promise.all([
     db.user.findMany({
       where: { isDeleted: false },
       select: userSelect,
@@ -38,6 +40,10 @@ export async function listAdminUsersAction() {
       select: { code: true, label: true, category: true },
       orderBy: [{ category: "asc" }, { label: "asc" }],
     }),
+    db.region.findMany({
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return {
@@ -46,12 +52,13 @@ export async function listAdminUsersAction() {
       permissions: userPermissions.map(({ permission }) => permission.code),
     })),
     permissions,
+    regions,
   };
 }
 
 export async function getAdminUserAction(userId: string) {
   await requirePermission("users.manage");
-  const [user, permissions] = await Promise.all([
+  const [user, permissions, regions] = await Promise.all([
     db.user.findFirst({
       where: { id: userId, isDeleted: false },
       select: userSelect,
@@ -60,10 +67,14 @@ export async function getAdminUserAction(userId: string) {
       select: { code: true, label: true, category: true },
       orderBy: [{ category: "asc" }, { label: "asc" }],
     }),
+    db.region.findMany({
+      select: { id: true, name: true, code: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!user) throw new Error("Utilisateur introuvable");
-  return { user: serializeUser(user), permissions };
+  return { user: serializeUser(user), permissions, regions };
 }
 
 export async function createAdminUserAction(input: CreateAdminUserInput) {
@@ -87,6 +98,7 @@ export async function createAdminUserAction(input: CreateAdminUserInput) {
       role: data.role,
       isActive: data.isActive,
       emailVerified: data.emailVerified ? new Date() : null,
+      focalRegionId: data.role === UserRole.STAFF ? emptyToNull(data.focalRegionId) : null,
       permissions: { create: await permissionCreates(data.permissions) },
     },
     select: userSelect,
@@ -122,6 +134,7 @@ export async function updateAdminUserAction(
         emailVerified: data.emailVerified
           ? (target.emailVerified ?? new Date())
           : null,
+        focalRegionId: data.role === UserRole.STAFF ? emptyToNull(data.focalRegionId) : null,
         ...(data.password
           ? { password: await bcrypt.hash(data.password, 12) }
           : {}),

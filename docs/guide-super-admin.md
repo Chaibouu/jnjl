@@ -122,7 +122,7 @@ BROUILLON  →  PUBLIÉE  →  ACTIVE  →  ARCHIVÉE
 | Bouton | Effet |
 |---|---|
 | **Voir** (œil) | Fiche de l'édition + gestion des chiffres clés et de la galerie (§4.3) |
-| **Modifier** (crayon) | Année, nom, slug, thème, description, lieu, dates |
+| **Modifier** (crayon) | Année, nom, slug, thème, description, lieu, dates, couleur de fond du badge |
 | **Activer** (coche) | Rend l'édition active. **L'ancienne édition active repasse automatiquement en « Publiée »** (transaction atomique : jamais deux éditions actives). |
 | **Archiver** | Termine l'édition et la publie sur `/editions`. Confirmation demandée. |
 | **Restaurer** | Ramène une édition archivée en « Publiée ». |
@@ -134,8 +134,9 @@ Règles : une seule édition par **année** ; le **slug** doit être unique ; **
 
 - **Chiffres clés** (permission `editions.manage`) : libellé + valeur (ex. « Participants — 1200 »). Un libellé est
   unique par édition. Ils s'affichent sur l'accueil (édition active) et sur la page publique de l'édition archivée.
-- **Galerie** (permission `media.manage`) : photos et vidéos par **lien**. Les vidéos YouTube/Vimeo sont intégrées
-  automatiquement ; les autres liens s'affichent comme lien cliquable.
+- **Galerie** (permission `media.manage`) : photos et vidéos. Pour une **photo**, coller un lien **ou** cliquer
+  « Téléverser » pour envoyer un fichier depuis l'ordinateur (JPEG/PNG/GIF/WebP, 4 Mo max — stocké sur R2/disque local,
+  voir §16.3). Une **vidéo** reste obligatoirement un lien (YouTube/Vimeo intégrés automatiquement, sinon lien cliquable).
 
 ### 4.4 Page publique « Éditions précédentes »
 
@@ -152,10 +153,30 @@ Liste des régions (Agadez, Diffa, Dosso, Maradi, Niamey, Tahoua, Tillabéri, Zi
 (nom + code, uniques) ou supprimer. **Une région déjà utilisée** (candidature, profil, quota, embarquement…) **ne peut pas
 être supprimée.**
 
-### 5.2 Quotas — dans « Classement & Sélection » (`quotas.manage`)
+### 5.2 Quotas — dans « Classement & Sélection » ou « Paramètres » (`quotas.manage`)
 
 Un quota = **nombre d'ambassadeurs à sélectionner dans une région pour une édition**. Il est saisi par région et
-enregistré avec l'auteur de la modification. Valeur par défaut : **0**.
+enregistré avec l'auteur de la modification. Valeur par défaut : **0**. Réglable depuis **Classement & Sélection**
+(§10.6) ou depuis **Paramètres** (§5.3) — les deux écrans partagent les mêmes valeurs.
+
+### 5.3 Paramètres — `/admin/parametres` (`editions.manage`)
+
+Écran dédié aux réglages qui ne concernent pas l'identité de l'édition (contrairement à Éditions, §4) : **quotas
+régionaux** (§5.2) et **réglages des documents administratifs** de l'édition sélectionnée —
+
+- **Dates de l'ordre de mission** : DATE DE DEPART / DATE DE RETOUR affichées sur le document. Vides par défaut
+  (reprennent alors les dates de l'édition).
+- **Période de l'autorisation d'absence** : dates de début/fin utilisées dans la demande de permission. Vides par
+  défaut (reprennent alors les dates de l'édition).
+- **Clause de patronage** : texte repris tel quel dans la demande de permission (« sous le Haut Patronage… »). Vide
+  par défaut (texte générique utilisé).
+- **Attestation de participation** (§10.13) : thème, lieu, dates et nom de l'édition insérés dans le texte de
+  l'attestation (« ... sur le thème : «&nbsp;{thème}&nbsp;» tenue à {lieu} le {date} ... à la {édition}. »). Chaque
+  champ a son propre repli si vide (thème et lieu de l'édition, dates de l'édition, nom de l'édition) — utile pour
+  reprendre une formulation historique comme « 3è édition de la JNJL » plutôt que le nom brut de l'édition.
+
+Ces réglages étaient auparavant sur la fiche édition ; ils vivent désormais ici pour ne pas surcharger le
+formulaire d'édition.
 
 ---
 
@@ -238,16 +259,19 @@ Il n'y a **pas d'écran d'administration dédié** aux Jeunes Leaders : ils appa
 
 ---
 
-## 10. Parcours Ambassadeur — les 14 étapes
+## 10. Parcours Ambassadeur — les 13 étapes
 
 ### 10.1 Vue d'ensemble
 
 Chaque candidature ambassadeur porte une **étape** (`stage`) qui avance automatiquement selon les actions ci-dessous.
+Un candidat sélectionné (directement ou par repêchage) passe **directement à l'engagement** : la demande de permission
+et l'ordre de mission ne sont plus une étape bloquante (voir §10.8) — l'ambassadeur les génère lui-même, en libre-service,
+une fois son engagement signé.
 
 ```
  1 Compte/Candidature ─▶ (acceptation admin) ─▶ 3 PAIEMENT ─▶ (paiement saisi) ─▶ 4 FORMATION
  ─▶ (tous modules terminés) ─▶ 5 QCM ─▶ (QCM soumis) ─▶ 6 CLASSEMENT ─▶ (sélection) ─▶ 7-8 REPÊCHAGE
- ─▶ 9 DOCUMENTS ─▶ 10 ENGAGEMENT ─▶ 11 BADGE ─▶ 12 EMBARQUEMENT ─▶ 13 PRÉSENCE ─▶ 14 ATTESTATION
+ ─▶ 9 ENGAGEMENT ─▶ 10 BADGE ─▶ 11 EMBARQUEMENT ─▶ 12 PRÉSENCE ─▶ 13 ATTESTATION
 ```
 
 | # | Étape | Qui agit | Écran | Permission | Passage à l'étape suivante |
@@ -258,14 +282,13 @@ Chaque candidature ambassadeur porte une **étape** (`stage`) qui avance automat
 | 4 | Formation | Ambassadeur | Ma formation | — | Tous les modules terminés → QCM |
 | 5 | QCM | Ambassadeur | Mon QCM | — | QCM soumis → CLASSEMENT |
 | 6 | Classement | Admin | Classement & Sélection | `selection.manage` | Sélection |
-| 7 | Sélection | Admin | Classement & Sélection | `selection.manage` | → REPÊCHAGE (sélectionnés) |
-| 8 | Repêchage | Admin | Repêchage | `repechage.manage` | → REPÊCHAGE (décision prise) |
-| 9 | Documents | Admin | Documents | `documents.manage` | 2 PDF déposés → ENGAGEMENT |
-| 10 | Engagement | Ambassadeur | Mon engagement | (texte : `engagement.manage`) | Signature → BADGE |
-| 11 | Badge | Admin | Badges | `badges.manage` | Attribution → EMBARQUEMENT |
-| 12 | Embarquement | Point focal | Embarquement | `boarding.manage` | « Embarquer » → PRÉSENCE |
-| 13 | Présence | Staff accueil | Présence | `attendance.manage` | Pointage → ATTESTATION |
-| 14 | Attestation | Admin | Attestations | `documents.manage` | Terminal |
+| 7 | Sélection | Admin | Classement & Sélection | `selection.manage` | → ENGAGEMENT (sélectionnés) |
+| 8 | Repêchage | Admin | Repêchage | `repechage.manage` | Validé → ENGAGEMENT |
+| 9 | Engagement | Ambassadeur | Mon engagement | (texte : `engagement.manage`) | Signature → BADGE |
+| 10 | Badge | Admin | Badges | `badges.manage` | Attribution → EMBARQUEMENT |
+| 11 | Embarquement | Point focal | Embarquement | `boarding.manage` | « Embarquer » → PRÉSENCE |
+| 12 | Présence | Staff accueil | Présence | `attendance.manage` | Pointage → ATTESTATION |
+| 13 | Attestation | Admin | Attestations | `documents.manage` | Terminal |
 
 ### 10.2 Candidatures — `/admin/ambassadeurs/candidatures`
 
@@ -354,23 +377,29 @@ Les deux réglages sont **indépendants** : un QCM peut être à la fois lié à
 ### 10.7 Repêchage — `/admin/repechage` (`repechage.manage`)
 
 Liste les candidats **non sélectionnés**. Le Super Admin/Admin décide **Valider** ou **Refuser**, avec une **justification obligatoire
-(10 caractères minimum)**. Valider transforme le candidat en *Sélectionné*. La décision et son auteur sont conservés ; le candidat est notifié.
-Seuls les candidats *sélectionnés* (initialement ou par repêchage) continuent vers l'étape Documents.
+(10 caractères minimum)**. Valider transforme le candidat en *Sélectionné* et le fait passer directement à **ENGAGEMENT** ;
+refuser n'avance pas l'étape (le candidat reste non sélectionné). La décision et son auteur sont conservés ; le candidat est notifié.
 
 ### 10.8 Documents administratifs — `/admin/documents` (`documents.manage`)
 
-Pour les candidats sélectionnés : l'admin dépose **deux documents PDF** par ambassadeur — la **demande de permission** et l'**ordre de mission**
-(PDF uniquement, 4 Mo max, contenu vérifié). Un document déjà présent est **remplacé**. Le premier dépôt fait entrer le candidat en **DOCUMENTS**.
-Le bouton **« Passer à l'engagement »** exige que **les deux documents** soient présents.
+La **demande de permission** et l'**ordre de mission** ne bloquent plus le parcours : dès que son **engagement est signé**,
+chaque ambassadeur les génère lui-même en libre-service (**Mes documents › Demande de permission / Ordre de mission**) — un
+court formulaire (établissement, niveau, moyen de transport…) remplit le vrai modèle Word officiel (signature et cachet
+inclus) et produit un **.docx** téléchargeable immédiatement. La numérotation (`0001/AAAA/LA/AMG/AAF` pour la demande,
+`001/LA/AM/RH/AAAA` pour l'ordre de mission) est **séquentielle et stable** : régénérer un document garde le même numéro.
 
-> Ces deux documents sont **déposés** (fichiers préparés à l'extérieur), pas générés par la plateforme.
+Cet écran admin ne sert plus qu'à **consulter** ce que chaque ambassadeur a généré, ou à **déposer un document de secours**
+(PDF **ou** .docx, 4 Mo max, contenu vérifié) si un cas particulier l'exige — un dépôt manuel remplace le document existant
+mais **n'avance aucune étape**.
 
 ### 10.9 Engagement — `/admin/engagement` (`engagement.manage`)
 
 - **Admin** : rédige le **texte de la fiche d'engagement** de l'édition (20 caractères minimum) et suit qui a signé (lien vers le PDF signé).
-- **Ambassadeur** (étape ENGAGEMENT) : lit le texte, coche l'acceptation et saisit son **nom en signature**.
-  La plateforme génère un **PDF** (édition, ambassadeur, texte, signature, date/heure), le stocke, l'enregistre et passe l'ambassadeur à **BADGE**.
-  Avant de signer, un bouton **« Prévisualiser ma fiche »** affiche la fiche telle qu'elle sera générée (avec le nom saisi, marquée « Aperçu — non signé »).
+- **Ambassadeur** (étape ENGAGEMENT) : lit le texte et coche l'acceptation — **la case ne peut plus être décochée** une fois cochée.
+  Le nom de signature est **repris automatiquement du compte** (plus de saisie manuelle). La plateforme génère un **PDF**
+  (édition, ambassadeur, texte, signature, date/heure), le stocke, l'enregistre et passe l'ambassadeur à **BADGE**. Le
+  **téléchargement n'est possible qu'une fois la case cochée**.
+  Avant de cocher, un bouton **« Prévisualiser ma fiche »** affiche la fiche telle qu'elle sera générée (marquée « Aperçu — non signé »).
   Après signature, **« Prévisualiser ma fiche signée »** affiche le PDF directement dans la page (téléchargement possible).
 
 ### 10.10 Badge — `/admin/badges` (`badges.manage`)
@@ -378,6 +407,8 @@ Le bouton **« Passer à l'engagement »** exige que **les deux documents** soie
 Éligibles : ambassadeurs **ayant signé leur engagement**. Deux actions : **Attribuer** (un par un) ou **Attribuer à tous** (tous ceux à l'étape BADGE).
 
 - Numéro unique au format **`JNJL-ANNÉE-AMB-0001`** (numérotation par édition), avec **QR code** encodant ce numéro.
+- La **couleur de fond du badge** se règle par édition (Éditions › modifier › « Couleur de fond du badge ») ; les logos partenaires
+  (`public/partenaires/`) et le logo JNJL sont fixes.
 - L'attribution passe l'ambassadeur à **EMBARQUEMENT** et le notifie ; elle est **idempotente** (jamais deux badges pour la même édition).
 - L'ambassadeur voit sa carte dans **Mon badge** (logo de la JNJL, nom, région, édition, numéro, QR) et le statut de son embarquement.
   Le bouton **« Télécharger mon badge (PDF) »** génère le badge au **format A6**, prêt à imprimer ou à garder sur téléphone (généré à la demande, réservé au propriétaire du badge).
@@ -405,9 +436,11 @@ Le premier pointage d'un ambassadeur passe son étape à **ATTESTATION** et cré
 
 ### 10.13 Attestation — `/admin/attestations` (`documents.manage`)
 
-Liste des ambassadeurs pointés présents. **Générer l'attestation** (ou **Générer pour tous**) produit un **PDF** au format paysage
-(nom, région, édition, date, QR du badge), le stocke, l'enregistre comme document et **notifie** l'ambassadeur. Une attestation déjà générée
-n'est pas régénérée. L'ambassadeur la consulte dans **Mon attestation** : bouton **« Prévisualiser mon attestation »** (aperçu du PDF dans la page) puis téléchargement. Même aperçu pour ses attestations de formation. Une présence enregistrée est indispensable.
+**Attestation de participation JNJL** (à ne pas confondre avec les attestations de formation ci-dessous) : liste des ambassadeurs
+pointés présents. **Générer l'attestation** (ou **Générer pour tous**) produit le **document officiel JNJL** (même mise en page
+que l'original — bordure, logos, signature et cachet — avec nom, thème de l'édition, date, lieu et édition insérés dynamiquement),
+le stocke, l'enregistre comme document et **notifie** l'ambassadeur. Une attestation déjà générée n'est pas régénérée. L'ambassadeur
+la consulte dans **Mon attestation**. Une présence enregistrée est indispensable.
 
 **Attestations de formation** (même écran, section du dessous) : choisissez une **formation** qui délivre une attestation. La liste montre chaque ambassadeur
 qui l'a commencée, avec sa progression (**modules terminés** et **QCM liés réussis**) :
@@ -620,5 +653,15 @@ Le **Super Admin** dispose de **toutes** ces permissions sans attribution.
 | `staff@jnjl.ne` | STAFF | Pointage de présence, candidatures participants |
 | `pointfocal@jnjl.ne` | STAFF | Paiements et embarquements |
 | (compte administrateur historique) | ADMIN | Toutes les permissions, pour les tests |
+
+**Lot de comptes pour testeurs externes** — mot de passe unique `JnjlTest#2026` (constante `TEST_ACCOUNTS_PASSWORD` dans `prisma/seed.ts`) :
+
+| Compte | Rôle | Région (STAFF) | Permissions |
+|---|---|---|---|
+| `test.superadmin@jnjl.ne` | SUPER_ADMIN | — | Accès global |
+| `test.admin1@jnjl.ne`, `test.admin2@jnjl.ne` | ADMIN | — | Toutes les permissions |
+| `test.staff.<code>@jnjl.ne` (agd, dif, dos, mar, nia, tah, til, zin) | STAFF | Une par région | `payments.manage`, `boarding.manage`, `attendance.manage` |
+
+Chaque compte `test.staff.*` est rattaché (`focalRegionId`) à sa région : il ne voit que les candidats de cette région dans Paiements, Embarquement et Présence. Le guide de démarrage intégré à l'application (**Guide du parcours**, `/admin/guide`) explique le rôle de chacun.
 
 Les **mots de passe de démonstration** sont définis dans `prisma/seed.ts`. **Changez-les (ou supprimez ces comptes) avant toute mise en production.**

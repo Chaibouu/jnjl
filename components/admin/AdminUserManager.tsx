@@ -32,15 +32,19 @@ type UserItem = {
   emailVerified: Date | null;
   isTwoFactorEnabled: boolean;
   permissions: string[];
+  focalRegion: { id: string; name: string; code: string } | null;
 };
 type PermissionItem = { code: string; label: string; category: string | null };
+type RegionItem = { id: string; name: string; code: string };
 
 export function AdminUserManager({
   users: initialUsers,
   permissions,
+  regions,
 }: {
   users: UserItem[];
   permissions: PermissionItem[];
+  regions: RegionItem[];
 }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
@@ -138,6 +142,7 @@ export function AdminUserManager({
         </div>
         <AdminUserCreateDialog
           permissions={permissions}
+          regions={regions}
           onCreated={refreshAfterCreate}
         />
       </header>
@@ -172,6 +177,7 @@ export function AdminUserManager({
               <tr>
                 <th className="px-5 py-4">Utilisateur</th>
                 <th className="px-5 py-4">Rôle</th>
+                <th className="px-5 py-4">Région</th>
                 <th className="px-5 py-4">Statut</th>
                 <th className="px-5 py-4">Sécurité</th>
                 <th className="px-5 py-4 text-right">Actions</th>
@@ -200,6 +206,15 @@ export function AdminUserManager({
                     <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
                       {user.role}
                     </span>
+                  </td>
+                  <td className="px-5 py-4 text-xs">
+                    {user.focalRegion ? (
+                      <span className="font-medium">{user.focalRegion.name}</span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {user.role === UserRole.STAFF ? "National" : "—"}
+                      </span>
+                    )}
                   </td>
                   <td className="px-5 py-4">
                     <span
@@ -261,7 +276,7 @@ export function AdminUserManager({
               {filteredUsers.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-5 py-12 text-center text-muted-foreground"
                   >
                     Aucun utilisateur trouvé.

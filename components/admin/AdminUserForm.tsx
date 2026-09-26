@@ -21,6 +21,7 @@ import {
 import charter from "@/settings/charter";
 
 type PermissionItem = { code: string; label: string; category: string | null };
+type RegionItem = { id: string; name: string; code: string };
 type UserItem = {
   id: string;
   name: string | null;
@@ -31,6 +32,7 @@ type UserItem = {
   isActive: boolean;
   emailVerified: Date | null;
   permissions: string[];
+  focalRegionId?: string | null;
 };
 type UserForm = {
   name: string;
@@ -42,6 +44,7 @@ type UserForm = {
   isActive: boolean;
   emailVerified: boolean;
   permissions: string[];
+  focalRegionId: string;
 };
 const emptyForm: UserForm = {
   name: "",
@@ -53,6 +56,7 @@ const emptyForm: UserForm = {
   isActive: true,
   emailVerified: false,
   permissions: [],
+  focalRegionId: "",
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -69,12 +73,14 @@ const ROLE_LABEL: Record<string, string> = {
 export function AdminUserForm({
   user,
   permissions,
+  regions,
   embedded = false,
   onSuccess,
   onCancel,
 }: {
   user?: UserItem;
   permissions: PermissionItem[];
+  regions: RegionItem[];
   embedded?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -91,6 +97,7 @@ export function AdminUserForm({
           isActive: user.isActive,
           emailVerified: Boolean(user.emailVerified),
           permissions: user.permissions,
+          focalRegionId: user.focalRegionId ?? "",
         }
       : emptyForm
   );
@@ -197,6 +204,38 @@ export function AdminUserForm({
             </SelectContent>
           </Select>
         </Field>
+        {form.role === UserRole.STAFF && (
+          <Field>
+            <FieldLabel>Région (point focal)</FieldLabel>
+            <Select
+              value={form.focalRegionId || "__none__"}
+              onValueChange={value =>
+                update("focalRegionId", !value || value === "__none__" ? "" : value)
+              }
+            >
+              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+                <SelectValue placeholder="Aucune (accès national)">
+                  {(value: string) =>
+                    value === "__none__" || !value
+                      ? "Aucune (accès national)"
+                      : (regions.find(region => region.id === value)?.name ?? value)
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucune (accès national)</SelectItem>
+                {regions.map(region => (
+                  <SelectItem key={region.id} value={region.id}>
+                    {region.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Si une région est choisie, ce compte ne verra et ne pourra gérer que les candidats de cette région.
+            </p>
+          </Field>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-5">

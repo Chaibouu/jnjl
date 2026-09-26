@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
+import { renderActiveTemplate } from "@/lib/pdf-templates/render";
 
 const PAGE_WIDTH = 841.89; // A4 paysage, points
 const PAGE_HEIGHT = 595.28;
@@ -67,12 +68,23 @@ async function renderCertificate(layout: CertificateLayout): Promise<Uint8Array>
 
 /** Attestation de participation à l'événement (fin du parcours ambassadeur). */
 export async function generateCertificatePdf(params: {
+  /** Si fourni, le modèle PDF actif de cette édition (éditeur admin) est utilisé en priorité. */
+  editionId?: string;
   ambassadorName: string;
   region: string;
   editionName: string;
   badgeNumber: string | null;
   issuedAt: Date;
 }): Promise<Uint8Array> {
+  const custom = await renderActiveTemplate("CERTIFICATE", params.editionId, {
+    ambassadorName: params.ambassadorName,
+    region: params.region,
+    editionName: params.editionName,
+    badgeNumber: params.badgeNumber ?? "",
+    issuedAt: params.issuedAt.toLocaleDateString("fr-FR"),
+  });
+  if (custom) return custom;
+
   return renderCertificate({
     title: "ATTESTATION DE PARTICIPATION",
     intro: "Il est certifié que",
@@ -88,6 +100,8 @@ export async function generateCertificatePdf(params: {
 
 /** Attestation de formation : formation terminée et QCM lié(s) réussi(s). */
 export async function generateTrainingCertificatePdf(params: {
+  /** Si fourni, le modèle PDF actif de cette édition (éditeur admin) est utilisé en priorité. */
+  editionId?: string;
   ambassadorName: string;
   region: string;
   editionName: string;
@@ -97,6 +111,21 @@ export async function generateTrainingCertificatePdf(params: {
   reference: string;
   issuedAt: Date;
 }): Promise<Uint8Array> {
+  const custom = await renderActiveTemplate("TRAINING_CERTIFICATE", params.editionId, {
+    ambassadorName: params.ambassadorName,
+    region: params.region,
+    editionName: params.editionName,
+    courseTitle: params.courseTitle,
+    result:
+      params.scorePercent != null
+        ? `et validé l'évaluation finale avec un score de ${Math.round(params.scorePercent)} %.`
+        : "et validé l'ensemble de ses modules.",
+    scorePercent: params.scorePercent != null ? String(Math.round(params.scorePercent)) : "",
+    reference: params.reference,
+    issuedAt: params.issuedAt.toLocaleDateString("fr-FR"),
+  });
+  if (custom) return custom;
+
   return renderCertificate({
     title: "ATTESTATION DE FORMATION",
     intro: "Il est certifié que",

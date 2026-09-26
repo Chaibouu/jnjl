@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { notify } from "@/lib/notify";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const applicationSelect = {
   id: true,
@@ -24,12 +25,14 @@ const applicationSelect = {
 
 /** Candidats non sélectionnés par le quota — éligibles à un repêchage manuel exceptionnel (Règle 12). */
 export async function getRepechageCandidatesAction(editionId: string) {
-  await requirePermission("repechage.manage");
+  const actor = await requirePermission("repechage.manage");
+  const regionId = getActorRegionScope(actor);
 
   return db.ambassadorApplication.findMany({
     where: {
       editionId,
       status: "RETENU",
+      ...(regionId ? { regionId } : {}),
       OR: [
         { selection: { status: "NON_SELECTIONNE" } },
         { repechage: { isNot: null } },
@@ -56,6 +59,7 @@ export async function decideRepechageAction(
     include: { selection: true },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
   if (application.selection?.status !== "NON_SELECTIONNE") {
     throw new Error("Seul un candidat non sélectionné peut faire l'objet d'un repêchage");
   }
@@ -81,13 +85,13 @@ export async function decideRepechageAction(
         where: { ambassadorApplicationId: applicationId },
         data: { status: "SELECTIONNE" },
       });
+      // Repêché : il passe à l'engagement (voir aussi runSelectionAction pour les sélectionnés directs).
+      // Un refus ne fait PAS avancer l'étape : le candidat reste non sélectionné, son parcours s'arrête là.
+      await transaction.ambassadorApplication.update({
+        where: { id: applicationId },
+        data: { stage: "ENGAGEMENT" },
+      });
     }
-
-    // Repêché ou non, le candidat a désormais franchi le checkpoint de repêchage.
-    await transaction.ambassadorApplication.update({
-      where: { id: applicationId },
-      data: { stage: "REPECHAGE" },
-    });
   });
 
   await notify({

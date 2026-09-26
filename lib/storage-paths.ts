@@ -7,6 +7,10 @@
  *   editions/{année}/certificates/…    attestations de participation (PDF)
  *   editions/{année}/training-certificates/…   attestations de formation (PDF)
  *   content/editor/{année}/…           images insérées dans les contenus riches
+ *   content/partners/logos/…           logos des partenaires
+ *   content/news/{année}/…             images de couverture des actualités
+ *   content/speakers/photos/…          photos des intervenants
+ *   content/gallery/{année}/…          photos de la galerie d'une édition
  *   misc/…                             autres fichiers
  *
  * Regrouper par édition permet d'archiver ou de purger une édition entière, et de
@@ -19,5 +23,9 @@ export const storagePaths = {
   certificate: (editionYear: number) => `editions/${editionYear}/certificates`,
   trainingCertificate: (editionYear: number) => `editions/${editionYear}/training-certificates`,
   editorImage: () => `content/editor/${new Date().getFullYear()}`,
+  partnerLogo: () => "content/partners/logos",
+  newsCover: () => `content/news/${new Date().getFullYear()}`,
+  speakerPhoto: () => "content/speakers/photos",
+  gallery: (editionYear: number) => `content/gallery/${editionYear}`,
   misc: () => "misc",
 } as const;

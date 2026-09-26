@@ -47,6 +47,12 @@ export default async function AdminUserDetailsPage({
               user.permissions.length ? user.permissions.join(", ") : "Aucune"
             }
           />
+          {user.role === "STAFF" && (
+            <Detail
+              label="Région (point focal)"
+              value={user.focalRegion?.name ?? "Aucune (accès national)"}
+            />
+          )}
         </dl>
       </div>
     </section>

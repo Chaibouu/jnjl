@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MediaUploadField } from "@/components/admin/MediaUploadField";
 import {
   createPartnerAction,
   updatePartnerAction,
@@ -125,15 +126,12 @@ export function PartnerDialog({
               className="h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
             />
           </Field>
-          <Field>
-            <FieldLabel>Logo (URL)</FieldLabel>
-            <Input
-              value={form.logoUrl}
-              onChange={event => update("logoUrl", event.target.value)}
-              placeholder="https://..."
-              className="h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
-            />
-          </Field>
+          <MediaUploadField
+            label="Logo"
+            kind="partnerLogo"
+            value={form.logoUrl}
+            onChange={value => update("logoUrl", value)}
+          />
           <Field>
             <FieldLabel>Site web</FieldLabel>
             <Input

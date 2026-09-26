@@ -3,18 +3,21 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { notify } from "@/lib/notify";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 type BoardingStatusInput = "EN_ATTENTE" | "EMBARQUE" | "ANNULE";
 
 /** Ambassadeurs badgés, prêts pour l'embarquement vers Niamey (ou déjà passés à l'étape suivante). */
 export async function listBoardingAction(editionId: string) {
-  await requirePermission("boarding.manage");
+  const actor = await requirePermission("boarding.manage");
+  const regionId = getActorRegionScope(actor);
 
   const applications = await db.ambassadorApplication.findMany({
     where: {
       editionId,
       status: "RETENU",
       stage: { in: ["EMBARQUEMENT", "PRESENCE", "ATTESTATION"] },
+      ...(regionId ? { regionId } : {}),
     },
     select: {
       id: true,
@@ -60,6 +63,7 @@ export async function setBoardingStatusAction(applicationId: string, status: Boa
     select: { id: true, regionId: true, stage: true, status: true, userId: true, editionId: true },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(user, application.regionId);
   if (application.status !== "RETENU") throw new Error("Cette candidature n'est pas retenue");
   if (!["EMBARQUEMENT", "PRESENCE"].includes(application.stage)) {
     throw new Error("L'embarquement n'est possible qu'après l'attribution du badge");

@@ -61,10 +61,11 @@ export default async function HomePage() {
     listActiveEditionSpeakersAction(),
   ]);
 
+  // Un compteur à zéro donne une mauvaise impression : on ne l'affiche qu'une fois alimenté.
   const heroStats = [
     { label: "Édition", value: edition ? String(edition.year) : "—" },
-    { label: "Intervenants", value: `${speakers.length}+` },
-    { label: "Partenaires", value: `${partners.length}+` },
+    ...(speakers.length > 0 ? [{ label: "Intervenants", value: `${speakers.length}+` }] : []),
+    ...(partners.length > 0 ? [{ label: "Partenaires", value: `${partners.length}+` }] : []),
   ];
 
   return (

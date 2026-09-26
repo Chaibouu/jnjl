@@ -3,7 +3,7 @@ import { listAdminUsersAction } from "@/actions/admin-user-actions";
 import { AdminUserForm } from "@/components/admin/AdminUserForm";
 
 export default async function CreateAdminUserPage() {
-  const { permissions } = await listAdminUsersAction();
+  const { permissions, regions } = await listAdminUsersAction();
   return (
     <section className="space-y-6">
       <div>
@@ -18,7 +18,7 @@ export default async function CreateAdminUserPage() {
           Créez un compte et attribuez-lui son niveau d’accès.
         </p>
       </div>
-      <AdminUserForm permissions={permissions} />
+      <AdminUserForm permissions={permissions} regions={regions} />
     </section>
   );
 }

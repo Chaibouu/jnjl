@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 /** Sessions du programme de l'édition, pour pointer « sur une session » ou sur l'événement en général. */
 export async function listAttendanceSessionsAction(editionId: string) {
@@ -17,9 +18,25 @@ export async function listAttendanceSessionsAction(editionId: string) {
 
 /** Pointages récents + compteurs de l'édition (ou de la session filtrée). */
 export async function listAttendanceAction(editionId: string, sessionId?: string | null) {
-  await requirePermission("attendance.manage");
+  const actor = await requirePermission("attendance.manage");
+  const regionId = getActorRegionScope(actor);
 
-  const where = { editionId, ...(sessionId ? { sessionId } : {}) };
+  // `Attendance` n'a pas de région propre : pour un point focal, on la restreint via les
+  // `userId` des candidatures ambassadeur de sa région (seul chemin reliant les deux modèles).
+  const regionUserIds = regionId
+    ? (
+        await db.ambassadorApplication.findMany({
+          where: { editionId, regionId, userId: { not: null } },
+          select: { userId: true },
+        })
+      ).map(application => application.userId as string)
+    : null;
+
+  const where = {
+    editionId,
+    ...(sessionId ? { sessionId } : {}),
+    ...(regionUserIds ? { userId: { in: regionUserIds } } : {}),
+  };
   const [records, total, awaiting] = await Promise.all([
     db.attendance.findMany({
       where,
@@ -35,7 +52,13 @@ export async function listAttendanceAction(editionId: string, sessionId?: string
     db.attendance.count({ where }),
     // Ambassadeurs embarqués, pas encore pointés à l'événement.
     db.ambassadorApplication.findMany({
-      where: { editionId, status: "RETENU", stage: "PRESENCE", userId: { not: null } },
+      where: {
+        editionId,
+        status: "RETENU",
+        stage: "PRESENCE",
+        userId: { not: null },
+        ...(regionId ? { regionId } : {}),
+      },
       select: {
         id: true,
         firstName: true,
@@ -91,8 +114,9 @@ export async function checkInByBadgeAction(editionId: string, badgeNumber: strin
 
   const application = await db.ambassadorApplication.findFirst({
     where: { editionId, userId, status: "RETENU" },
-    select: { id: true, stage: true },
+    select: { id: true, stage: true, regionId: true },
   });
+  if (application) assertRegionAccess(checker, application.regionId);
   if (application && application.stage === "EMBARQUEMENT") {
     throw new Error("L'embarquement de cet ambassadeur n'a pas encore été validé par le point focal");
   }

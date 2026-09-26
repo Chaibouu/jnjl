@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Film, Image as ImageIcon, Pencil, Trash2 } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { Film, Image as ImageIcon, Pencil, Trash2, Upload } from "lucide-react";
 import {
   addEditionMediaAction,
   deleteEditionMediaAction,
@@ -10,6 +10,7 @@ import {
   listEditionStatsAction,
   saveEditionStatAction,
 } from "@/actions/edition-content-actions";
+import { uploadSiteMediaAction } from "@/actions/site-media-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,6 +48,24 @@ export function EditionContentManager({
   const [caption, setCaption] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMediaFile = async (file: File) => {
+    setError("");
+    setUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.set("kind", "galleryPhoto");
+      formData.set("file", file);
+      const result = await uploadSiteMediaAction(formData);
+      setMediaUrl(result.url);
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Téléversement impossible");
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
 
   const run = (task: () => Promise<void>) => {
     setError("");
@@ -226,12 +245,38 @@ export function EditionContentManager({
                 <SelectItem value="VIDEO">Vidéo</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              value={mediaUrl}
-              onChange={event => setMediaUrl(event.target.value)}
-              placeholder="https://…"
-              className="h-11 rounded-none border border-border bg-muted/40"
-            />
+            <div className="relative">
+              <Input
+                value={mediaUrl}
+                onChange={event => setMediaUrl(event.target.value)}
+                placeholder="https://…"
+                className={`h-11 rounded-none border border-border bg-muted/40 ${mediaType === "PHOTO" ? "pr-10" : ""}`}
+              />
+              {mediaType === "PHOTO" && (
+                <>
+                  <input
+                    ref={mediaFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={event => {
+                      const file = event.target.files?.[0];
+                      if (file) handleMediaFile(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => mediaFileInputRef.current?.click()}
+                    disabled={uploadingMedia}
+                    aria-label="Téléverser une photo"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    <Upload className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
             <Input
               value={caption}
               onChange={event => setCaption(event.target.value)}

@@ -6,6 +6,7 @@ import { ForbiddenError } from "@/lib/forbidden-error";
 import { requirePermission } from "@/actions/requirePermission";
 import { describeGate, getQuizGate } from "@/lib/training-progress";
 import type { User } from "@/types/user";
+import { getActorRegionScope } from "@/lib/region-scope";
 
 async function getCurrentUser(): Promise<User> {
   const result = await getUser();
@@ -345,9 +346,14 @@ export async function getAttemptResultAction(attemptId: string) {
 // ─────────────────────────────────────────────────────────────
 
 export async function getQuizResultsAction(quizId: string) {
-  await requirePermission("quiz.manage");
+  const actor = await requirePermission("quiz.manage");
+  const regionId = getActorRegionScope(actor);
   const attempts = await db.quizAttempt.findMany({
-    where: { quizId, status: { not: "IN_PROGRESS" } },
+    where: {
+      quizId,
+      status: { not: "IN_PROGRESS" },
+      ...(regionId ? { ambassadorApplication: { regionId } } : {}),
+    },
     include: {
       ambassadorApplication: {
         select: {

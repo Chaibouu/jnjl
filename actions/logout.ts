@@ -1,55 +1,36 @@
 "use server";
 
-import { getAppUrl } from "@/lib/app-url";
-
+import crypto from "crypto";
 import { cookies } from "next/headers";
-import { refreshUserToken } from "@/lib/user";
+import { db } from "@/lib/db";
 
+function hashRefreshToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * La suppression des cookies ne doit jamais dépendre du nettoyage en base :
+ * l'ancienne implémentation appelait /api/auth/logout via un fetch du serveur
+ * vers lui-même, et la moindre erreur sur cet appel (réseau, timeout…) empêchait
+ * l'effacement des cookies — l'accessToken (JWT stateless, non vérifié en base)
+ * restait alors valide jusqu'à son expiration et l'utilisateur restait connecté.
+ */
 export const logout = async () => {
+  const cookieStore = await cookies();
+  const refreshToken = cookieStore.get("refreshToken")?.value;
+
   try {
-    const cookieStore = await cookies();
-
-    // Récupérer les tokens d'accès et de rafraîchissement
-    let accessToken = cookieStore.get("accessToken")?.value;
-    const refreshToken = cookieStore.get("refreshToken")?.value;
-
-    if (!accessToken && refreshToken) {
-      // Tenter de rafraîchir l'accessToken si le refreshToken est disponible
-      const refreshResponse = await refreshUserToken(refreshToken);
-      if (refreshResponse.accessToken) {
-        accessToken = refreshResponse.accessToken; // Utiliser le nouveau token
-      }
+    if (refreshToken) {
+      await db.session.deleteMany({
+        where: { refreshToken: hashRefreshToken(refreshToken) },
+      });
     }
-
-    // Si aucun accessToken n'est présent même après la tentative de rafraîchissement
-    if (!accessToken) {
-      return { error: "Impossible de se déconnecter, token d'accès manquant." };
-    }
-
-    // Appeler l'API logout et envoyer le token d'accès
-    const response = await fetch(
-      `${getAppUrl()}/api/auth/logout`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: accessToken }),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      // Afficher l'erreur envoyée par le backend
-      return { error: result.error || "Erreur lors de la déconnexion" };
-    }
-
-    // Supprimer les cookies d'accès et de rafraîchissement
-    cookieStore.set("accessToken", "", { maxAge: -1, path: "/" });
-    cookieStore.set("refreshToken", "", { maxAge: -1, path: "/" });
-
-    return { success: "Déconnexion réussie" };
   } catch (error) {
-    console.error("Erreur dans logoutAction:", error);
-    return { error: "Erreur serveur" };
+    console.error("Erreur lors de la suppression de la session :", error);
   }
+
+  cookieStore.set("accessToken", "", { maxAge: -1, path: "/" });
+  cookieStore.set("refreshToken", "", { maxAge: -1, path: "/" });
+
+  return { success: "Déconnexion réussie" };
 };

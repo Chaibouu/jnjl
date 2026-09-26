@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from "react";
 import { FileText, Upload } from "lucide-react";
 import {
-  advanceToEngagementAction,
   listDocumentCandidatesAction,
   uploadAmbassadorDocumentAction,
 } from "@/actions/document-actions";
@@ -89,21 +88,6 @@ export function DocumentsManager({
     });
   };
 
-  const advance = (applicationId: string) => {
-    setMessage("");
-    setError("");
-    startTransition(async () => {
-      try {
-        await advanceToEngagementAction(applicationId);
-        refresh(editionId, "Candidat passé à l'étape Engagement");
-      } catch (actionError) {
-        setError(
-          actionError instanceof Error ? actionError.message : "Une erreur est survenue"
-        );
-      }
-    });
-  };
-
   const grouped = candidates.reduce<Record<string, Candidate[]>>((groups, candidate) => {
     (groups[candidate.region.id] ??= []).push(candidate);
     return groups;
@@ -118,7 +102,8 @@ export function DocumentsManager({
           </p>
           <h1 className="mt-1 text-3xl font-bold">Documents</h1>
           <p className="mt-2 text-muted-foreground">
-            Générez la demande de permission et l&apos;ordre de mission avant l&apos;engagement.
+            Demande de permission et ordre de mission : générés par l&apos;ambassadeur lui-même une fois son
+            engagement signé. Utilisez le dépôt ci-dessous seulement en secours.
           </p>
         </div>
         <div className="w-full sm:w-64">
@@ -151,7 +136,7 @@ export function DocumentsManager({
 
       {Object.keys(grouped).length === 0 && (
         <div className="rounded-2xl border bg-card p-12 text-center text-muted-foreground shadow-sm">
-          Aucun candidat éligible pour l&apos;instant (il doit être sélectionné et avoir franchi le repêchage).
+          Aucun candidat sélectionné pour l&apos;instant.
         </div>
       )}
 
@@ -162,9 +147,6 @@ export function DocumentsManager({
           </div>
           <div className="divide-y">
             {items.map(candidate => {
-              const complete = DOCUMENT_SLOTS.every(slot =>
-                candidate.documents.some(doc => doc.type === slot.type)
-              );
               return (
                 <div key={candidate.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -186,15 +168,6 @@ export function DocumentsManager({
                         />
                       );
                     })}
-                    <Button
-                      type="button"
-                      disabled={isPending || !complete}
-                      onClick={() => advance(candidate.id)}
-                      className="rounded-none text-white hover:opacity-90 disabled:opacity-40"
-                      style={{ backgroundColor: charter.orange }}
-                    >
-                      Passer à l&apos;engagement
-                    </Button>
                   </div>
                 </div>
               );
@@ -241,7 +214,7 @@ function DocumentSlot({
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf"
+        accept="application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         className="hidden"
         onChange={event => {
           const file = event.target.files?.[0];

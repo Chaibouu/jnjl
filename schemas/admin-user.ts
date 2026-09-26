@@ -21,6 +21,8 @@ export const createAdminUserSchema = z.object({
   isActive: z.boolean().default(true),
   emailVerified: z.boolean().default(false),
   permissions: z.array(z.string().min(1)).default([]),
+  /** Région à laquelle cantonner ce STAFF (point focal régional) ; ignoré pour les autres rôles. */
+  focalRegionId: z.string().min(1).optional().or(z.literal("")),
 });
 
 export const updateAdminUserSchema = createAdminUserSchema

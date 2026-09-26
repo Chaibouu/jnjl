@@ -12,6 +12,7 @@ import {
 } from "@/schemas/payment";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 /**
  * §9 — Paiement Ambassadeur, circuit MANUAL uniquement pour le moment : le
@@ -40,9 +41,10 @@ async function requireAnyPermission(codes: string[]): Promise<User> {
 }
 
 export async function listAmbassadorPaymentsAction() {
-  await requirePermission("payments.manage");
+  const actor = await requirePermission("payments.manage");
+  const regionId = getActorRegionScope(actor);
   return db.ambassadorApplication.findMany({
-    where: { status: ApplicationStatus.RETENU },
+    where: { status: ApplicationStatus.RETENU, ...(regionId ? { regionId } : {}) },
     include: applicationInclude,
     orderBy: { reviewedAt: "desc" },
   });
@@ -60,6 +62,7 @@ export async function recordManualPaymentAction(
     include: { payment: true },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
   if (application.status !== ApplicationStatus.RETENU) {
     throw new Error(
       "Le paiement ne peut être saisi qu'après acceptation de la candidature"
@@ -114,19 +117,24 @@ export async function recordManualPaymentAction(
 
 /** Lecture tolérante (ne lève pas si aucun paiement n'existe encore) — pour affichage sur la fiche candidature. */
 export async function getPaymentStatusAction(ambassadorApplicationId: string) {
-  await requireAnyPermission(["payments.manage", "applications.ambassador.manage"]);
+  const actor = await requireAnyPermission(["payments.manage", "applications.ambassador.manage"]);
 
-  const payment = await db.payment.findUnique({
-    where: { ambassadorApplicationId },
-    include: { validatedBy: { select: { name: true } } },
+  const application = await db.ambassadorApplication.findUnique({
+    where: { id: ambassadorApplicationId },
+    select: {
+      regionId: true,
+      payment: { include: { validatedBy: { select: { name: true } } } },
+    },
   });
-  return payment;
+  if (!application) return null;
+  assertRegionAccess(actor, application.regionId);
+  return application.payment;
 }
 
 export async function getAmbassadorPaymentReceiptAction(
   ambassadorApplicationId: string
 ) {
-  await requireAnyPermission(["payments.manage", "applications.ambassador.manage"]);
+  const actor = await requireAnyPermission(["payments.manage", "applications.ambassador.manage"]);
 
   const application = await db.ambassadorApplication.findUnique({
     where: { id: ambassadorApplicationId },
@@ -134,6 +142,7 @@ export async function getAmbassadorPaymentReceiptAction(
       id: true,
       firstName: true,
       lastName: true,
+      regionId: true,
       region: { select: { name: true, code: true } },
       edition: { select: { name: true, year: true } },
       payment: {
@@ -142,6 +151,7 @@ export async function getAmbassadorPaymentReceiptAction(
     },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
   if (!application.payment) throw new Error("Aucun paiement enregistré pour ce candidat");
 
   return application;

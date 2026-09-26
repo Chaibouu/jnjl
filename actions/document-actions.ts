@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { uploadFile } from "@/lib/upload";
 import { storagePaths } from "@/lib/storage-paths";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const DOCUMENT_TYPES = ["PERMISSION_REQUEST", "MISSION_ORDER"] as const;
 type ManagedDocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -14,6 +15,7 @@ const applicationSelect = {
   lastName: true,
   email: true,
   stage: true,
+  regionId: true,
   region: { select: { id: true, name: true, code: true } },
   documents: {
     where: { type: { in: [...DOCUMENT_TYPES] } },
@@ -21,24 +23,30 @@ const applicationSelect = {
   },
 };
 
-/** Candidats ayant franchi le repêchage — éligibles à la génération des documents administratifs (§8/Phase 8). */
+/**
+ * Vue admin des documents administratifs : demande de permission et ordre de mission,
+ * générés en libre-service par l'ambassadeur dès sa fiche d'engagement signée (§ pipeline
+ * ambassadeur). L'admin peut consulter, ou téléverser lui-même un document de secours.
+ */
 export async function listDocumentCandidatesAction(editionId: string) {
-  await requirePermission("documents.manage");
+  const actor = await requirePermission("documents.manage");
+  const regionId = getActorRegionScope(actor);
 
   return db.ambassadorApplication.findMany({
     where: {
       editionId,
       status: "RETENU",
-      stage: { in: ["REPECHAGE", "DOCUMENTS"] },
       selection: { status: "SELECTIONNE" },
+      ...(regionId ? { regionId } : {}),
     },
     select: applicationSelect,
     orderBy: [{ region: { name: "asc" } }, { lastName: "asc" }],
   });
 }
 
+/** Dépôt de secours par l'admin — l'ambassadeur génère normalement ces documents lui-même. */
 export async function uploadAmbassadorDocumentAction(formData: FormData) {
-  await requirePermission("documents.manage");
+  const actor = await requirePermission("documents.manage");
 
   const applicationId = formData.get("applicationId");
   const type = formData.get("type");
@@ -59,9 +67,14 @@ export async function uploadAmbassadorDocumentAction(formData: FormData) {
     include: { edition: { select: { year: true } } },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
 
   const uploaded = await uploadFile(file, {
-    allowedTypes: ["application/pdf"],
+    // .docx (format généré par l'ambassadeur en libre-service) ou PDF (secours numérisé/signé).
+    allowedTypes: [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ],
     destination: storagePaths.document(application.edition.year),
   });
 
@@ -79,42 +92,5 @@ export async function uploadAmbassadorDocumentAction(formData: FormData) {
     },
   });
 
-  // Premier document déposé : le candidat entre officiellement dans l'étape Documents.
-  if (application.stage === "REPECHAGE") {
-    await db.ambassadorApplication.update({
-      where: { id: applicationId },
-      data: { stage: "DOCUMENTS" },
-    });
-  }
-
   return { applicationId, type };
-}
-
-export async function advanceToEngagementAction(applicationId: string) {
-  await requirePermission("documents.manage");
-
-  const application = await db.ambassadorApplication.findUnique({
-    where: { id: applicationId },
-    include: { documents: { where: { type: { in: [...DOCUMENT_TYPES] } } } },
-  });
-  if (!application) throw new Error("Candidature introuvable");
-
-  const presentTypes = new Set(application.documents.map(doc => doc.type));
-  const missing = DOCUMENT_TYPES.filter(type => !presentTypes.has(type));
-  if (missing.length > 0) {
-    throw new Error(
-      `Documents manquants : ${missing.map(formatDocumentLabel).join(", ")}`
-    );
-  }
-
-  await db.ambassadorApplication.update({
-    where: { id: applicationId },
-    data: { stage: "ENGAGEMENT" },
-  });
-
-  return { applicationId };
-}
-
-function formatDocumentLabel(type: ManagedDocumentType) {
-  return type === "PERMISSION_REQUEST" ? "Demande de permission" : "Ordre de mission";
 }

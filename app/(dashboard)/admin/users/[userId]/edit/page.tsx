@@ -8,7 +8,7 @@ export default async function EditAdminUserPage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  const { user, permissions } = await getAdminUserAction(userId);
+  const { user, permissions, regions } = await getAdminUserAction(userId);
   return (
     <section className="space-y-6">
       <div>
@@ -20,7 +20,7 @@ export default async function EditAdminUserPage({
         </Link>
         <h1 className="mt-3 text-3xl font-bold">Modifier l’utilisateur</h1>
       </div>
-      <AdminUserForm user={user} permissions={permissions} />
+      <AdminUserForm user={user} permissions={permissions} regions={regions} />
     </section>
   );
 }

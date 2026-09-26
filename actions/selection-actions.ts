@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { notify } from "@/lib/notify";
+import { getActorRegionScope } from "@/lib/region-scope";
 
 const applicationSelect = {
   id: true,
@@ -20,15 +21,16 @@ const applicationSelect = {
 
 /** Vue groupée par région : classement + quota + résultat de sélection le cas échéant. */
 export async function getRankingAction(editionId: string) {
-  await requirePermission("selection.manage");
+  const actor = await requirePermission("selection.manage");
+  const regionId = getActorRegionScope(actor);
 
   const [applications, quotas] = await Promise.all([
     db.ambassadorApplication.findMany({
-      where: { editionId, status: "RETENU" },
+      where: { editionId, status: "RETENU", ...(regionId ? { regionId } : {}) },
       select: applicationSelect,
       orderBy: [{ rank: "asc" }, { quizScore: "desc" }],
     }),
-    db.regionalQuota.findMany({ where: { editionId } }),
+    db.regionalQuota.findMany({ where: { editionId, ...(regionId ? { regionId } : {}) } }),
   ]);
 
   const quotaByRegion = new Map(quotas.map(quota => [quota.regionId, quota.quota]));
@@ -51,10 +53,16 @@ export async function getRankingAction(editionId: string) {
 
 /** Calcule (ou recalcule) le rang de chaque candidat retenu au sein de sa région, selon le score QCM (Règle 11). */
 export async function computeRankingAction(editionId: string) {
-  await requirePermission("selection.manage");
+  const actor = await requirePermission("selection.manage");
+  const regionId = getActorRegionScope(actor);
 
   const applications = await db.ambassadorApplication.findMany({
-    where: { editionId, status: "RETENU", quizScore: { not: null } },
+    where: {
+      editionId,
+      status: "RETENU",
+      quizScore: { not: null },
+      ...(regionId ? { regionId } : {}),
+    },
     orderBy: { quizScore: "desc" },
   });
 
@@ -85,13 +93,19 @@ export async function computeRankingAction(editionId: string) {
 
 /** Applique le quota régional (Règle 10) au classement figé pour décider qui est sélectionné. */
 export async function runSelectionAction(editionId: string) {
-  await requirePermission("selection.manage");
+  const actor = await requirePermission("selection.manage");
+  const regionId = getActorRegionScope(actor);
 
   const [applications, quotas] = await Promise.all([
     db.ambassadorApplication.findMany({
-      where: { editionId, status: "RETENU", rank: { not: null } },
+      where: {
+        editionId,
+        status: "RETENU",
+        rank: { not: null },
+        ...(regionId ? { regionId } : {}),
+      },
     }),
-    db.regionalQuota.findMany({ where: { editionId } }),
+    db.regionalQuota.findMany({ where: { editionId, ...(regionId ? { regionId } : {}) } }),
   ]);
 
   if (applications.length === 0) {
@@ -107,7 +121,8 @@ export async function runSelectionAction(editionId: string) {
     // Un candidat sélectionné n'a pas besoin de repêchage : il passe directement ce
     // checkpoint. Un candidat non sélectionné reste à l'étape SELECTION, en attente
     // d'une éventuelle décision de repêchage (Règle 12).
-    const nextStage = isSelected ? "REPECHAGE" : "SELECTION";
+    // Sélectionné : passe directement à l'engagement (le repêchage ne le concerne pas).
+    const nextStage = isSelected ? "ENGAGEMENT" : "SELECTION";
 
     return [
       db.selection.upsert({

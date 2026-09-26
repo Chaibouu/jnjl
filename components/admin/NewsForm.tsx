@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Image as ImageIcon, Link2, Tag } from "lucide-react";
+import { Link2, Tag } from "lucide-react";
 import { createNewsAction, updateNewsAction } from "@/actions/news-actions";
 import type { NewsInput } from "@/schemas/news";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { MediaUploadField } from "@/components/admin/MediaUploadField";
 import charter from "@/settings/charter";
 
 type NewsItem = {
@@ -177,18 +178,13 @@ export function NewsForm({
             />
           </div>
         </Field>
-        <Field className="sm:col-span-2">
-          <FieldLabel>Image de couverture (URL)</FieldLabel>
-          <div className="relative">
-            <ImageIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={form.coverImage}
-              onChange={event => update("coverImage", event.target.value)}
-              placeholder="https://..."
-              className="h-11 rounded-none border border-border bg-muted/40 pl-9 transition-colors focus-visible:border-ring focus-visible:bg-white"
-            />
-          </div>
-        </Field>
+        <MediaUploadField
+          label="Image de couverture"
+          kind="newsCover"
+          value={form.coverImage}
+          onChange={value => update("coverImage", value)}
+          className="sm:col-span-2"
+        />
       </div>
 
       <Field>

@@ -12,6 +12,7 @@ import { requirePermission } from "@/actions/requirePermission";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const AMBASSADOR_BADGE = {
   code: "AMBASSADEUR" as const,
@@ -45,7 +46,8 @@ async function nextBadgeNumber(editionYear: number, badgeId: string, editionId: 
 
 /** Ambassadeurs ayant signé leur engagement — éligibles à l'attribution du badge. */
 export async function listBadgeCandidatesAction(editionId: string) {
-  await requirePermission("badges.manage");
+  const actor = await requirePermission("badges.manage");
+  const regionId = getActorRegionScope(actor);
 
   const applications = await db.ambassadorApplication.findMany({
     where: {
@@ -54,6 +56,7 @@ export async function listBadgeCandidatesAction(editionId: string) {
       userId: { not: null },
       stage: { in: ["BADGE", "EMBARQUEMENT", "PRESENCE", "ATTESTATION"] },
       engagement: { isNot: null },
+      ...(regionId ? { regionId } : {}),
     },
     select: {
       id: true,
@@ -85,12 +88,13 @@ export async function listBadgeCandidatesAction(editionId: string) {
   }));
 }
 
-async function awardBadge(applicationId: string) {
+async function awardBadge(actor: User, applicationId: string) {
   const application = await db.ambassadorApplication.findUnique({
     where: { id: applicationId },
     include: { edition: true, engagement: true },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
   if (!application.userId) throw new Error("Cet ambassadeur n'a pas de compte utilisateur");
   if (!application.engagement) {
     throw new Error("La fiche d'engagement doit être signée avant l'attribution du badge");
@@ -131,13 +135,14 @@ async function awardBadge(applicationId: string) {
 }
 
 export async function awardAmbassadorBadgeAction(applicationId: string) {
-  await requirePermission("badges.manage");
-  const userBadge = await awardBadge(applicationId);
+  const actor = await requirePermission("badges.manage");
+  const userBadge = await awardBadge(actor, applicationId);
   return { number: userBadge.number };
 }
 
 export async function awardAllAmbassadorBadgesAction(editionId: string) {
-  await requirePermission("badges.manage");
+  const actor = await requirePermission("badges.manage");
+  const regionId = getActorRegionScope(actor);
 
   const pending = await db.ambassadorApplication.findMany({
     where: {
@@ -146,6 +151,7 @@ export async function awardAllAmbassadorBadgesAction(editionId: string) {
       stage: "BADGE",
       userId: { not: null },
       engagement: { isNot: null },
+      ...(regionId ? { regionId } : {}),
     },
     select: { id: true },
     orderBy: { createdAt: "asc" },
@@ -153,7 +159,7 @@ export async function awardAllAmbassadorBadgesAction(editionId: string) {
 
   // Attribution séquentielle : la numérotation dépend du nombre de badges déjà émis.
   for (const application of pending) {
-    await awardBadge(application.id);
+    await awardBadge(actor, application.id);
   }
 
   return { count: pending.length };
@@ -187,13 +193,24 @@ export async function getMyBadgeAction() {
     ? await QRCode.toDataURL(userBadge.qrCode, { margin: 1, width: 240 })
     : null;
 
+  const eventDate =
+    edition.startDate && edition.endDate
+      ? edition.startDate.getTime() === edition.endDate.getTime()
+        ? edition.startDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })
+        : `${edition.startDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${edition.endDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`
+      : null;
+
   return {
     stage: application.stage,
     hasSignedEngagement: !!application.engagement,
     boardingStatus: application.boarding?.status ?? "EN_ATTENTE",
     fullName: `${application.firstName} ${application.lastName}`,
     region: application.region.name,
+    editionId: edition.id,
     editionName: `${edition.name} (${edition.year})`,
+    editionLocation: edition.location,
+    eventDate,
+    badgeBackgroundColor: edition.badgeBackgroundColor,
     badge: userBadge
       ? {
           label: userBadge.badge.label,
@@ -205,20 +222,22 @@ export async function getMyBadgeAction() {
   };
 }
 
-/** Logo de la JNJL : lu sur le disque, ou récupéré depuis le site si le fichier n'est pas accessible. */
-async function loadLogo(): Promise<Uint8Array | null> {
+/** Image publique lue sur le disque, ou récupérée depuis le site si le fichier n'est pas accessible. */
+async function loadPublicImage(relativePath: string): Promise<Uint8Array | null> {
   try {
-    return new Uint8Array(await readFile(join(process.cwd(), "public", "jnjl.jpg")));
+    return new Uint8Array(await readFile(join(process.cwd(), "public", relativePath)));
   } catch {
     try {
-      const response = await fetch(`${getAppUrl()}/jnjl.jpg`);
+      const response = await fetch(`${getAppUrl()}/${relativePath}`);
       if (response.ok) return new Uint8Array(await response.arrayBuffer());
     } catch {
-      // Sans logo, le badge est quand même généré.
+      // Sans l'image, le badge est quand même généré.
     }
   }
   return null;
 }
+
+const PARTNER_LOGO_PATHS = ["partenaires/armoirie.png", "partenaires/ANSI.png", "partenaires/Cabinet-Leader-dAfrique.png"];
 
 /**
  * Génère le badge de l'ambassadeur connecté en PDF (format A6, imprimable) et le renvoie
@@ -231,13 +250,18 @@ export async function downloadMyBadgeAction() {
   }
 
   const pdf = await generateBadgePdf({
+    editionId: data.editionId,
     label: data.badge.label,
     fullName: data.fullName,
     region: data.region,
     editionName: data.editionName,
+    editionLocation: data.editionLocation,
+    eventDate: data.eventDate,
+    backgroundColor: data.badgeBackgroundColor,
     number: data.badge.number,
     awardedAt: data.badge.awardedAt,
-    logo: await loadLogo(),
+    logo: await loadPublicImage("jnjl.jpg"),
+    partnerLogos: await Promise.all(PARTNER_LOGO_PATHS.map(loadPublicImage)),
   });
 
   return {

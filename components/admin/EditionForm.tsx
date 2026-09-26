@@ -22,6 +22,7 @@ type EditionItem = {
   theme: string | null;
   description: string | null;
   location: string | null;
+  badgeBackgroundColor: string | null;
   startDate: Date | null;
   endDate: Date | null;
 };
@@ -33,9 +34,12 @@ type EditionFormState = {
   theme: string;
   description: string;
   location: string;
+  badgeBackgroundColor: string;
   startDate: string;
   endDate: string;
 };
+
+const DEFAULT_BADGE_BACKGROUND_COLOR = charter.tertiary;
 
 const emptyForm: EditionFormState = {
   year: String(new Date().getFullYear()),
@@ -44,6 +48,7 @@ const emptyForm: EditionFormState = {
   theme: "",
   description: "",
   location: "",
+  badgeBackgroundColor: DEFAULT_BADGE_BACKGROUND_COLOR,
   startDate: "",
   endDate: "",
 };
@@ -83,6 +88,7 @@ export function EditionForm({
           theme: edition.theme ?? "",
           description: edition.description ?? "",
           location: edition.location ?? "",
+          badgeBackgroundColor: edition.badgeBackgroundColor ?? DEFAULT_BADGE_BACKGROUND_COLOR,
           startDate: toDateInputValue(edition.startDate),
           endDate: toDateInputValue(edition.endDate),
         }
@@ -203,6 +209,15 @@ export function EditionForm({
         />
       </div>
 
+      <p className="rounded-md border border-dashed border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+        Les dates de l&apos;ordre de mission, la période de l&apos;autorisation d&apos;absence et la clause de
+        patronage se règlent depuis{" "}
+        <Link href="/admin/parametres" className="font-medium underline" style={{ color: charter.orange }}>
+          Paramètres
+        </Link>
+        .
+      </p>
+
       <Field>
         <FieldLabel>Description</FieldLabel>
         <Textarea
@@ -211,6 +226,27 @@ export function EditionForm({
           value={form.description}
           onChange={event => update("description", event.target.value)}
         />
+      </Field>
+
+      <Field>
+        <FieldLabel>Couleur de fond du badge</FieldLabel>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={form.badgeBackgroundColor || DEFAULT_BADGE_BACKGROUND_COLOR}
+            onChange={event => update("badgeBackgroundColor", event.target.value)}
+            className="h-11 w-14 shrink-0 cursor-pointer border border-border bg-muted/40"
+          />
+          <Input
+            value={form.badgeBackgroundColor}
+            onChange={event => update("badgeBackgroundColor", event.target.value)}
+            placeholder={DEFAULT_BADGE_BACKGROUND_COLOR}
+            className="h-11 rounded-none border border-border bg-muted/40 px-3.5 font-mono transition-colors focus-visible:border-ring focus-visible:bg-white"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Fond du badge ambassadeur (Mes documents &gt; Badge). Laissez vide pour la couleur par défaut.
+        </p>
       </Field>
 
       <div className="flex gap-3 pt-2">

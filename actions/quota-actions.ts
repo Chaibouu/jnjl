@@ -2,11 +2,16 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 export async function listRegionalQuotasAction(editionId: string) {
-  await requirePermission("quotas.manage");
+  const actor = await requirePermission("quotas.manage");
+  const regionId = getActorRegionScope(actor);
   const [regions, quotas] = await Promise.all([
-    db.region.findMany({ orderBy: { name: "asc" } }),
+    db.region.findMany({
+      where: regionId ? { id: regionId } : undefined,
+      orderBy: { name: "asc" },
+    }),
     db.regionalQuota.findMany({ where: { editionId } }),
   ]);
 
@@ -26,6 +31,7 @@ export async function setRegionalQuotaAction(
   quota: number
 ) {
   const actor = await requirePermission("quotas.manage");
+  assertRegionAccess(actor, regionId);
   if (!Number.isInteger(quota) || quota < 0) {
     throw new Error("Le quota doit être un nombre entier positif ou nul");
   }

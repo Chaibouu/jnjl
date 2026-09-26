@@ -185,7 +185,13 @@ type SeedUser = {
   role: UserRole;
   password: string;
   permissions: string[]; // codes — ignorés pour SUPER_ADMIN (accès global)
+  focalRegionCode?: string; // STAFF régional — résolu en focalRegionId via REGIONS
 };
+
+/** Mot de passe partagé pour le lot de comptes de test destinés aux utilisateurs externes. */
+const TEST_ACCOUNTS_PASSWORD = "JnjlTest#2026";
+
+const STAFF_REGIONAL_PERMISSIONS = ["payments.manage", "boarding.manage", "attendance.manage"];
 
 const USERS: SeedUser[] = [
   {
@@ -247,6 +253,39 @@ const USERS: SeedUser[] = [
     password: "PointFocal@2026",
     permissions: ["payments.manage", "boarding.manage"],
   },
+
+  // ─── Comptes de test pour utilisateurs externes (1 super admin, 2 admins, 8 staff régionaux) ───
+  {
+    name: "Super Admin (Test)",
+    email: "test.superadmin@jnjl.ne",
+    role: UserRole.SUPER_ADMIN,
+    password: TEST_ACCOUNTS_PASSWORD,
+    permissions: [],
+  },
+  {
+    name: "Admin Test 1",
+    email: "test.admin1@jnjl.ne",
+    role: UserRole.ADMIN,
+    password: TEST_ACCOUNTS_PASSWORD,
+    permissions: PERMISSIONS.map(p => p.code),
+  },
+  {
+    name: "Admin Test 2",
+    email: "test.admin2@jnjl.ne",
+    role: UserRole.ADMIN,
+    password: TEST_ACCOUNTS_PASSWORD,
+    permissions: PERMISSIONS.map(p => p.code),
+  },
+  ...REGIONS.map(
+    (region): SeedUser => ({
+      name: `Staff Régional ${region.name} (Test)`,
+      email: `test.staff.${region.code.toLowerCase()}@jnjl.ne`,
+      role: UserRole.STAFF,
+      password: TEST_ACCOUNTS_PASSWORD,
+      permissions: STAFF_REGIONAL_PERMISSIONS,
+      focalRegionCode: region.code,
+    })
+  ),
 ];
 
 async function seedPermissions() {
@@ -282,6 +321,9 @@ async function seedUsers() {
 
     if (!user) {
       const hashedPassword = await bcrypt.hash(seedUser.password, 10);
+      const focalRegion = seedUser.focalRegionCode
+        ? await prisma.region.findUnique({ where: { code: seedUser.focalRegionCode } })
+        : null;
       user = await prisma.user.create({
         data: {
           name: seedUser.name,
@@ -289,6 +331,7 @@ async function seedUsers() {
           role: seedUser.role,
           emailVerified: new Date(),
           password: hashedPassword,
+          focalRegionId: focalRegion?.id,
         },
       });
       console.log(`  created ${seedUser.email} (${seedUser.role})`);

@@ -7,8 +7,10 @@ import { requirePermission } from "@/actions/requirePermission";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import { saveFile } from "@/lib/storage";
 import { storagePaths } from "@/lib/storage-paths";
-import { generateCertificatePdf, generateTrainingCertificatePdf } from "@/lib/generate-certificate-pdf";
+import { generateTrainingCertificatePdf } from "@/lib/generate-certificate-pdf";
+import { generateAttestationPdf } from "@/lib/generate-attestation-pdf";
 import type { User } from "@/types/user";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 // ─────────────────────────────────────────────────────────────
 // Administration
@@ -16,10 +18,17 @@ import type { User } from "@/types/user";
 
 /** Ambassadeurs ayant été pointés présents (étape ATTESTATION) et leur attestation éventuelle. */
 export async function listCertificateCandidatesAction(editionId: string) {
-  await requirePermission("documents.manage");
+  const actor = await requirePermission("documents.manage");
+  const regionId = getActorRegionScope(actor);
 
   const applications = await db.ambassadorApplication.findMany({
-    where: { editionId, status: "RETENU", stage: "ATTESTATION", userId: { not: null } },
+    where: {
+      editionId,
+      status: "RETENU",
+      stage: "ATTESTATION",
+      userId: { not: null },
+      ...(regionId ? { regionId } : {}),
+    },
     select: {
       id: true,
       firstName: true,
@@ -45,16 +54,41 @@ export async function listCertificateCandidatesAction(editionId: string) {
   }));
 }
 
-async function issueCertificate(applicationId: string) {
+const ATTESTATION_DATE_FORMAT: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };
+
+/** "21 novembre 2026" (un jour) ou "28 septembre 2026 et 30 septembre 2026" (plusieurs jours). */
+function formatAttestationEventDate(startDate: Date | null, endDate: Date | null): string {
+  if (!startDate) return "";
+  const format = (date: Date) => date.toLocaleDateString("fr-FR", ATTESTATION_DATE_FORMAT);
+  if (!endDate || startDate.getTime() === endDate.getTime()) return format(startDate);
+  return `${format(startDate)} et ${format(endDate)}`;
+}
+
+async function issueCertificate(actor: User, applicationId: string) {
   const application = await db.ambassadorApplication.findUnique({
     where: { id: applicationId },
     include: {
-      edition: { select: { name: true, year: true } },
+      edition: {
+        select: {
+          name: true,
+          year: true,
+          theme: true,
+          location: true,
+          startDate: true,
+          endDate: true,
+          attestationTheme: true,
+          attestationLocation: true,
+          attestationStartDate: true,
+          attestationEndDate: true,
+          attestationEditionLabel: true,
+        },
+      },
       region: { select: { name: true } },
       documents: { where: { type: "CERTIFICATE" }, take: 1 },
     },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
   if (!application.userId) throw new Error("Cet ambassadeur n'a pas de compte utilisateur");
   if (application.stage !== "ATTESTATION") {
     throw new Error("L'attestation n'est délivrée qu'après le pointage de présence");
@@ -66,18 +100,16 @@ async function issueCertificate(applicationId: string) {
   });
   if (attendance === 0) throw new Error("Aucune présence enregistrée pour cet ambassadeur");
 
-  const userBadge = await db.userBadge.findFirst({
-    where: { userId: application.userId, editionId: application.editionId, badge: { code: "AMBASSADEUR" } },
-    select: { number: true },
-  });
-
+  const edition = application.edition;
   const issuedAt = new Date();
-  const pdfBytes = await generateCertificatePdf({
+  const pdfBytes = await generateAttestationPdf({
     ambassadorName: `${application.firstName} ${application.lastName}`,
-    region: application.region.name,
-    editionName: `${application.edition.name} (${application.edition.year})`,
-    badgeNumber: userBadge?.number ?? null,
-    issuedAt,
+    theme: edition.attestationTheme?.trim() || edition.theme || edition.name,
+    location: edition.attestationLocation?.trim() || edition.location || "Niamey",
+    eventDate:
+      formatAttestationEventDate(edition.attestationStartDate ?? edition.startDate, edition.attestationEndDate ?? edition.endDate) ||
+      issuedAt.toLocaleDateString("fr-FR", ATTESTATION_DATE_FORMAT),
+    editionName: edition.attestationEditionLabel?.trim() || edition.name,
   });
 
   const fileUrl = await saveFile({
@@ -111,13 +143,14 @@ async function issueCertificate(applicationId: string) {
 }
 
 export async function issueCertificateAction(applicationId: string) {
-  await requirePermission("documents.manage");
-  const document = await issueCertificate(applicationId);
+  const actor = await requirePermission("documents.manage");
+  const document = await issueCertificate(actor, applicationId);
   return { fileUrl: document.fileUrl };
 }
 
 export async function issueAllCertificatesAction(editionId: string) {
-  await requirePermission("documents.manage");
+  const actor = await requirePermission("documents.manage");
+  const regionId = getActorRegionScope(actor);
 
   const pending = await db.ambassadorApplication.findMany({
     where: {
@@ -126,6 +159,7 @@ export async function issueAllCertificatesAction(editionId: string) {
       stage: "ATTESTATION",
       userId: { not: null },
       documents: { none: { type: "CERTIFICATE" } },
+      ...(regionId ? { regionId } : {}),
     },
     select: { id: true },
   });
@@ -133,7 +167,7 @@ export async function issueAllCertificatesAction(editionId: string) {
   let count = 0;
   for (const application of pending) {
     try {
-      await issueCertificate(application.id);
+      await issueCertificate(actor, application.id);
       count += 1;
     } catch {
       // Ambassadeur sans présence enregistrée : ignoré, il reste dans la liste.
@@ -161,7 +195,8 @@ export async function listCertifiableCoursesAction() {
  * tous les modules terminés ET tous les QCM publiés liés à la formation réussis.
  */
 export async function listTrainingCertificateCandidatesAction(courseId: string) {
-  await requirePermission("documents.manage");
+  const actor = await requirePermission("documents.manage");
+  const regionId = getActorRegionScope(actor);
 
   const course = await db.trainingCourse.findUnique({
     where: { id: courseId },
@@ -178,6 +213,7 @@ export async function listTrainingCertificateCandidatesAction(courseId: string) 
       status: "RETENU",
       userId: { not: null },
       trainingProgress: { some: { module: { courseId }, completedAt: { not: null } } },
+      ...(regionId ? { regionId } : {}),
     },
     select: {
       id: true,
@@ -226,7 +262,7 @@ export async function listTrainingCertificateCandidatesAction(courseId: string) 
   };
 }
 
-async function issueTrainingCertificate(courseId: string, applicationId: string) {
+async function issueTrainingCertificate(actor: User, courseId: string, applicationId: string) {
   const [course, application] = await Promise.all([
     db.trainingCourse.findUnique({
       where: { id: courseId },
@@ -246,6 +282,7 @@ async function issueTrainingCertificate(courseId: string, applicationId: string)
   if (!application || application.editionId !== course.editionId) {
     throw new Error("Candidature introuvable pour cette formation");
   }
+  assertRegionAccess(actor, application.regionId);
   if (!application.userId) throw new Error("Cet ambassadeur n'a pas de compte utilisateur");
 
   const existing = await db.document.findFirst({
@@ -286,6 +323,7 @@ async function issueTrainingCertificate(courseId: string, applicationId: string)
       : null;
 
   const pdfBytes = await generateTrainingCertificatePdf({
+    editionId: course.editionId,
     ambassadorName: `${application.firstName} ${application.lastName}`,
     region: application.region.name,
     editionName: `${course.edition.name} (${course.edition.year})`,
@@ -327,13 +365,13 @@ async function issueTrainingCertificate(courseId: string, applicationId: string)
 }
 
 export async function issueTrainingCertificateAction(courseId: string, applicationId: string) {
-  await requirePermission("documents.manage");
-  const document = await issueTrainingCertificate(courseId, applicationId);
+  const actor = await requirePermission("documents.manage");
+  const document = await issueTrainingCertificate(actor, courseId, applicationId);
   return { fileUrl: document.fileUrl };
 }
 
 export async function issueAllTrainingCertificatesAction(courseId: string) {
-  await requirePermission("documents.manage");
+  const actor = await requirePermission("documents.manage");
 
   const { candidates } = await listTrainingCertificateCandidatesAction(courseId);
   const pending = candidates.filter(candidate => candidate.eligible && !candidate.certificate);
@@ -341,7 +379,7 @@ export async function issueAllTrainingCertificatesAction(courseId: string) {
   let count = 0;
   for (const candidate of pending) {
     try {
-      await issueTrainingCertificate(courseId, candidate.id);
+      await issueTrainingCertificate(actor, courseId, candidate.id);
       count += 1;
     } catch {
       // Cas limite (ex. compte supprimé) : ignoré, l'ambassadeur reste dans la liste.

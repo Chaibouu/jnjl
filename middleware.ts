@@ -45,7 +45,7 @@ function buildCspWithNonce(nonce: string): string {
     // Images saisies par les admins (R2, CDN…) : les images ne peuvent pas exécuter de code.
     "img-src 'self' data: blob: https:",
     // Vidéos intégrées + aperçu des PDF générés (engagement, attestations), sur le site ou sur R2.
-    `frame-src 'self' ${r2Origin} https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com`,
+    `frame-src 'self' blob: ${r2Origin} https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com`,
     "font-src 'self' data:",
     isDev ? "connect-src 'self' ws: wss: http: https:" : "connect-src 'self'",
     "frame-ancestors 'none'",

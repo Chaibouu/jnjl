@@ -105,7 +105,31 @@ const nextConfig = {
     },
 
     // Amélioration du tree-shaking
-    webpack: (config, { dev, isServer }) => {
+    webpack: (config, { dev, isServer, webpack }) => {
+        // L'éditeur de modèles PDF (@pdfme/ui) embarque un convertisseur qui référence des modules Node
+        // (node:fs/promises…) uniquement utilisés côté serveur : on les neutralise dans le bundle navigateur.
+        if (!isServer) {
+            config.plugins.push(
+                new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+                    resource.request = resource.request.replace(/^node:/, '');
+                })
+            );
+            config.resolve.fallback = {
+                ...config.resolve.fallback,
+                fs: false,
+                'fs/promises': false,
+                path: false,
+                os: false,
+                url: false,
+                module: false,
+                crypto: false,
+                stream: false,
+                zlib: false,
+                worker_threads: false,
+                child_process: false,
+            };
+        }
+
         // Optimisations pour la production
         if (!dev && !isServer) {
             config.optimization.splitChunks = {

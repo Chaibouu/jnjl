@@ -12,6 +12,7 @@ import { generatePasswordResetToken } from "@/lib/tokens";
 import { sendPasswordResetEmail } from "@/lib/mail";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const applicationInclude = {
   region: { select: { id: true, name: true, code: true } },
@@ -40,15 +41,17 @@ async function requireAnyPermission(codes: string[]): Promise<User> {
 }
 
 export async function listAmbassadorApplicationsAction() {
-  await requirePermission("applications.ambassador.manage");
+  const actor = await requirePermission("applications.ambassador.manage");
+  const regionId = getActorRegionScope(actor);
   return db.ambassadorApplication.findMany({
+    where: regionId ? { regionId } : undefined,
     include: applicationInclude,
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getAmbassadorApplicationAction(id: string) {
-  await requireAnyPermission([
+  const actor = await requireAnyPermission([
     "applications.ambassador.manage",
     "ambassadors.accounts.manage",
   ]);
@@ -57,6 +60,7 @@ export async function getAmbassadorApplicationAction(id: string) {
     include: applicationInclude,
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
 
   const lastQuizAttempt = await db.quizAttempt.findFirst({
     where: { ambassadorApplicationId: id, status: "COMPLETED" },
@@ -78,6 +82,7 @@ export async function acceptAmbassadorApplicationAction(id: string) {
     where: { id },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(reviewer, application.regionId);
   if (application.status === ApplicationStatus.RETENU && application.userId) {
     throw new Error("Cette candidature est déjà acceptée");
   }
@@ -156,6 +161,7 @@ export async function rejectAmbassadorApplicationAction(
     where: { id },
   });
   if (!application) throw new Error("Candidature introuvable");
+  assertRegionAccess(reviewer, application.regionId);
   if (application.status === ApplicationStatus.RETENU) {
     throw new Error("Une candidature acceptée ne peut pas être rejetée");
   }

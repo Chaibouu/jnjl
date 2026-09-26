@@ -33,6 +33,12 @@ export const adminNavigation: NavigationItem[] = [
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF", "USER"],
   },
   {
+    title: "Guide du parcours",
+    icon: "material-symbols:menu-book",
+    path: "/admin/guide",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+  },
+  {
     title: "Notifications",
     icon: "material-symbols:notifications",
     path: "/dashboard/notifications",
@@ -53,11 +59,31 @@ export const adminNavigation: NavigationItem[] = [
     requiresAmbassadorAccount: true,
   },
   {
-    title: "Mon engagement",
-    icon: "material-symbols:signature",
+    title: "Mes documents",
+    icon: "material-symbols:description",
     path: "/ambassadeur/engagement",
     allowedRoles: ["USER"],
     requiresAmbassadorAccount: true,
+    children: [
+      {
+        title: "Engagement",
+        path: "/ambassadeur/engagement",
+        allowedRoles: ["USER"],
+        requiresAmbassadorAccount: true,
+      },
+      {
+        title: "Demande de permission",
+        path: "/ambassadeur/documents/permission",
+        allowedRoles: ["USER"],
+        requiresAmbassadorAccount: true,
+      },
+      {
+        title: "Ordre de mission",
+        path: "/ambassadeur/documents/mission",
+        allowedRoles: ["USER"],
+        requiresAmbassadorAccount: true,
+      },
+    ],
   },
   {
     title: "Mon badge",
@@ -88,6 +114,13 @@ export const adminNavigation: NavigationItem[] = [
     requiredPermission: "editions.manage",
   },
   {
+    title: "Paramètres",
+    icon: "material-symbols:tune",
+    path: "/admin/parametres",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "editions.manage",
+  },
+  {
     title: "Régions",
     icon: "material-symbols:map",
     path: "/admin/regions",
@@ -111,6 +144,12 @@ export const adminNavigation: NavigationItem[] = [
       {
         title: "Candidatures",
         path: "/admin/ambassadeurs/candidatures",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+        requiredPermission: "applications.ambassador.manage",
+      },
+      {
+        title: "Suivi du parcours",
+        path: "/admin/ambassadeurs/suivi",
         allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
         requiredPermission: "applications.ambassador.manage",
       },
@@ -190,6 +229,13 @@ export const adminNavigation: NavigationItem[] = [
     icon: "material-symbols:description",
     path: "/admin/documents",
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "documents.manage",
+  },
+  {
+    title: "Modèles PDF",
+    icon: "material-symbols:design-services",
+    path: "/admin/modeles-documents",
+    allowedRoles: ["SUPER_ADMIN"],
     requiredPermission: "documents.manage",
   },
   {

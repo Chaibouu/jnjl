@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { CheckCircle2, FileText } from "lucide-react";
 import { signEngagementAction } from "@/actions/engagement-actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EngagementDraftPreview, SignedEngagementPreview } from "@/components/ambassador/EngagementPreview";
 import charter from "@/settings/charter";
@@ -20,8 +19,8 @@ export function EngagementSignForm({
   ambassadorName: string;
   region: string;
 }) {
+  // Une fois cochée, la case ne peut plus être décochée : l'engagement est définitif.
   const [checked, setChecked] = useState(false);
-  const [signatureName, setSignatureName] = useState("");
   const [error, setError] = useState("");
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -31,7 +30,7 @@ export function EngagementSignForm({
     setError("");
     startTransition(async () => {
       try {
-        const result = await signEngagementAction(signatureName);
+        const result = await signEngagementAction();
         setFileUrl(result.fileUrl);
       } catch (actionError) {
         setError(
@@ -54,6 +53,7 @@ export function EngagementSignForm({
           href={fileUrl}
           target="_blank"
           rel="noopener noreferrer"
+          download
           className="inline-flex items-center gap-1.5 text-sm font-semibold underline"
           style={{ color: charter.orange }}
         >
@@ -75,20 +75,18 @@ export function EngagementSignForm({
       )}
 
       <label className="flex items-start gap-2.5 text-sm">
-        <Checkbox className="mt-0.5" checked={checked} onCheckedChange={value => setChecked(Boolean(value))} />
-        J&apos;ai lu et j&apos;accepte les termes de cette fiche d&apos;engagement.
-      </label>
-
-      <div>
-        <label className="block text-sm font-medium">Signature (votre nom complet)</label>
-        <Input
-          value={signatureName}
-          onChange={event => setSignatureName(event.target.value)}
-          required
-          placeholder="Prénom Nom"
-          className="mt-2 h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
+        <Checkbox
+          className="mt-0.5"
+          checked={checked}
+          disabled={checked}
+          // Une fois cochée, la case reste cochée : impossible de revenir en arrière.
+          onCheckedChange={value => setChecked(current => current || Boolean(value))}
         />
-      </div>
+        <span>
+          <strong>Je m&apos;engage</strong> à respecter les termes de cette fiche, en tant que{" "}
+          {ambassadorName} ({region}). Une fois cochée, cette case ne peut plus être décochée.
+        </span>
+      </label>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <EngagementDraftPreview
@@ -96,15 +94,16 @@ export function EngagementSignForm({
           ambassadorName={ambassadorName}
           region={region}
           engagementText={engagementText}
-          signatureName={signatureName}
+          signatureName={ambassadorName}
         />
         <Button
           type="submit"
-          loading={isPending} disabled={!checked || signatureName.trim().length < 3}
+          loading={isPending}
+          disabled={!checked}
           className="h-8 w-full rounded-none text-white hover:opacity-90 sm:w-auto sm:px-10"
           style={{ backgroundColor: charter.orange }}
         >
-          {isPending ? "Signature en cours..." : "Signer l'engagement"}
+          {isPending ? "Signature en cours..." : "Signer et télécharger ma fiche"}
         </Button>
       </div>
     </form>

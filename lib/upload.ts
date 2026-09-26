@@ -39,6 +39,10 @@ const MAGIC_SIGNATURES: Record<string, MagicEntry[]> = {
   "image/webp": [{ bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 }],  // RIFF header (on vérifie aussi "WEBP" à offset 8)
   "image/svg+xml": [], // SVG est du texte/XML — pas de magic number, validé autrement
   "application/pdf": [{ bytes: [0x25, 0x50, 0x44, 0x46] }],       // %PDF
+  // .docx (OOXML) — conteneur ZIP, signature "PK\x03\x04".
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+    { bytes: [0x50, 0x4b, 0x03, 0x04] },
+  ],
 };
 
 /**

@@ -28,7 +28,6 @@ const STAGE_LABEL: Record<string, string> = {
   CLASSEMENT: "Classement",
   SELECTION: "Sélection",
   REPECHAGE: "Repêchage",
-  DOCUMENTS: "Documents",
   ENGAGEMENT: "Engagement",
   BADGE: "Badge",
   EMBARQUEMENT: "Embarquement",

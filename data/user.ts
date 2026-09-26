@@ -54,6 +54,7 @@ export async function getUserById(userId: string) {
         role: true,
         isActive: true,
         image: true,
+        focalRegionId: true,
         permissions: { select: { permission: { select: { code: true } } } },
         _count: { select: { ambassadorApplications: true } },
       },

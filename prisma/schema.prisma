@@ -47,6 +47,10 @@ model User {
   documents     Document[]
   notifications Notification[]
 
+  // ── JNJL : point focal régional (STAFF cantonné à une région) ──
+  focalRegionId String?
+  focalRegion   Region? @relation("RegionFocalStaff", fields: [focalRegionId], references: [id], onDelete: SetNull)
+
   // ── JNJL : contenus édités ──
   news News[] @relation("NewsAuthor")
 
@@ -309,6 +313,22 @@ model Edition {
   startDate   DateTime?
   endDate     DateTime?
   location    String?
+  // Repris tel quel dans la demande de permission générée par l'ambassadeur (§ documents administratifs).
+  patronageText String?     @db.Text
+  // Couleur de fond du badge ambassadeur (hex, ex. "#282828") — repli sur charter.tertiary si vide.
+  badgeBackgroundColor String?
+  // DATE DE DEPART / DATE DE RETOUR de l'ordre de mission — repli sur startDate/endDate si vide.
+  missionDepartureDate DateTime?
+  missionReturnDate    DateTime?
+  // Période de l'autorisation d'absence dans la demande de permission — repli sur startDate/endDate si vide.
+  absenceStartDate DateTime?
+  absenceEndDate   DateTime?
+  // Réglages de l'attestation de participation — chacun a son propre repli si vide.
+  attestationTheme       String? // repli sur theme
+  attestationLocation    String? // repli sur location
+  attestationStartDate   DateTime? // repli sur startDate
+  attestationEndDate     DateTime? // repli sur endDate
+  attestationEditionLabel String?  // ex. "3è édition de la JNJL" — repli sur name
   status      EditionStatus @default(DRAFT)
   isDeleted   Boolean       @default(false)
   createdAt   DateTime      @default(now())
@@ -328,6 +348,7 @@ model Edition {
   regionalQuotas         RegionalQuota[]
   trainingCourses        TrainingCourse[]
   trainingModules        TrainingModule[]
+  documentTemplates      DocumentTemplate[]
   quizzes                Quiz[]
   userBadges             UserBadge[]
 
@@ -345,6 +366,7 @@ model Region {
   applications      AmbassadorApplication[]
   eventApplications EventApplication[]
   boardings         Boarding[]
+  focalStaff        User[]                  @relation("RegionFocalStaff")
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1044,6 +1066,8 @@ model Document {
   trainingCourseId        String? // attestation de formation (type TRAINING_CERTIFICATE)
   trainingCourse          TrainingCourse?        @relation(fields: [trainingCourseId], references: [id], onDelete: SetNull)
   generatedAt             DateTime               @default(now())
+  // Numéro affiché sur le document (demande de permission / ordre de mission) — stable d'une régénération à l'autre.
+  reference               String?
 
   @@index([type])
   @@index([trainingCourseId])
@@ -1066,4 +1090,27 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, isRead])
+}
+
+// Modèles de documents PDF éditables dans l'admin (éditeur pdfme), par édition et par type.
+// Un seul modèle actif par (édition, type) ; s'il n'y en a pas, la génération PDF historique s'applique.
+enum DocumentTemplateType {
+  ENGAGEMENT
+  CERTIFICATE
+  TRAINING_CERTIFICATE
+  BADGE
+}
+
+model DocumentTemplate {
+  id        String               @id @default(cuid())
+  editionId String
+  edition   Edition              @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  type      DocumentTemplateType
+  name      String
+  template  Json
+  isActive  Boolean              @default(false)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([editionId, type, isActive])
 }

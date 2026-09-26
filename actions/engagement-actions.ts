@@ -9,6 +9,7 @@ import { saveFile } from "@/lib/storage";
 import { storagePaths } from "@/lib/storage-paths";
 import { generateEngagementPdf } from "@/lib/generate-engagement-pdf";
 import type { User } from "@/types/user";
+import { getActorRegionScope } from "@/lib/region-scope";
 
 async function getCurrentUser(): Promise<User> {
   const result = await getUser();
@@ -47,13 +48,15 @@ export async function setEditionEngagementTextAction(editionId: string, text: st
 }
 
 export async function listEngagementStatusAction(editionId: string) {
-  await requirePermission("engagement.manage");
+  const actor = await requirePermission("engagement.manage");
+  const regionId = getActorRegionScope(actor);
 
   return db.ambassadorApplication.findMany({
     where: {
       editionId,
       status: "RETENU",
       stage: { in: ["ENGAGEMENT", "BADGE", "EMBARQUEMENT", "PRESENCE", "ATTESTATION"] },
+      ...(regionId ? { regionId } : {}),
     },
     select: {
       id: true,
@@ -95,12 +98,13 @@ export async function getMyEngagementAction() {
   };
 }
 
-export async function signEngagementAction(signatureName: string) {
+/**
+ * Signe la fiche d'engagement pour le compte connecté. Le nom du signataire n'est jamais
+ * saisi par l'ambassadeur : il est repris directement de sa candidature, pour que le nom
+ * gravé sur le PDF soit toujours celui du compte réel.
+ */
+export async function signEngagementAction() {
   const user = await getCurrentUser();
-  const trimmedName = signatureName.trim();
-  if (trimmedName.length < 3) {
-    throw new Error("Veuillez saisir votre nom complet pour signer");
-  }
 
   const edition = await db.edition.findFirst({ where: { status: "ACTIVE", isDeleted: false } });
   if (!edition) throw new Error("Aucune édition active");
@@ -122,13 +126,15 @@ export async function signEngagementAction(signatureName: string) {
   });
   if (existing) throw new Error("La fiche d'engagement a déjà été signée");
 
+  const fullName = `${application.firstName} ${application.lastName}`.trim();
   const acceptedAt = new Date();
   const pdfBytes = await generateEngagementPdf({
+    editionId: edition.id,
     editionName: `${edition.name} (${edition.year})`,
-    ambassadorName: `${application.firstName} ${application.lastName}`,
+    ambassadorName: fullName,
     region: application.region.name,
     engagementText: edition.engagementText,
-    signatureName: trimmedName,
+    signatureName: fullName,
     acceptedAt,
   });
 
@@ -143,7 +149,7 @@ export async function signEngagementAction(signatureName: string) {
     db.engagement.create({
       data: {
         ambassadorApplicationId: application.id,
-        signatureName: trimmedName,
+        signatureName: fullName,
         fileUrl,
         acceptedAt,
       },
