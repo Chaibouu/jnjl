@@ -2,7 +2,7 @@
 
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/actions/requirePermission";
+import { requirePermission, requireAnyPermission } from "@/actions/requirePermission";
 import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import { editionSchema, type EditionInput } from "@/schemas/edition";
@@ -38,6 +38,32 @@ export async function getEditionAction(id: string) {
   await requirePermission("editions.manage");
   const edition = await db.edition.findFirst({
     where: { id, isDeleted: false },
+  });
+  if (!edition) throw new Error("Édition introuvable");
+  return edition;
+}
+
+/**
+ * Résumé en lecture seule d'une édition (§7 du guide admin — accès Galerie/Chiffres clés) :
+ * accessible avec `editions.manage` OU `media.manage`, contrairement à getEditionAction()
+ * qui reste strictement réservé à `editions.manage` (édition des champs de l'édition elle-même).
+ */
+export async function getEditionSummaryAction(id: string) {
+  await requireAnyPermission(["editions.manage", "media.manage"]);
+  const edition = await db.edition.findFirst({
+    where: { id, isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      year: true,
+      slug: true,
+      status: true,
+      theme: true,
+      location: true,
+      description: true,
+      startDate: true,
+      endDate: true,
+    },
   });
   if (!edition) throw new Error("Édition introuvable");
   return edition;

@@ -1,16 +1,18 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Clock, Eye, Search, X } from "lucide-react";
-import {
-  acceptEventApplicationAction,
-  rejectEventApplicationAction,
-  waitlistEventApplicationAction,
-} from "@/actions/event-application-actions";
+import { Eye, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { GENDER_OPTIONS, formatGender } from "@/lib/gender";
 
 type Application = {
   id: string;
@@ -18,122 +20,53 @@ type Application = {
   lastName: string;
   email: string;
   phone: string;
+  gender: string | null;
   status: string;
   createdAt: Date;
   region: { name: string; code: string } | null;
   edition: { name: string; year: number };
   user: { id: string } | null;
+  participation: { badgeNumber: string | null } | null;
 };
 
 const labels: Record<string, string> = {
   SOUMIS: "Soumise",
   EN_COURS_ANALYSE: "En analyse",
-  RETENU: "Acceptée",
+  RETENU: "Confirmée",
   NON_RETENU: "Rejetée",
   LISTE_ATTENTE: "Liste d'attente",
 };
+
+const ALL = "__ALL__";
 
 export function EventApplicationManager({
   initialApplications,
 }: {
   initialApplications: Application[];
 }) {
-  const [applications, setApplications] = useState(initialApplications);
   const [search, setSearch] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const { confirm } = useConfirm();
+  const [regionFilter, setRegionFilter] = useState(ALL);
+  const [genderFilter, setGenderFilter] = useState(ALL);
+
+  const regions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const application of initialApplications) {
+      if (application.region) map.set(application.region.name, application.region.name);
+    }
+    return Array.from(map.keys()).sort();
+  }, [initialApplications]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return query
-      ? applications.filter(item =>
-          `${item.firstName} ${item.lastName} ${item.email} ${item.region?.name ?? ""}`
-            .toLowerCase()
-            .includes(query)
-        )
-      : applications;
-  }, [applications, search]);
-
-  const accept = async (application: Application) => {
-    const confirmed = await confirm({
-      title: "Accepter cette candidature ?",
-      description: `${application.firstName} ${application.lastName} participera à l'événement et sera notifié(e).`,
-      confirmLabel: "Accepter",
+    return initialApplications.filter(item => {
+      if (regionFilter !== ALL && item.region?.name !== regionFilter) return false;
+      if (genderFilter !== ALL && item.gender !== genderFilter) return false;
+      if (!query) return true;
+      return `${item.firstName} ${item.lastName} ${item.email} ${item.region?.name ?? ""}`
+        .toLowerCase()
+        .includes(query);
     });
-    if (!confirmed) return;
-    setMessage("");
-    setError("");
-    startTransition(async () => {
-      try {
-        await acceptEventApplicationAction(application.id);
-        setApplications(items =>
-          items.map(item =>
-            item.id === application.id ? { ...item, status: "RETENU" } : item
-          )
-        );
-        setMessage("Candidature acceptée.");
-      } catch (actionError) {
-        setError(
-          actionError instanceof Error
-            ? actionError.message
-            : "Impossible d'accepter la candidature"
-        );
-      }
-    });
-  };
-
-  const reject = async (application: Application) => {
-    const confirmed = await confirm({
-      title: "Rejeter cette candidature ?",
-      description: `${application.firstName} ${application.lastName} sera notifié(e) que sa candidature n'est pas retenue.`,
-      confirmLabel: "Rejeter",
-      variant: "destructive",
-    });
-    if (!confirmed) return;
-    setMessage("");
-    setError("");
-    startTransition(async () => {
-      try {
-        await rejectEventApplicationAction(application.id);
-        setApplications(items =>
-          items.map(item =>
-            item.id === application.id ? { ...item, status: "NON_RETENU" } : item
-          )
-        );
-        setMessage("Candidature rejetée.");
-      } catch (actionError) {
-        setError(
-          actionError instanceof Error
-            ? actionError.message
-            : "Impossible de rejeter la candidature"
-        );
-      }
-    });
-  };
-
-  const waitlist = (application: Application) => {
-    setMessage("");
-    setError("");
-    startTransition(async () => {
-      try {
-        await waitlistEventApplicationAction(application.id);
-        setApplications(items =>
-          items.map(item =>
-            item.id === application.id ? { ...item, status: "LISTE_ATTENTE" } : item
-          )
-        );
-        setMessage("Candidature placée en liste d'attente.");
-      } catch (actionError) {
-        setError(
-          actionError instanceof Error
-            ? actionError.message
-            : "Impossible de mettre à jour la candidature"
-        );
-      }
-    });
-  };
+  }, [initialApplications, search, regionFilter, genderFilter]);
 
   return (
     <section className="space-y-6">
@@ -143,40 +76,69 @@ export function EventApplicationManager({
         </p>
         <h1 className="mt-1 text-3xl font-bold">Participants</h1>
         <p className="mt-2 text-muted-foreground">
-          Examinez les demandes de participation à l&apos;édition en cours.
+          Consultez et filtrez les personnes inscrites pour participer à l&apos;événement.
+          L&apos;inscription vaut confirmation immédiate : aucune validation n&apos;est nécessaire.
         </p>
       </header>
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Demandes reçues</h2>
+            <h2 className="text-lg font-semibold">Liste des participants</h2>
             <p className="text-sm text-muted-foreground">
-              {filtered.length} candidature{filtered.length !== 1 ? "s" : ""}
+              {filtered.length} participant{filtered.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Rechercher..."
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Select value={regionFilter} onValueChange={value => setRegionFilter(value ?? ALL)}>
+              <SelectTrigger className="h-10 w-full rounded-none border border-border bg-muted/40 px-3 sm:w-44">
+                <SelectValue placeholder="Région">
+                  {(value: string) => (value === ALL ? "Toutes les régions" : value)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Toutes les régions</SelectItem>
+                {regions.map(name => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={genderFilter} onValueChange={value => setGenderFilter(value ?? ALL)}>
+              <SelectTrigger className="h-10 w-full rounded-none border border-border bg-muted/40 px-3 sm:w-40">
+                <SelectValue placeholder="Sexe">
+                  {(value: string) => (value === ALL ? "Tous" : formatGender(value))}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Tous</SelectItem>
+                {GENDER_OPTIONS.map(([code, label]) => (
+                  <SelectItem key={code} value={code}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Rechercher..."
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+              />
+            </div>
           </div>
         </div>
-        {message && (
-          <p className="border-b px-5 py-3 text-sm text-green-600">{message}</p>
-        )}
-        {error && (
-          <p className="border-b px-5 py-3 text-sm text-destructive">{error}</p>
-        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-5 py-4">Candidat</th>
+                <th className="px-5 py-4">Sexe</th>
                 <th className="px-5 py-4">Région</th>
                 <th className="px-5 py-4">Édition</th>
+                <th className="px-5 py-4">Badge</th>
                 <th className="px-5 py-4">Statut</th>
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
@@ -192,9 +154,15 @@ export function EventApplicationManager({
                       {application.email} · {application.phone}
                     </p>
                   </td>
+                  <td className="px-5 py-4 text-muted-foreground">
+                    {formatGender(application.gender)}
+                  </td>
                   <td className="px-5 py-4">{application.region?.name ?? "—"}</td>
                   <td className="px-5 py-4">
                     {application.edition.name} ({application.edition.year})
+                  </td>
+                  <td className="px-5 py-4 font-mono text-xs text-muted-foreground">
+                    {application.participation?.badgeNumber ?? "—"}
                   </td>
                   <td className="px-5 py-4">
                     <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
@@ -214,44 +182,6 @@ export function EventApplicationManager({
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {["SOUMIS", "EN_COURS_ANALYSE", "LISTE_ATTENTE"].includes(
-                        application.status
-                      ) && (
-                        <>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            title="Accepter"
-                            onClick={() => accept(application)}
-                            disabled={isPending}
-                          >
-                            <Check className="h-4 w-4 text-green-600" />
-                          </Button>
-                          {application.status !== "LISTE_ATTENTE" && (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              title="Liste d'attente"
-                              onClick={() => waitlist(application)}
-                              disabled={isPending}
-                            >
-                              <Clock className="h-4 w-4 text-amber-600" />
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            title="Rejeter"
-                            onClick={() => reject(application)}
-                            disabled={isPending}
-                          >
-                            <X className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -259,10 +189,10 @@ export function EventApplicationManager({
               {filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={7}
                     className="px-5 py-12 text-center text-muted-foreground"
                   >
-                    Aucune candidature trouvée.
+                    Aucun participant trouvé.
                   </td>
                 </tr>
               )}

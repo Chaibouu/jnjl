@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Eye, Pencil, Search, Trash2 } from "lucide-react";
-import { deleteNewsAction, listNewsAction } from "@/actions/news-actions";
+import { Eye, EyeOff, Pencil, Search, Send, Trash2 } from "lucide-react";
+import { deleteNewsAction, listNewsAction, setNewsPublishedAction } from "@/actions/news-actions";
 import { NewsCreateDialog } from "@/components/admin/NewsCreateDialog";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
@@ -47,6 +47,29 @@ export function NewsManager({ news }: { news: NewsItem[] }) {
           actionError instanceof Error
             ? actionError.message
             : "Impossible de rafraîchir les actualités"
+        );
+      }
+    });
+  };
+
+  const togglePublish = (item: NewsItem) => {
+    setMessage("");
+    setError("");
+    const nextPublished = !item.isPublished;
+    startTransition(async () => {
+      try {
+        await setNewsPublishedAction(item.id, nextPublished);
+        setItems(current =>
+          current.map(existing =>
+            existing.id === item.id ? { ...existing, isPublished: nextPublished } : existing
+          )
+        );
+        setMessage(nextPublished ? "Actualité publiée" : "Actualité remise en brouillon");
+      } catch (actionError) {
+        setError(
+          actionError instanceof Error
+            ? actionError.message
+            : "Une erreur est survenue"
         );
       }
     });
@@ -165,6 +188,21 @@ export function NewsManager({ news }: { news: NewsItem[] }) {
                           <Eye className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        title={item.isPublished ? "Remettre en brouillon" : "Publier"}
+                        onClick={() => togglePublish(item)}
+                        disabled={isPending}
+                        className={
+                          item.isPublished
+                            ? "hover:border-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
+                            : "hover:border-green-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-500/10"
+                        }
+                      >
+                        {item.isPublished ? <EyeOff className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                      </Button>
                       <Button
                         size="icon"
                         variant="outline"

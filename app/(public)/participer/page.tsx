@@ -1,7 +1,9 @@
+import Image from "next/image";
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { SectionHeader } from "@/components/site/SectionHeader";
 import { ParticipantApplicationForm } from "@/components/participants/ParticipantApplicationForm";
+import { RecoverBadgeForm } from "@/components/participants/RecoverBadgeForm";
 import charter from "@/settings/charter";
 import { buildMetadata } from "@/lib/seo";
 
@@ -29,14 +31,25 @@ export default async function ParticiperPage() {
 
   return (
     <div className="px-4 py-16 sm:px-6 sm:py-24" style={{ backgroundColor: charter.bg }}>
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-3xl">
         <SectionHeader
           eyebrow="Participer"
           title="Participez à la JNJL"
           description="Complétez ce formulaire pour déposer votre candidature de participation à la prochaine édition."
-          className="mb-10"
+          className="mb-8"
         />
-        <ParticipantApplicationForm regions={regions} hasActiveEdition={!!activeEdition} />
+        <RecoverBadgeForm />
+        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: charter.border }}>
+          <Image
+            src="/header.jpg"
+            alt="Journée Nationale du Jeune Leader"
+            width={1000}
+            height={750}
+            priority
+            className="h-48 w-full object-cover sm:h-64"
+          />
+          <ParticipantApplicationForm embedded regions={regions} hasActiveEdition={!!activeEdition} />
+        </div>
       </div>
     </div>
   );

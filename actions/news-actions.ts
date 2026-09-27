@@ -70,6 +70,22 @@ export async function updateNewsAction(id: string, input: NewsInput) {
   });
 }
 
+/** Bascule rapide Publier / Mettre en brouillon depuis la liste, sans passer par le formulaire complet. */
+export async function setNewsPublishedAction(id: string, isPublished: boolean) {
+  await requirePermission("news.manage");
+
+  const existing = await db.news.findFirst({ where: { id, isDeleted: false } });
+  if (!existing) throw new Error("Actualité introuvable");
+
+  return db.news.update({
+    where: { id },
+    data: {
+      isPublished,
+      publishedAt: isPublished ? (existing.publishedAt ?? new Date()) : null,
+    },
+  });
+}
+
 export async function deleteNewsAction(id: string) {
   await requirePermission("news.manage");
   await db.news.update({ where: { id }, data: { isDeleted: true } });

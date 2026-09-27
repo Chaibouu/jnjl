@@ -1,7 +1,7 @@
-# Guide Super Admin — Plateforme JNJL
+# Guide Administrateur — Plateforme JNJL
 
 Ce guide explique **tous les modules** de la plateforme JNJL (Journée Nationale du Jeune Leader, Niger)
-et leur fonctionnement, du point de vue du **Super Admin**. Il décrit ce que fait chaque écran, dans
+et leur fonctionnement, du point de vue d'un **administrateur**. Il décrit ce que fait chaque écran, dans
 quel ordre l'utiliser, les règles appliquées par le système et les pièges à connaître.
 
 > Le module QCM a son propre guide détaillé : [`docs/module-qcm.md`](./module-qcm.md).
@@ -67,9 +67,9 @@ c'est elle qui alimente l'accueil du site, les candidatures publiques et les esp
 
 | Rôle | Portée |
 |---|---|
-| **SUPER_ADMIN** | Accès **global** à toute la plateforme. Il contourne toute vérification de permission : aucun droit à lui attribuer. |
-| **ADMIN** | Ne reçoit **que** les permissions qui lui sont attribuées individuellement. Ne peut gérer que des comptes `USER` et `STAFF`. |
+| **ADMIN** | Ne reçoit **que** les permissions qui lui sont attribuées individuellement. Ne peut gérer que des comptes `USER`, `STAFF` et `WEBMASTER`. |
 | **STAFF** | Idem : uniquement ses permissions (ex. accueil, point focal). |
+| **WEBMASTER** | Gère les **contenus du site public** (actualités, partenaires, intervenants, programme — voir §7). Uniquement ses permissions attribuées, comme STAFF. |
 | **USER** | Compte candidat / ambassadeur / jeune leader. Accède aux pages `/ambassadeur/...` et `/dashboard`. |
 
 ### 2.3 Comment fonctionnent les permissions
@@ -77,8 +77,8 @@ c'est elle qui alimente l'accueil du site, les candidatures publiques et les esp
 - Le menu latéral n'affiche que les modules autorisés (rôle **et** permission).
 - Les actions sont **aussi** vérifiées côté serveur : masquer un lien ne suffit pas, l'action est refusée
   si la permission manque (message « Permission requise : … »).
-- En tant que Super Admin vous voyez **tous** les modules, y compris les pages « Mon badge », « Mon QCM »…
-  destinées aux ambassadeurs ; elles afficheront simplement « aucune candidature » pour votre compte.
+- Un compte disposant de **toutes** les permissions voit tous les modules, y compris les pages « Mon badge », « Mon QCM »…
+  destinées aux ambassadeurs ; elles afficheront simplement « aucune candidature » pour ce compte.
 - La liste complète des permissions est en [annexe](#17-annexe--permissions-et-comptes-de-démonstration).
 
 ---
@@ -137,6 +137,8 @@ Règles : une seule édition par **année** ; le **slug** doit être unique ; **
 - **Galerie** (permission `media.manage`) : photos et vidéos. Pour une **photo**, coller un lien **ou** cliquer
   « Téléverser » pour envoyer un fichier depuis l'ordinateur (JPEG/PNG/GIF/WebP, 4 Mo max — stocké sur R2/disque local,
   voir §16.3). Une **vidéo** reste obligatoirement un lien (YouTube/Vimeo intégrés automatiquement, sinon lien cliquable).
+- Un utilisateur qui n'a que `media.manage` (ex. WEBMASTER) accède directement à cette même galerie — limitée à
+  l'édition active — via l'entrée de menu **« Galerie »** (`/admin/galerie`), sans passer par la liste des éditions.
 
 ### 4.4 Page publique « Éditions précédentes »
 
@@ -194,13 +196,13 @@ formulaire d'édition.
 Règles de sécurité :
 
 - Personne ne peut modifier ou supprimer **son propre compte** depuis cet écran.
-- Un **ADMIN** ne peut gérer que des comptes `USER` et `STAFF`, et **ne peut pas déléguer** les permissions
-  `users.manage` / `users.permissions.manage`. **Seul le Super Admin** peut créer un ADMIN ou déléguer la gestion des utilisateurs.
+- Un **ADMIN** ne peut gérer que des comptes `USER`, `STAFF` et `WEBMASTER`, et **ne peut pas déléguer** les permissions
+  `users.manage` / `users.permissions.manage`, ni créer d'autre compte `ADMIN` depuis cet écran.
 - Les permissions sont vérifiées à chaque action ; une permission inexistante est refusée.
 
 ### 6.1 Comptes ambassadeurs — `/admin/ambassadeurs/comptes` (`ambassadors.accounts.manage`)
 
-Réservé aux ADMIN / SUPER_ADMIN. Pour chaque compte d'ambassadeur :
+Réservé aux comptes disposant de la permission `ambassadors.accounts.manage`. Pour chaque compte d'ambassadeur :
 
 - **Activer / désactiver** (déconnecte la personne),
 - **Définir un nouveau mot de passe** (déconnecte aussi les sessions ouvertes),
@@ -212,18 +214,26 @@ Les informations globales du compte (région, édition, statut, 2FA…) sont aff
 
 ## 7. Contenus du site public
 
-Chaque contenu se gère depuis son propre écran et apparaît sur le site public.
+Chaque contenu se gère depuis son propre écran et apparaît sur le site public. C'est le périmètre du rôle
+**WEBMASTER** (§2.2) : un compte de ce rôle avec les 4 permissions ci-dessous n'a accès qu'à ces écrans.
 
 | Module | Écran | Permission | Points clés |
 |---|---|---|---|
-| **Actualités** | `/admin/actualites` | `news.manage` | Titre, **slug unique**, extrait, image de couverture (lien), catégorie, contenu, case **Publiée**. Seules les actualités publiées apparaissent sur le site. |
-| **Intervenants** | `/admin/intervenants` | `speakers.manage` | Nom, fonction, organisation, photo (lien), biographie, **rattachement à une édition**. Affichés dans `/intervenants` et l'accueil (édition active). |
-| **Partenaires** | `/admin/partenaires` | `partners.manage` | Nom, logo (lien), site web, **catégorie** (Institutionnel, Technique, Financier, Média, Autre) et édition. Groupés par catégorie sur `/partenaires`. |
+| **Actualités** | `/admin/actualites` | `news.manage` | Titre, **slug unique**, extrait, image de couverture, catégorie, contenu, case **Publiée**. Seules les actualités publiées apparaissent sur le site. |
+| **Intervenants** | `/admin/intervenants` | `speakers.manage` | Nom, fonction, organisation, photo, biographie, **rattachement à une édition**. Affichés dans `/intervenants` et l'accueil (édition active). |
+| **Partenaires** | `/admin/partenaires` | `partners.manage` | Nom, logo, site web, **catégorie** (Institutionnel, Technique, Financier, Média, Autre) et édition. Groupés par catégorie sur `/partenaires`. |
 | **Programme** | `/admin/programme` | `program.manage` | **Jours** (une date = un jour par édition) puis **sessions** : titre, type (Conférence, Panel, Atelier, Cérémonie, Autre), heure de début/fin, lieu, intervenants. Affiché sur `/programme`. |
 
 Notes :
 
-- Les images sont saisies par **URL** (aucun envoi de fichier depuis ces formulaires).
+- Les images (logo, photo, couverture) se collent en **URL** ou se **téléversent directement** (bouton
+  « Téléverser » sur chaque champ image, JPEG/PNG/GIF/WebP, 4 Mo max — stocké sur R2/disque local, voir §16.3).
+- **Galerie et chiffres clés** de l'édition active sont accessibles via l'entrée de menu dédiée
+  **« Galerie »** (`/admin/galerie`, permission `media.manage`), sans avoir besoin de la permission
+  `editions.manage` : c'est le chemin d'accès normal pour un WEBMASTER. Un utilisateur qui possède
+  aussi `editions.manage` peut toujours y accéder depuis la fiche édition complète
+  (`/admin/editions/[id]`, §4.3), mais seule la section Chiffres clés y est modifiable avec cette
+  permission (la section Galerie reste conditionnée à `media.manage` dans les deux cas).
 - L'accueil et les pages publiques lisent l'**édition active** : sans édition active, ces sections restent vides.
 - La section « À propos » (vision, mission, objectifs, valeurs) et le **formulaire de contact** sont dans l'accueil.
   Les messages de contact sont enregistrés et envoyés par email à l'adresse configurée (`MAIL_AUTH_USER`) ; **il n'existe pas
@@ -236,15 +246,22 @@ Notes :
 
 **Menu : Candidatures Participants** — `/admin/candidatures/participants` · `applications.event.manage`.
 
-**Côté public** : `/participer` — nom, prénom, email, téléphone, **sexe (Masculin ou Féminin, obligatoire)**, région, motivation. Le candidat n'a pas besoin de compte.
+**Côté public** : `/participer` — nom, prénom, email, téléphone, **sexe**, **région** et **profession** (obligatoires),
+« avez-vous déjà participé à la JNJL » (obligatoire), motivation (optionnelle). Le candidat n'a pas besoin de compte.
+Une personne déjà inscrite mais ayant perdu son badge peut le retrouver depuis la page `/participer`
+(« Déjà inscrit et badge perdu ? ») en saisissant son **numéro de téléphone d'inscription**.
 
-**Côté admin** : liste et fiche détaillée (informations groupées par catégorie). Trois décisions :
+**Aucune validation admin n'est nécessaire** : l'inscription vaut confirmation immédiate de
+participation. Dès la soumission du formulaire, le système crée la **participation à
+l'événement** (`EventParticipation`) et attribue un **badge de participant** numéroté
+(`JNJL-{année}-PART-{0001}`, QR code inclus), que la personne peut **télécharger en PDF
+immédiatement** sur l'écran de confirmation — sans créer de compte, comme le badge
+ambassadeur (§10.10) mais accessible dès l'inscription.
 
-| Décision | Effet |
-|---|---|
-| **Accepter** | Statut *Retenu* + création de la **participation à l'événement** (`EventParticipation`). Notification + email. |
-| **Refuser** | Statut *Non retenu*. Une candidature déjà acceptée ne peut plus être refusée. Notification + email. |
-| **Liste d'attente** | Statut *Liste d'attente* (impossible si déjà acceptée). Notification + email. |
+**Côté admin** : l'écran **Candidatures Participants** (`/admin/candidatures/participants`)
+sert uniquement à **consulter et filtrer** la liste (recherche texte, filtre par région et par
+sexe) et à voir la fiche détaillée de chaque participant, y compris son numéro de badge. Il
+n'y a plus de décision à prendre (accepter/refuser/liste d'attente).
 
 ---
 
@@ -376,7 +393,7 @@ Les deux réglages sont **indépendants** : un QCM peut être à la fois lié à
 
 ### 10.7 Repêchage — `/admin/repechage` (`repechage.manage`)
 
-Liste les candidats **non sélectionnés**. Le Super Admin/Admin décide **Valider** ou **Refuser**, avec une **justification obligatoire
+Liste les candidats **non sélectionnés**. L'admin décide **Valider** ou **Refuser**, avec une **justification obligatoire
 (10 caractères minimum)**. Valider transforme le candidat en *Sélectionné* et le fait passer directement à **ENGAGEMENT** ;
 refuser n'avance pas l'étape (le candidat reste non sélectionné). La décision et son auteur sont conservés ; le candidat est notifié.
 
@@ -479,7 +496,7 @@ Chaque utilisateur a une page **Notifications** (`/dashboard/notifications`) : l
 
 | Événement | Notification in-app | Email |
 |---|---|---|
-| Participant : accepté / refusé / liste d'attente | si le candidat a un compte | oui |
+| Participant : inscription confirmée + badge | — | non (badge téléchargeable immédiatement sur la page de confirmation) |
 | Ambassadeur retenu | oui | non (l'email de création de mot de passe part déjà) |
 | Ambassadeur refusé (motif) | si compte | oui |
 | Paiement validé | oui | non |
@@ -549,13 +566,12 @@ Le site public est prêt pour les moteurs de recherche :
 | **Messages de contact** | Enregistrés et envoyés par email, mais **aucun écran** pour les consulter dans l'admin. |
 | **Jeunes Leaders** | Pas d'écran de gestion dédié (visibles via Utilisateurs). |
 | **Authentification à deux facteurs** | Le **code 2FA est demandé à la connexion** si le compte l'a activée, mais **aucun écran ne permet de l'activer** pour l'instant. |
-| **Impersonation** | Réservée au rôle **ADMIN** (pas au Super Admin), limitée à 15 min ; aucun bouton n'est actuellement présent dans l'interface. |
+| **Impersonation** | Réservée au rôle **ADMIN**, limitée à 15 min ; aucun bouton n'est actuellement présent dans l'interface. |
 | **Point focal** | La permission `boarding.manage` / `payments.manage` donne accès à **toutes les régions** (pas de limitation à « sa » région). |
 | **Score QCM** | C'est le **dernier** score soumis au QCM de classement qui compte, pas le meilleur. Pas de départage en cas d'égalité au classement. |
 | **QCM de classement** | Rien n'empêche d'en marquer plusieurs sur une édition : le dernier soumis écraserait le score. N'en activez qu'un. |
 | **Formations / QCM** | Réservés aux **ambassadeurs** (progression et tentatives liées à leur candidature) ; pas encore ouverts aux autres comptes. |
 | **Documents administratifs** | Déposés en PDF, non générés automatiquement. |
-| **Images** | Photos, logos et couvertures sont des **liens** (pas d'envoi de fichier depuis ces formulaires). Seule exception : l'éditeur riche des modules de formation permet de téléverser des images. |
 | **Lecture des modules** | Le serveur vérifie que le module a été **ouvert** ; « avoir réellement lu » ne peut pas être garanti (le défilement jusqu'en bas est contrôlé côté navigateur). |
 | **Tests** | Les modules Badge, Embarquement, Présence, Attestation, Statistiques, Notifications et Archivage d'édition ont été vérifiés par analyse de code, mais **pas encore validés de bout en bout dans l'interface** : faites un essai complet (voir §15.3). |
 | **Migrations base de données** | Le dossier `prisma/migrations` n'est pas versionné dans Git. |
@@ -568,7 +584,7 @@ Le site public est prêt pour les moteurs de recherche :
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
-| « Permission requise : … » | Le compte n'a pas la permission | Utilisateurs › Modifier › cocher la permission (ou utiliser un Super Admin) |
+| « Permission requise : … » | Le compte n'a pas la permission | Utilisateurs › Modifier › cocher la permission |
 | Un module n'apparaît pas dans le menu | Rôle ou permission manquants | Idem ; se reconnecter après modification |
 | Les candidatures publiques échouent (« édition… ») | Aucune édition **active** | Éditions › Activer |
 | Personne n'est sélectionné | Quotas à 0, ou classement non calculé | Régler les quotas, calculer le classement, relancer la sélection |
@@ -642,13 +658,10 @@ Le site public est prêt pour les moteurs de recherche :
 | Statistiques | `stats.view` | Statistiques et exports |
 | Paramètres | `settings.manage` | Paramètres généraux |
 
-Le **Super Admin** dispose de **toutes** ces permissions sans attribution.
-
 ### 16.2 Comptes de démonstration (créés par `npm run seed`)
 
 | Compte | Rôle | Usage |
 |---|---|---|
-| `superadmin@jnjl.ne` | SUPER_ADMIN | Accès global |
 | `admin@jnjl.ne` | ADMIN | Éditions, contenus, candidatures, parcours ambassadeur, badges, embarquement, présence, statistiques |
 | `staff@jnjl.ne` | STAFF | Pointage de présence, candidatures participants |
 | `pointfocal@jnjl.ne` | STAFF | Paiements et embarquements |
@@ -658,9 +671,9 @@ Le **Super Admin** dispose de **toutes** ces permissions sans attribution.
 
 | Compte | Rôle | Région (STAFF) | Permissions |
 |---|---|---|---|
-| `test.superadmin@jnjl.ne` | SUPER_ADMIN | — | Accès global |
 | `test.admin1@jnjl.ne`, `test.admin2@jnjl.ne` | ADMIN | — | Toutes les permissions |
 | `test.staff.<code>@jnjl.ne` (agd, dif, dos, mar, nia, tah, til, zin) | STAFF | Une par région | `payments.manage`, `boarding.manage`, `attendance.manage` |
+| `test.webmaster@jnjl.ne` | WEBMASTER | — | `news.manage`, `partners.manage`, `speakers.manage`, `program.manage`, `media.manage`, `contact.manage` |
 
 Chaque compte `test.staff.*` est rattaché (`focalRegionId`) à sa région : il ne voit que les candidats de cette région dans Paiements, Embarquement et Présence. Le guide de démarrage intégré à l'application (**Guide du parcours**, `/admin/guide`) explique le rôle de chacun.
 

@@ -47,7 +47,11 @@ function buildCspWithNonce(nonce: string): string {
     // Vidéos intégrées + aperçu des PDF générés (engagement, attestations), sur le site ou sur R2.
     `frame-src 'self' blob: ${r2Origin} https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com`,
     "font-src 'self' data:",
-    isDev ? "connect-src 'self' ws: wss: http: https:" : "connect-src 'self'",
+    // api.iconify.design (+ ses secours) : les icônes du menu (@iconify/react) sont
+    // récupérées à l'exécution depuis l'API publique Iconify, y compris en production.
+    isDev
+      ? "connect-src 'self' ws: wss: http: https:"
+      : "connect-src 'self' https://api.iconify.design https://api.simplesvg.com https://api.unisvg.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

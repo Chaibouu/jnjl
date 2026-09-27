@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, Mail, MapPin, MessageSquare, Phone, User, UserCheck } from "lucide-react";
+import { Briefcase, Calendar, History, IdCard, Mail, MapPin, MessageSquare, Phone, User, UserCheck } from "lucide-react";
 import { getEventApplicationAction } from "@/actions/event-application-actions";
 import { formatGender } from "@/lib/gender";
 
@@ -82,6 +82,23 @@ export default async function EventApplicationDetailsPage({
                 icon={UserCheck}
                 label="Compte associé"
                 value={application.user ? "Compte existant" : "Aucun compte (visiteur)"}
+              />
+              <InfoTile
+                icon={IdCard}
+                label="Badge de participant"
+                value={application.participation?.badgeNumber ?? "Non généré"}
+              />
+              <InfoTile icon={Briefcase} label="Profession" value={application.profession ?? "—"} />
+              <InfoTile
+                icon={History}
+                label="Déjà participé à la JNJL"
+                value={
+                  application.hasParticipatedBefore == null
+                    ? "—"
+                    : application.hasParticipatedBefore
+                      ? "Oui"
+                      : "Non"
+                }
               />
             </InfoCategory>
 

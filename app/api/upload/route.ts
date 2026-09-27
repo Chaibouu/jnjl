@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const session = await getUser();
     const user = session?.user?.user as User | undefined;
     if (!user) throw new AuthenticationError("Authentification requise");
-    if (!["SUPER_ADMIN", "ADMIN", "STAFF"].includes(user.role)) {
+    if (!["SUPER_ADMIN", "ADMIN", "STAFF", "WEBMASTER"].includes(user.role)) {
       throw new AuthorizationError("Accès refusé");
     }
 

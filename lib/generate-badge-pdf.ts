@@ -82,6 +82,10 @@ export async function generateBadgePdf(params: {
   const mono = await doc.embedFont(StandardFonts.CourierBold);
   const page = doc.addPage([WIDTH, HEIGHT]);
   const bg = hexToRgb(params.backgroundColor);
+  // Le nom et le matricule sont écrits en blanc par défaut : si le fond du badge est clair
+  // (proche du blanc), on bascule en texte sombre pour rester lisible.
+  const bgLuminance = 0.299 * bg.red + 0.587 * bg.green + 0.114 * bg.blue;
+  const bodyText = bgLuminance > 0.6 ? rgb(0.12, 0.12, 0.12) : WHITE;
 
   const centered = (text: string, y: number, size: number, usedFont: PDFFont, color = WHITE) => {
     const value = safe(text, usedFont);
@@ -139,37 +143,79 @@ export async function generateBadgePdf(params: {
   const titleSize = 13;
   page.drawText(safe("Journée Nationale", bold), { x: leftX, y: bodyTop - 24, size: titleSize, font: bold, color: ORANGE });
   page.drawText(safe("du Jeune Leader", bold), { x: leftX, y: bodyTop - 24 - titleSize - 2, size: titleSize, font: bold, color: ORANGE });
-  const editionLabel = safe(params.editionName, bold);
+
+  // Le libellé de l'édition ne doit jamais chevaucher le logo (à droite) : s'il ne tient
+  // pas sur une ligne à taille normale, il passe sur deux lignes plutôt que de devenir
+  // minuscule (troncature avec « … » en tout dernier recours, si une ligne reste trop longue).
+  const editionLabelMaxWidth = WIDTH - 20 - logoSize - 8 - leftX;
+  const editionLabelRaw = safe(params.editionName, bold);
+  const editionLabelOneLineSize = fitSize(editionLabelRaw, bold, editionLabelMaxWidth, 13, 11);
+  const clampLine = (line: string, size: number) => {
+    let text = line;
+    while (bold.widthOfTextAtSize(text, size) > editionLabelMaxWidth && text.length > 1) {
+      text = `${text.slice(0, -2)}…`;
+    }
+    return text;
+  };
+  let editionLabelLines: string[];
+  let editionLabelSize: number;
+  if (bold.widthOfTextAtSize(editionLabelRaw, editionLabelOneLineSize) <= editionLabelMaxWidth) {
+    editionLabelLines = [editionLabelRaw];
+    editionLabelSize = editionLabelOneLineSize;
+  } else {
+    const words = editionLabelRaw.split(" ");
+    const half = Math.ceil(words.length / 2);
+    editionLabelSize = 11;
+    editionLabelLines = [
+      clampLine(words.slice(0, half).join(" "), editionLabelSize),
+      clampLine(words.slice(half).join(" "), editionLabelSize),
+    ];
+  }
+  const editionLabelLineHeight = editionLabelSize + 3;
+  const editionLabelBoxHeight = editionLabelSize + 5;
+  const editionLabelWidth = Math.max(
+    ...editionLabelLines.map(line => bold.widthOfTextAtSize(line, editionLabelSize))
+  );
   const editionLabelY = bodyTop - 24 - (titleSize + 2) * 2 - 6;
   page.drawRectangle({
     x: leftX - 4,
-    y: editionLabelY - 3,
-    width: bold.widthOfTextAtSize(editionLabel, 9) + 8,
-    height: 14,
+    y: editionLabelY - 3 - (editionLabelLines.length - 1) * editionLabelLineHeight,
+    width: editionLabelWidth + 8,
+    height: editionLabelBoxHeight + (editionLabelLines.length - 1) * editionLabelLineHeight,
     color: WHITE,
   });
-  page.drawText(editionLabel, { x: leftX, y: editionLabelY, size: 9, font: bold, color: rgb(0, 0, 0) });
+  editionLabelLines.forEach((line, index) => {
+    page.drawText(line, {
+      x: leftX,
+      y: editionLabelY - index * editionLabelLineHeight,
+      size: editionLabelSize,
+      font: bold,
+      color: rgb(0, 0, 0),
+    });
+  });
+  const matriculeY =
+    bodyTop - 24 - (titleSize + 2) * 2 - 26 - (editionLabelLines.length - 1) * editionLabelLineHeight;
   page.drawText(safe(`Matricule : ${params.number}`, mono), {
     x: leftX,
-    y: bodyTop - 24 - (titleSize + 2) * 2 - 26,
+    y: matriculeY,
     size: 9,
     font: mono,
-    color: WHITE,
+    color: bodyText,
   });
 
   // Identité : le nom se réduit (puis passe sur deux lignes) s'il est trop long
   const maxTextWidth = WIDTH - 40;
   const name = safe(params.fullName, bold);
-  let cursor = logoY - 22;
+  let cursor = logoY - 40;
   if (bold.widthOfTextAtSize(name, 12) > maxTextWidth * 1.5 || name.split(" ").length > 3) {
     const words = name.split(" ");
     const half = Math.ceil(words.length / 2);
     for (const line of [words.slice(0, half).join(" "), words.slice(half).join(" ")]) {
-      centered(line, cursor, fitSize(line, bold, maxTextWidth, 16, 10), bold);
+      centered(line, cursor, fitSize(line, bold, maxTextWidth, 16, 10), bold, bodyText);
       cursor -= 18;
     }
   } else {
-    centered(name, cursor, fitSize(name, bold, maxTextWidth, 16, 10), bold);
+    centered(name, cursor, fitSize(name, bold, maxTextWidth, 16, 10), bold, bodyText);
     cursor -= 18;
   }
 

@@ -63,6 +63,7 @@ const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "Super admin",
   ADMIN: "Admin",
   STAFF: "Staff",
+  WEBMASTER: "Webmaster",
   USER: "Utilisateur",
   ASSOCIATION: "Association",
   MEMBER: "Membre",

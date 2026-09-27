@@ -286,6 +286,13 @@ const USERS: SeedUser[] = [
       focalRegionCode: region.code,
     })
   ),
+  {
+    name: "Webmaster (Test)",
+    email: "test.webmaster@jnjl.ne",
+    role: UserRole.WEBMASTER,
+    password: TEST_ACCOUNTS_PASSWORD,
+    permissions: ["news.manage", "partners.manage", "speakers.manage", "program.manage", "media.manage", "contact.manage"],
+  },
 ];
 
 async function seedPermissions() {

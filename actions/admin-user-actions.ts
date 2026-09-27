@@ -195,8 +195,12 @@ async function permissionCreates(codes: string[]) {
 
 function assertCanManageRole(actorRole: UserRole, targetRole: UserRole) {
   if (actorRole === UserRole.SUPER_ADMIN) return;
-  if (targetRole !== UserRole.USER && targetRole !== UserRole.STAFF) {
-    throw new Error("Un ADMIN ne peut gérer que les comptes USER et STAFF");
+  if (
+    targetRole !== UserRole.USER &&
+    targetRole !== UserRole.STAFF &&
+    targetRole !== UserRole.WEBMASTER
+  ) {
+    throw new Error("Un ADMIN ne peut gérer que les comptes USER, STAFF et WEBMASTER");
   }
 }
 

@@ -12,6 +12,8 @@ enum UserRole {
   SUPER_ADMIN
   ADMIN
   STAFF
+  // Gère les contenus du site public (actualités, partenaires, intervenants, programme) — voir §7 du guide admin.
+  WEBMASTER
   USER
 }
 
@@ -561,6 +563,8 @@ model EventApplication {
   gender       String? // MASCULIN | FEMININ
   regionId     String?
   region       Region?           @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  profession   String?
+  hasParticipatedBefore Boolean?
   motivation   String?           @db.Text
   documents    Document[]
   status       ApplicationStatus @default(SOUMIS)
@@ -971,6 +975,9 @@ model EventParticipation {
   user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   eventApplicationId String?           @unique
   eventApplication   EventApplication? @relation(fields: [eventApplicationId], references: [id], onDelete: SetNull)
+  // Badge de participant (§10bis) : généré automatiquement à l'inscription, sans compte requis.
+  badgeNumber        String?           @unique
+  qrCode             String?
   createdAt          DateTime          @default(now())
 
   attendances Attendance[]

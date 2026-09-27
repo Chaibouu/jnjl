@@ -23,7 +23,7 @@ const STAGE_ORDER = [
 export async function getEditionStatsAction(editionId: string) {
   await requirePermission("stats.view");
 
-  const [ambassadors, quotas, eventByStatus, leaderCount, badgeCount, attendedUsers, regions] =
+  const [ambassadors, quotas, eventApplications, leaderCount, badgeCount, attendedUsers, regions] =
     await Promise.all([
       db.ambassadorApplication.findMany({
         where: { editionId },
@@ -31,13 +31,17 @@ export async function getEditionStatsAction(editionId: string) {
           regionId: true,
           status: true,
           stage: true,
+          gender: true,
           payment: { select: { status: true, amount: true } },
           selection: { select: { status: true } },
           boarding: { select: { status: true } },
         },
       }),
       db.regionalQuota.findMany({ where: { editionId }, select: { regionId: true, quota: true } }),
-      db.eventApplication.groupBy({ by: ["status"], where: { editionId }, _count: { _all: true } }),
+      db.eventApplication.findMany({
+        where: { editionId },
+        select: { status: true, gender: true, regionId: true },
+      }),
       db.leaderApplication.count({ where: { editionId } }),
       db.userBadge.count({ where: { editionId } }),
       db.attendance.findMany({
@@ -47,6 +51,10 @@ export async function getEditionStatsAction(editionId: string) {
       }),
       db.region.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ]);
+
+  /** Normalise un sexe brut ("MASCULIN" | "FEMININ" | null) en clé de regroupement. */
+  const genderKey = (value: string | null) =>
+    value === "MASCULIN" || value === "FEMININ" ? value : "NON_RENSEIGNE";
 
   const quotaByRegion = new Map(quotas.map(item => [item.regionId, item.quota]));
 
@@ -59,6 +67,7 @@ export async function getEditionStatsAction(editionId: string) {
     selected: number;
     boarded: number;
     present: number;
+    participants: number;
   };
   const rows = new Map<string, Row>(
     regions.map(region => [
@@ -72,12 +81,14 @@ export async function getEditionStatsAction(editionId: string) {
         selected: 0,
         boarded: 0,
         present: 0,
+        participants: 0,
       },
     ])
   );
 
   const byStage = new Map<string, number>(STAGE_ORDER.map(stage => [stage, 0]));
   const byStatus = new Map<string, number>();
+  const ambassadorsByGender = new Map<string, number>();
   let revenue = 0;
 
   for (const application of ambassadors) {
@@ -85,6 +96,8 @@ export async function getEditionStatsAction(editionId: string) {
     if (application.status === "RETENU") {
       byStage.set(application.stage, (byStage.get(application.stage) ?? 0) + 1);
     }
+    const genderGroup = genderKey(application.gender);
+    ambassadorsByGender.set(genderGroup, (ambassadorsByGender.get(genderGroup) ?? 0) + 1);
 
     const row = rows.get(application.regionId);
     if (!row) continue;
@@ -98,8 +111,20 @@ export async function getEditionStatsAction(editionId: string) {
     if (application.stage === "ATTESTATION" && application.status === "RETENU") row.present += 1;
   }
 
+  const eventByStatus = new Map<string, number>();
+  const participantsByGender = new Map<string, number>();
+  for (const application of eventApplications) {
+    eventByStatus.set(application.status, (eventByStatus.get(application.status) ?? 0) + 1);
+    const genderGroup = genderKey(application.gender);
+    participantsByGender.set(genderGroup, (participantsByGender.get(genderGroup) ?? 0) + 1);
+    if (application.regionId) {
+      const row = rows.get(application.regionId);
+      if (row) row.participants += 1;
+    }
+  }
+
   const regionRows = Array.from(rows.values()).filter(
-    row => row.candidatures > 0 || row.quota > 0
+    row => row.candidatures > 0 || row.quota > 0 || row.participants > 0
   );
 
   return {
@@ -112,10 +137,12 @@ export async function getEditionStatsAction(editionId: string) {
       revenue,
       byStatus: Array.from(byStatus, ([status, count]) => ({ status, count })),
       byStage: STAGE_ORDER.map(stage => ({ stage, count: byStage.get(stage) ?? 0 })),
+      byGender: Array.from(ambassadorsByGender, ([gender, count]) => ({ gender, count })),
     },
     participants: {
-      total: eventByStatus.reduce((sum, item) => sum + item._count._all, 0),
-      byStatus: eventByStatus.map(item => ({ status: item.status, count: item._count._all })),
+      total: eventApplications.length,
+      byStatus: Array.from(eventByStatus, ([status, count]) => ({ status, count })),
+      byGender: Array.from(participantsByGender, ([gender, count]) => ({ gender, count })),
     },
     leaders: leaderCount,
     badges: badgeCount,
@@ -201,6 +228,8 @@ export async function exportParticipantsCsvAction(editionId: string) {
       email: true,
       phone: true,
       gender: true,
+      profession: true,
+      hasParticipatedBefore: true,
       status: true,
       createdAt: true,
       region: { select: { name: true } },
@@ -209,7 +238,7 @@ export async function exportParticipantsCsvAction(editionId: string) {
   });
 
   return toCsv(
-    ["Nom", "Prénom", "Email", "Téléphone", "Sexe", "Région", "Statut", "Date de candidature"],
+    ["Nom", "Prénom", "Email", "Téléphone", "Sexe", "Région", "Profession", "Déjà participé", "Statut", "Date de candidature"],
     applications.map(a => [
       a.lastName,
       a.firstName,
@@ -217,6 +246,8 @@ export async function exportParticipantsCsvAction(editionId: string) {
       a.phone,
       formatGender(a.gender),
       a.region?.name ?? "",
+      a.profession ?? "",
+      a.hasParticipatedBefore == null ? "" : a.hasParticipatedBefore ? "Oui" : "Non",
       a.status,
       formatDate(a.createdAt),
     ])

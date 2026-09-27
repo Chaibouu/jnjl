@@ -1,11 +1,8 @@
 "use server";
 
-import { getAppUrl } from "@/lib/app-url";
-
-import { readFile } from "fs/promises";
-import { join } from "path";
 import QRCode from "qrcode";
 import { generateBadgePdf } from "@/lib/generate-badge-pdf";
+import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { requirePermission } from "@/actions/requirePermission";
@@ -221,23 +218,6 @@ export async function getMyBadgeAction() {
       : null,
   };
 }
-
-/** Image publique lue sur le disque, ou récupérée depuis le site si le fichier n'est pas accessible. */
-async function loadPublicImage(relativePath: string): Promise<Uint8Array | null> {
-  try {
-    return new Uint8Array(await readFile(join(process.cwd(), "public", relativePath)));
-  } catch {
-    try {
-      const response = await fetch(`${getAppUrl()}/${relativePath}`);
-      if (response.ok) return new Uint8Array(await response.arrayBuffer());
-    } catch {
-      // Sans l'image, le badge est quand même généré.
-    }
-  }
-  return null;
-}
-
-const PARTNER_LOGO_PATHS = ["partenaires/armoirie.png", "partenaires/ANSI.png", "partenaires/Cabinet-Leader-dAfrique.png"];
 
 /**
  * Génère le badge de l'ambassadeur connecté en PDF (format A6, imprimable) et le renvoie

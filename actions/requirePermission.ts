@@ -1,7 +1,7 @@
 "use server";
 
 import { getUser } from "@/actions/getUser";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, hasAnyPermission } from "@/lib/permissions";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import type { User } from "@/types/user";
 
@@ -25,6 +25,20 @@ export async function requirePermission(code: string): Promise<User> {
   }
   if (!hasPermission(user, code)) {
     throw new ForbiddenError(`Permission requise : ${code}`);
+  }
+  return user;
+}
+
+/** Comme requirePermission, mais accepte n'importe laquelle des permissions listées. */
+export async function requireAnyPermission(codes: string[]): Promise<User> {
+  const result = await getUser();
+  const user = result?.user?.user as User | undefined;
+
+  if (!user) {
+    throw new ForbiddenError("Authentification requise");
+  }
+  if (!hasAnyPermission(user, codes)) {
+    throw new ForbiddenError(`Permission requise : ${codes.join(" ou ")}`);
   }
   return user;
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Calendar, FileText, MapPin, Sparkles } from "lucide-react";
-import { getEditionAction } from "@/actions/edition-actions";
+import { getEditionSummaryAction } from "@/actions/edition-actions";
 import { getUser } from "@/actions/getUser";
 import { listEditionMediaAction, listEditionStatsAction } from "@/actions/edition-content-actions";
 import { EditionContentManager } from "@/components/admin/EditionContentManager";
@@ -29,7 +29,7 @@ export default async function EditionDetailsPage({
   params: Promise<{ editionId: string }>;
 }) {
   const { editionId } = await params;
-  const edition = await getEditionAction(editionId);
+  const edition = await getEditionSummaryAction(editionId);
 
   const session = await getUser();
   const currentUser = session?.user?.user as User | undefined;
@@ -42,12 +42,14 @@ export default async function EditionDetailsPage({
 
   return (
     <section className="space-y-6">
-      <Link
-        href="/admin/editions"
-        className="text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Retour aux éditions
-      </Link>
+      {canManageStats && (
+        <Link
+          href="/admin/editions"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Retour aux éditions
+        </Link>
+      )}
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
         <div className="p-6">
@@ -71,14 +73,16 @@ export default async function EditionDetailsPage({
                 </span>
               </div>
             </div>
-            <Button
-              nativeButton={false}
-              className="text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: charter.orange }}
-              render={<Link href={`/admin/editions/${edition.id}/edit`} />}
-            >
-              Modifier
-            </Button>
+            {canManageStats && (
+              <Button
+                nativeButton={false}
+                className="text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: charter.orange }}
+                render={<Link href={`/admin/editions/${edition.id}/edit`} />}
+              >
+                Modifier
+              </Button>
+            )}
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">

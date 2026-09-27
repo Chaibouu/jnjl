@@ -9,7 +9,11 @@ export const eventApplicationSchema = z.object({
   gender: z.enum(GENDER_VALUES, {
     errorMap: () => ({ message: "Le sexe est requis (Masculin ou Féminin)" }),
   }),
-  regionId: z.string().trim().max(50).optional().or(z.literal("")),
+  regionId: z.string().trim().min(1, "La région est requise").max(50),
+  profession: z.string().trim().min(2, "La profession est requise").max(150),
+  hasParticipatedBefore: z.boolean({
+    errorMap: () => ({ message: "Merci de préciser si vous avez déjà participé à la JNJL" }),
+  }),
   motivation: z.string().trim().max(1000).optional().or(z.literal("")),
   consent: z.boolean().refine(value => value === true, {
     message: "Le consentement est requis",

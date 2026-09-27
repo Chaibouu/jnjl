@@ -187,6 +187,23 @@ export function NewsForm({
         />
       </div>
 
+      <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">
+            {form.isPublished ? "Publiée" : "Brouillon"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {form.isPublished
+              ? "Cette actualité sera visible sur le site public dès l’enregistrement."
+              : "Enregistrée en brouillon : invisible sur le site public tant qu’elle n’est pas publiée."}
+          </p>
+        </div>
+        <Switch
+          checked={form.isPublished}
+          onCheckedChange={checked => update("isPublished", checked)}
+        />
+      </div>
+
       <Field>
         <FieldLabel>Extrait</FieldLabel>
         <Textarea
@@ -208,19 +225,6 @@ export function NewsForm({
         />
       </Field>
 
-      <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
-        <div>
-          <p className="text-sm font-medium">Publier</p>
-          <p className="text-xs text-muted-foreground">
-            Une actualité publiée est visible sur le site public.
-          </p>
-        </div>
-        <Switch
-          checked={form.isPublished}
-          onCheckedChange={checked => update("isPublished", checked)}
-        />
-      </div>
-
       <div className="flex gap-3 pt-2">
         <Button
           type="submit"
@@ -232,7 +236,9 @@ export function NewsForm({
             ? "Enregistrement..."
             : news
               ? "Enregistrer"
-              : "Créer l’actualité"}
+              : form.isPublished
+                ? "Créer et publier"
+                : "Créer en brouillon"}
         </Button>
         {onCancel ? (
           <Button

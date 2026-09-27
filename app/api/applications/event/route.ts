@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EditionStatus } from "@prisma/client";
+import { ApplicationStatus, EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { eventApplicationSchema } from "@/schemas/event-application";
+import { createParticipantBadge } from "@/actions/participant-badge-actions";
 import { rateLimitRedisEmail } from "@/lib/rateLimit";
 import { getClientIP } from "@/lib/geo";
 
@@ -36,21 +37,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (data.regionId) {
-      const region = await db.region.findUnique({ where: { id: data.regionId } });
-      if (!region) {
-        return NextResponse.json(
-          { error: "La région sélectionnée est invalide" },
-          { status: 400 }
-        );
-      }
+    const region = await db.region.findUnique({ where: { id: data.regionId } });
+    if (!region) {
+      return NextResponse.json(
+        { error: "La région sélectionnée est invalide" },
+        { status: 400 }
+      );
     }
 
     const existingApplication = await db.eventApplication.findFirst({
       where: { editionId: edition.id, email },
-      select: { status: true },
+      select: { id: true },
     });
-    if (existingApplication && existingApplication.status !== "NON_RETENU") {
+    if (existingApplication) {
       return NextResponse.json(
         {
           error: "Une candidature existe déjà pour cet email et cette édition.",
@@ -63,23 +62,36 @@ export async function POST(request: NextRequest) {
     const session = await getUser();
     const userId = session?.user?.user?.id ?? null;
 
+    // Plus de validation admin : l'inscription vaut confirmation immédiate de participation
+    // (§8 du guide admin), avec attribution du badge dans la foulée.
     const application = await db.eventApplication.create({
       data: {
         editionId: edition.id,
         userId,
-        regionId: data.regionId || null,
+        regionId: data.regionId,
         firstName: data.firstName,
         lastName: data.lastName,
         email,
         phone: data.phone,
         gender: data.gender,
+        profession: data.profession,
+        hasParticipatedBefore: data.hasParticipatedBefore,
         motivation: data.motivation?.trim() || null,
+        status: ApplicationStatus.RETENU,
+        reviewedAt: new Date(),
       },
       select: { id: true },
     });
 
+    const participation = await createParticipantBadge({
+      eventApplicationId: application.id,
+      editionId: edition.id,
+      editionYear: edition.year,
+      userId,
+    });
+
     return NextResponse.json(
-      { success: true, applicationId: application.id },
+      { success: true, applicationId: application.id, badgeNumber: participation.badgeNumber },
       { status: 201 }
     );
   } catch (error: unknown) {
