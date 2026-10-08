@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { getPublishedNewsBySlugAction } from "@/actions/news-actions";
 import charter from "@/settings/charter";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { articleJsonLd, breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
+import { absoluteUrl, articleJsonLd, breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
+import { ShareBar } from "@/components/site/ShareBar";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -36,6 +37,8 @@ export default async function NewsDetailPage({ params }: Params) {
   } catch {
     notFound();
   }
+
+  const shareUrl = absoluteUrl(`/actualites/${news.slug}`);
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
@@ -71,6 +74,9 @@ export default async function NewsDetailPage({ params }: Params) {
           {news.publishedAt && new Date(news.publishedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
           {news.edition && ` — ${news.edition.name} (${news.edition.year})`}
         </p>
+        <div className="mt-4">
+          <ShareBar url={shareUrl} title={news.title} />
+        </div>
       </div>
 
       {news.coverImage && (
@@ -82,6 +88,21 @@ export default async function NewsDetailPage({ params }: Params) {
         className="rich-content mt-8 max-w-none text-base"
         dangerouslySetInnerHTML={{ __html: toDisplayHtml(news.content) }}
       />
+
+      <aside
+        className="mt-14 flex flex-col gap-4 border-t pt-8 sm:flex-row sm:items-center sm:justify-between"
+        style={{ borderColor: charter.border }}
+      >
+        <div>
+          <p className="font-bold" style={{ color: charter.ink }}>
+            Cet article vous a plu ?
+          </p>
+          <p className="text-sm" style={{ color: charter.inkSoft }}>
+            Partagez-le autour de vous.
+          </p>
+        </div>
+        <ShareBar url={shareUrl} title={news.title} heading="" />
+      </aside>
     </article>
   );
 }
