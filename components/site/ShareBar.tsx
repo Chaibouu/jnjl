@@ -145,11 +145,9 @@ export function ShareBar({
             type="button"
             onClick={copyLink}
             aria-live="polite"
-            className="inline-flex h-10 items-center gap-2 rounded-full border bg-white px-4 text-sm font-medium transition-colors duration-200 hover:bg-[#282828] hover:text-white"
-            style={{
-              borderColor: copied ? charter.green : charter.border,
-              color: copied ? charter.green : charter.ink,
-            }}
+            className={`inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors duration-200 hover:bg-[#282828] hover:text-white ${
+              copied ? "border-[#6D9743] text-[#6D9743]" : "border-[#E7E7EA] bg-white text-[#282828]"
+            }`}
           >
             {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
             {copied ? "Lien copié" : "Copier le lien"}
