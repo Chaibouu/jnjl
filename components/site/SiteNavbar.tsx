@@ -1,5 +1,6 @@
 "use client";
 
+import { getPrimaryCta } from "@/lib/registration-cta";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -80,7 +81,15 @@ function getInitials(name?: string | null, email?: string | null) {
   return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-export function SiteNavbar() {
+export function SiteNavbar({
+  ambassadorsOpen = true,
+  participantsOpen = true,
+}: {
+  /** Candidatures ambassadeurs ouvertes : sinon le lien et le bouton disparaissent. */
+  ambassadorsOpen?: boolean;
+  /** Inscriptions des participants ouvertes : sinon le lien disparaît du menu. */
+  participantsOpen?: boolean;
+}) {
   const pathname = usePathname();
   const { user } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -96,7 +105,18 @@ export function SiteNavbar() {
 
   const moreActive = MORE_PATHS.includes(pathname);
   // Le bouton « Devenir Ambassadeur » n'a pas de sens pour quelqu'un qui l'est déjà.
-  const showAmbassadorCta = !user?.hasAmbassadorApplication;
+  // Bouton principal : Ambassadeur (si ouvert) → Participer (si ouvert) → Devenir Jeune Leader.
+  const cta = getPrimaryCta({ ambassadorsOpen, participantsOpen });
+  // Inutile de proposer un compte à quelqu'un de connecté, ni la candidature à un ambassadeur déjà candidat.
+  const showCta = !(user && cta.kind === "leader") && !(user?.hasAmbassadorApplication && cta.kind === "ambassador");
+  const moreGroups = MORE_GROUPS.map(group => ({
+    ...group,
+    items: group.items.filter(
+      item =>
+        !(item.href === "/participer" && !participantsOpen) &&
+        !(item.href === "/ambassadeurs/candidature" && !ambassadorsOpen)
+    ),
+  })).filter(group => group.items.length > 0);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -155,7 +175,7 @@ export function SiteNavbar() {
               )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" sideOffset={8} className="w-64 rounded-none p-2">
-              {MORE_GROUPS.map((group, index) => (
+              {moreGroups.map((group, index) => (
                 <div key={group.label}>
                   {index > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuGroup>
@@ -181,9 +201,9 @@ export function SiteNavbar() {
 
         {/* Actions desktop : CTA + connexion / avatar */}
         <div className="hidden items-center gap-3 md:flex">
-          {showAmbassadorCta && (
-            <Button nativeButton={false} render={<Link href="/ambassadeurs/candidature" />}>
-              Devenir Ambassadeur
+          {showCta && (
+            <Button nativeButton={false} render={<Link href={cta.href} />}>
+              {cta.label}
             </Button>
           )}
 
@@ -284,7 +304,7 @@ export function SiteNavbar() {
               </Link>
             ))}
 
-            {MORE_GROUPS.map(group => (
+            {moreGroups.map(group => (
               <div key={group.label} className="mt-3">
                 <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.label}
@@ -307,12 +327,9 @@ export function SiteNavbar() {
             ))}
 
             <div className="mt-4 flex flex-col gap-2 border-t pt-4">
-              {showAmbassadorCta && (
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/ambassadeurs/candidature" onClick={() => setMenuOpen(false)} />}
-                >
-                  Devenir Ambassadeur
+              {showCta && (
+                <Button nativeButton={false} render={<Link href={cta.href} onClick={() => setMenuOpen(false)} />}>
+                  {cta.label}
                 </Button>
               )}
               {user ? (

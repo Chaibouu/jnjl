@@ -70,7 +70,7 @@ const ROLE_CARDS: {
       "Rédiger la fiche d'engagement",
       "Attribuer les badges",
       "Générer les attestations",
-      "Régler quotas, dates et textes des documents (Paramètres)",
+      "Régler les quotas (Classement & Sélection) ; les dates et textes des documents se règlent dans Paramètres (Super Admin)",
     ],
     pages: [
       { label: "Candidatures", href: "/admin/ambassadeurs/candidatures" },
@@ -78,7 +78,6 @@ const ROLE_CARDS: {
       { label: "Repêchage", href: "/admin/repechage" },
       { label: "Badges", href: "/admin/badges" },
       { label: "Attestations", href: "/admin/attestations" },
-      { label: "Paramètres", href: "/admin/parametres" },
     ],
   },
   {

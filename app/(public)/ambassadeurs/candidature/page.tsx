@@ -5,6 +5,8 @@ import charter from "@/settings/charter";
 import appConfig from "@/settings";
 import Image from "next/image";
 import { buildMetadata } from "@/lib/seo";
+import { ClosedNotice } from "@/components/site/ClosedNotice";
+import { getRegistrationState } from "@/lib/site-settings";
 
 export const metadata = buildMetadata({
   title: "Devenir Ambassadeur JNJL",
@@ -13,9 +15,24 @@ export const metadata = buildMetadata({
   path: "/ambassadeurs/candidature",
 });
 
+
 export const dynamic = "force-dynamic";
 
 export default async function AmbassadorApplicationPage() {
+  const registration = await getRegistrationState();
+  if (!registration.ambassadorsOpen) {
+    return (
+      <ClosedNotice
+        eyebrow="Ambassadeurs"
+        title="Les candidatures sont fermées"
+        description="Les candidatures pour devenir Ambassadeur JNJL sont closes pour cette édition."
+        note={registration.ambassadorsNote || "Rendez-vous à la prochaine édition."}
+        image="/entetes/actualites.jpg"
+        imagePosition="50% 55%"
+      />
+    );
+  }
+
   const [activeEdition, regions] = await Promise.all([
     db.edition.findFirst({
       where: { status: EditionStatus.ACTIVE, isDeleted: false },

@@ -3,6 +3,7 @@
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
+import { getRegistrationState } from "@/lib/site-settings";
 
 async function getConnectedUserId() {
   const result = await getUser();
@@ -89,5 +90,6 @@ export async function getLeaderSpaceAction() {
     history: user.ambassadorApplications,
     activeEdition,
     alreadyAppliedThisEdition,
+    registration: await getRegistrationState(),
   };
 }

@@ -42,3 +42,17 @@ export async function requireAnyPermission(codes: string[]): Promise<User> {
   }
   return user;
 }
+
+/** Réservé au Super Admin (réglages sensibles du site) : aucune permission individuelle ne donne cet accès. */
+export async function requireSuperAdmin(): Promise<User> {
+  const result = await getUser();
+  const user = result?.user?.user as User | undefined;
+
+  if (!user) {
+    throw new ForbiddenError("Authentification requise");
+  }
+  if (user.role !== "SUPER_ADMIN") {
+    throw new ForbiddenError("Accès réservé au Super Admin");
+  }
+  return user;
+}

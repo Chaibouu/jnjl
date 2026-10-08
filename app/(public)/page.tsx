@@ -11,6 +11,8 @@ import {
 import { getActiveEditionOverviewAction } from "@/actions/edition-actions";
 import { listPublishedNewsAction } from "@/actions/news-actions";
 import { listActiveEditionPartnersAction } from "@/actions/partner-actions";
+import { getRegistrationState } from "@/lib/site-settings";
+import { getPrimaryCta } from "@/lib/registration-cta";
 import { listActiveEditionSpeakersAction } from "@/actions/speaker-actions";
 import { Button } from "@/components/ui/button";
 import { Marquee } from "@/components/ui/marquee";
@@ -36,6 +38,7 @@ const TRACKS = [
     title: "Participant",
     description: "Prenez part aux activités, ateliers et rencontres de l'édition en cours.",
     href: "/participer",
+    closedLabel: "Inscriptions bientôt ouvertes",
   },
   {
     icon: GraduationCap,
@@ -48,18 +51,22 @@ const TRACKS = [
     title: "Ambassadeur",
     description: "Représentez votre région, portez la voix de la jeunesse nigérienne.",
     href: "/ambassadeurs/candidature",
+    closedLabel: "Candidatures fermées",
   },
 ] as const;
 
 export default async function HomePage() {
-  const [edition, news, partners, speakers] = await Promise.all([
+  const [edition, news, partners, speakers, registration] = await Promise.all([
     getActiveEditionOverviewAction(),
     listPublishedNewsAction(3),
     listActiveEditionPartnersAction(),
     listActiveEditionSpeakersAction(),
+    getRegistrationState(),
   ]);
 
   // Un compteur à zéro donne une mauvaise impression : on ne l'affiche qu'une fois alimenté.
+  const cta = getPrimaryCta(registration);
+
   const heroStats: { label: string; value: string; count?: number; suffix?: string }[] = [
     { label: "Édition", value: edition ? String(edition.year) : "—" },
     ...(speakers.length > 0
@@ -178,9 +185,9 @@ export default async function HomePage() {
                 nativeButton={false}
                 className="group h-12 gap-2 rounded-none px-8 text-base font-semibold text-white shadow-lg shadow-black/30 transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95"
                 style={{ backgroundColor: charter.orange }}
-                render={<Link href="/ambassadeurs/candidature" />}
+                render={<Link href={cta.href} />}
               >
-                Devenir Ambassadeur
+                {cta.label}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
               <Button
@@ -293,7 +300,14 @@ export default async function HomePage() {
           />
 
           <Reveal stagger={0.15} className="grid gap-6 sm:grid-cols-3">
-            {TRACKS.map((track, index) => {
+            {TRACKS.map((rawTrack, index) => {
+              const open =
+                rawTrack.title === "Ambassadeur"
+                  ? registration.ambassadorsOpen
+                  : rawTrack.title === "Participant"
+                    ? registration.participantsOpen
+                    : true;
+              const track = { ...rawTrack, href: open ? rawTrack.href : null };
               const Icon = track.icon;
               const color = [charter.orange, charter.green, charter.ink][index];
               const content = (
@@ -317,7 +331,7 @@ export default async function HomePage() {
                       </span>
                     ) : (
                       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                        Bientôt disponible
+                        {"closedLabel" in track && track.closedLabel ? track.closedLabel : "Bientôt disponible"}
                       </span>
                     )}
                   </div>
@@ -441,7 +455,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* CTA band */}
+      {/* CTA band : seul le bouton principal s'adapte à ce qui est ouvert */}
       <section className="px-4 py-16 sm:px-6 sm:py-20">
         <div className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-3xl px-8 py-16 text-center shadow-2xl sm:px-16">
           <Image
@@ -463,7 +477,11 @@ export default async function HomePage() {
           />
           <h2 className="text-3xl font-extrabold text-white sm:text-5xl">Rejoignez la JNJL</h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
-            Devenez Ambassadeur de votre région et portez la voix de la jeunesse nigérienne lors de la prochaine édition.
+            {cta.kind === "ambassador"
+              ? "Devenez Ambassadeur de votre région et portez la voix de la jeunesse nigérienne lors de la prochaine édition."
+              : cta.kind === "participant"
+                ? "Participez à l'événement et vivez la JNJL aux côtés des jeunes les plus engagés du Niger."
+                : "Les candidatures sont fermées pour le moment. Devenez Jeune Leader et suivez l'annonce de la prochaine édition."}
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button
@@ -471,9 +489,9 @@ export default async function HomePage() {
               nativeButton={false}
               className="group h-12 gap-2 rounded-none px-8 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95"
               style={{ backgroundColor: charter.orange }}
-              render={<Link href="/ambassadeurs/candidature" />}
+              render={<Link href={cta.href} />}
             >
-              Postuler maintenant
+              {cta.kind === "ambassador" ? "Postuler maintenant" : cta.label}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
             <Button
@@ -481,9 +499,9 @@ export default async function HomePage() {
               variant="outline"
               nativeButton={false}
               className="h-12 rounded-none border-2 border-white/40 bg-transparent px-8 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:text-black"
-              render={<Link href="/programme" />}
+              render={<Link href={cta.kind === "leader" ? "/actualites" : "/programme"} />}
             >
-              Voir le programme
+              {cta.kind === "leader" ? "Suivre les actualités" : "Voir le programme"}
             </Button>
           </div>
         </div>

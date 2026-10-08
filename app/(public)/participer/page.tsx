@@ -1,7 +1,9 @@
 import Image from "next/image";
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { ClosedNotice } from "@/components/site/ClosedNotice";
 import { PageHero } from "@/components/site/PageHero";
+import { getRegistrationState } from "@/lib/site-settings";
 import { ParticipantApplicationForm } from "@/components/participants/ParticipantApplicationForm";
 import { RecoverBadgeForm } from "@/components/participants/RecoverBadgeForm";
 import charter from "@/settings/charter";
@@ -14,11 +16,26 @@ export const metadata = buildMetadata({
   path: "/participer",
 });
 
+
 export const dynamic = "force-dynamic";
 
 const STEPS = ["Remplissez le formulaire", "Téléchargez votre badge", "Présentez-le le jour J"] as const;
 
 export default async function ParticiperPage() {
+  const registration = await getRegistrationState();
+  if (!registration.participantsOpen) {
+    return (
+      <ClosedNotice
+        eyebrow="Participer"
+        title="Les inscriptions ne sont pas encore ouvertes"
+        description="L'inscription des participants à l'événement sera bientôt disponible."
+        note={registration.participantsNote}
+        image="/entetes/galerie-4.jpg"
+        imagePosition="50% 32%"
+      />
+    );
+  }
+
   const [activeEdition, regions] = await Promise.all([
     db.edition.findFirst({
       where: { status: EditionStatus.ACTIVE, isDeleted: false },

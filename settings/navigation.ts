@@ -131,8 +131,8 @@ export const adminNavigation: NavigationItem[] = [
     title: "Paramètres",
     icon: "material-symbols:tune",
     path: "/admin/parametres",
-    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
-    requiredPermission: "editions.manage",
+    // Réglages sensibles du site (ouverture des candidatures, WhatsApp, documents) : Super Admin uniquement.
+    allowedRoles: ["SUPER_ADMIN"],
   },
   {
     title: "Régions",

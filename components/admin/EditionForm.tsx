@@ -211,11 +211,7 @@ export function EditionForm({
 
       <p className="rounded-md border border-dashed border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
         Les dates de l&apos;ordre de mission, la période de l&apos;autorisation d&apos;absence et la clause de
-        patronage se règlent depuis{" "}
-        <Link href="/admin/parametres" className="font-medium underline" style={{ color: charter.orange }}>
-          Paramètres
-        </Link>
-        .
+        patronage se règlent dans <span className="font-medium">Paramètres</span> (réservé au Super Admin).
       </p>
 
       <Field>

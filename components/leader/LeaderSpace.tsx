@@ -1,3 +1,4 @@
+import { getPrimaryCta } from "@/lib/registration-cta";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -9,6 +10,7 @@ import {
   MapPin,
   Newspaper,
   Sparkles,
+  Ticket,
   User,
   XCircle,
 } from "lucide-react";
@@ -49,7 +51,14 @@ function currentStepIndex(application: Application) {
 }
 
 export function LeaderSpace({ data }: { data: LeaderSpaceData }) {
-  const { user, profileCompletion, history, activeEdition, alreadyAppliedThisEdition } = data;
+  const { user, profileCompletion, history, activeEdition, alreadyAppliedThisEdition, registration } = data;
+  // Ce qui est proposé à un utilisateur connecté : candidature ambassadeur, sinon inscription à l'événement,
+  // sinon (tout est fermé) les actualités — créer un compte n'aurait aucun sens, il en a déjà un.
+  const primary = getPrimaryCta(registration);
+  const offer: { kind: "ambassador" | "participant" | "news"; label: string; href: string } =
+    primary.kind === "leader"
+      ? { kind: "news", label: "Suivre les actualités", href: "/actualites" }
+      : { kind: primary.kind as "ambassador" | "participant", label: primary.label, href: primary.href };
   const displayName = user.firstName || user.name || user.email || "Jeune Leader";
   const current = history[0];
 
@@ -76,7 +85,7 @@ export function LeaderSpace({ data }: { data: LeaderSpaceData }) {
       </section>
 
       {/* Parcours */}
-      {current ? <JourneyCard application={current} /> : <NoApplicationCard canApply={!!activeEdition} />}
+      {current ? <JourneyCard application={current} /> : <NoApplicationCard offer={offer} />}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Profil */}
@@ -163,13 +172,27 @@ export function LeaderSpace({ data }: { data: LeaderSpaceData }) {
         </h2>
         {activeEdition ? (
           <div className="grid gap-4 sm:grid-cols-3">
-            <OpportunityCard
-              icon={<Award className="h-5 w-5" />}
-              title="Devenir Ambassadeur"
-              description={`Représentez votre région pour ${activeEdition.name}.`}
-              href={alreadyAppliedThisEdition ? undefined : "/ambassadeurs/candidature"}
-              disabledLabel={alreadyAppliedThisEdition ? "Déjà candidat cette édition" : undefined}
-            />
+            {alreadyAppliedThisEdition && offer.kind === "ambassador" ? (
+              <OpportunityCard
+                icon={<Award className="h-5 w-5" />}
+                title="Devenir Ambassadeur"
+                description={`Représentez votre région pour ${activeEdition.name}.`}
+                disabledLabel="Déjà candidat cette édition"
+              />
+            ) : (
+              <OpportunityCard
+                icon={offer.kind === "ambassador" ? <Award className="h-5 w-5" /> : offer.kind === "participant" ? <Ticket className="h-5 w-5" /> : <Newspaper className="h-5 w-5" />}
+                title={offer.label}
+                description={
+                  offer.kind === "ambassador"
+                    ? `Représentez votre région pour ${activeEdition.name}.`
+                    : offer.kind === "participant"
+                      ? `Inscrivez-vous pour participer à ${activeEdition.name}.`
+                      : "Les candidatures sont fermées : suivez l'actualité de la prochaine ouverture."
+                }
+                href={offer.href}
+              />
+            )}
             <OpportunityCard
               icon={<Calendar className="h-5 w-5" />}
               title="Voir le programme"
@@ -205,7 +228,25 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function NoApplicationCard({ canApply }: { canApply: boolean }) {
+function NoApplicationCard({ offer }: { offer: { kind: "ambassador" | "participant" | "news"; label: string; href: string } }) {
+  const content = {
+    ambassador: {
+      title: "Devenez Ambassadeur de la JNJL",
+      text: "Vous n'avez pas encore déposé de candidature. Rejoignez le parcours et représentez votre région.",
+      button: "Déposer ma candidature",
+    },
+    participant: {
+      title: "Participez à la JNJL",
+      text: "Les candidatures ambassadeurs sont closes, mais vous pouvez vous inscrire pour vivre l'événement.",
+      button: "M'inscrire à l'événement",
+    },
+    news: {
+      title: "Restez informé(e)",
+      text: "Les candidatures sont fermées pour le moment. Suivez nos actualités pour connaître la prochaine ouverture.",
+      button: "Suivre les actualités",
+    },
+  }[offer.kind];
+
   return (
     <Card className="gap-4 py-6">
       <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
@@ -215,20 +256,16 @@ function NoApplicationCard({ canApply }: { canApply: boolean }) {
         >
           <Award className="h-6 w-6" />
         </span>
-        <h2 className="text-lg font-bold">Devenez Ambassadeur de la JNJL</h2>
-        <p className="max-w-md text-sm text-muted-foreground">
-          Vous n&apos;avez pas encore déposé de candidature. Rejoignez le parcours et représentez votre région.
-        </p>
-        {canApply && (
-          <Button
-            nativeButton={false}
-            className="rounded-none text-white hover:opacity-90"
-            style={{ backgroundColor: charter.orange }}
-            render={<Link href="/ambassadeurs/candidature" />}
-          >
-            Déposer ma candidature
-          </Button>
-        )}
+        <h2 className="text-lg font-bold">{content.title}</h2>
+        <p className="max-w-md text-sm text-muted-foreground">{content.text}</p>
+        <Button
+          nativeButton={false}
+          className="rounded-none text-white hover:opacity-90"
+          style={{ backgroundColor: charter.orange }}
+          render={<Link href={offer.href} />}
+        >
+          {content.button}
+        </Button>
       </CardContent>
     </Card>
   );

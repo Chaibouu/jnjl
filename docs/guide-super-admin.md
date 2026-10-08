@@ -161,7 +161,9 @@ Un quota = **nombre d'ambassadeurs à sélectionner dans une région pour une é
 enregistré avec l'auteur de la modification. Valeur par défaut : **0**. Réglable depuis **Classement & Sélection**
 (§10.6) ou depuis **Paramètres** (§5.3) — les deux écrans partagent les mêmes valeurs.
 
-### 5.3 Paramètres — `/admin/parametres` (`editions.manage`)
+### 5.3 Paramètres — `/admin/parametres` (**Super Admin uniquement**)
+
+> L'onglet n'apparaît que pour le Super Admin, et la page comme ses actions sont refusées à tout autre rôle, même avec des permissions. Il regroupe l'**ouverture des candidatures** (ambassadeurs / participants), le **lien du groupe WhatsApp** et les réglages ci-dessous. Les quotas restent modifiables par le personnel habilité depuis **Classement & Sélection**.
 
 Écran dédié aux réglages qui ne concernent pas l'identité de l'édition (contrairement à Éditions, §4) : **quotas
 régionaux** (§5.2) et **réglages des documents administratifs** de l'édition sélectionnée —
@@ -664,7 +666,7 @@ Le site public est prêt pour les moteurs de recherche :
 | Documents | `documents.manage` | Documents administratifs + attestations |
 | | `badges.manage` | Badges |
 | Statistiques | `stats.view` | Statistiques et exports |
-| Paramètres | `settings.manage` | Paramètres généraux |
+| Paramètres | — | Réservé au Super Admin (aucune permission ne l'ouvre) |
 
 ### 16.2 Comptes de démonstration (créés par `npm run seed`)
 

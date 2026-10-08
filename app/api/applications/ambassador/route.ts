@@ -4,10 +4,16 @@ import { db } from "@/lib/db";
 import { ambassadorApplicationSchema } from "@/schemas/ambassador-application";
 import { rateLimitRedisEmail } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
+import { getRegistrationState } from "@/lib/site-settings";
 import { sendApplicationReceivedEmail } from "@/lib/mail";
 
 export async function POST(request: NextRequest) {
   try {
+    // Fermé par l'administrateur : on refuse même si quelqu'un envoie la requête sans passer par la page.
+    if (!(await getRegistrationState()).ambassadorsOpen) {
+      return NextResponse.json({ error: "Les candidatures ne sont pas ouvertes pour le moment." }, { status: 403 });
+    }
+
     const rateLimitResponse = await rateLimitRedisEmail(getClientIP(request));
     if (rateLimitResponse) return rateLimitResponse;
 

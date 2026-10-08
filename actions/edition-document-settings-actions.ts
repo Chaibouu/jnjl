@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requirePermission } from "@/actions/requirePermission";
+import { requireSuperAdmin } from "@/actions/requirePermission";
 import {
   editionDocumentSettingsSchema,
   type EditionDocumentSettingsInput,
@@ -23,7 +23,7 @@ function toDateInputValue(date: Date | null) {
 
 /** Réglages de génération de documents (dates ordre de mission/absence, clause de patronage) d'une édition. */
 export async function getEditionDocumentSettingsAction(editionId: string) {
-  await requirePermission("editions.manage");
+  await requireSuperAdmin();
   const edition = await db.edition.findFirst({
     where: { id: editionId, isDeleted: false },
     select: {
@@ -59,7 +59,7 @@ export async function updateEditionDocumentSettingsAction(
   editionId: string,
   input: EditionDocumentSettingsInput
 ) {
-  await requirePermission("editions.manage");
+  await requireSuperAdmin();
   const data = editionDocumentSettingsSchema.parse(input);
 
   const existing = await db.edition.findFirst({ where: { id: editionId, isDeleted: false } });

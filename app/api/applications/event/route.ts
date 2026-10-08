@@ -6,9 +6,15 @@ import { eventApplicationSchema } from "@/schemas/event-application";
 import { createParticipantBadge } from "@/actions/participant-badge-actions";
 import { rateLimitRedisEmail } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
+import { getRegistrationState } from "@/lib/site-settings";
 
 export async function POST(request: NextRequest) {
   try {
+    // Fermé par l'administrateur : on refuse même si quelqu'un envoie la requête sans passer par la page.
+    if (!(await getRegistrationState()).participantsOpen) {
+      return NextResponse.json({ error: "Les inscriptions ne sont pas ouvertes pour le moment." }, { status: 403 });
+    }
+
     const rateLimitResponse = await rateLimitRedisEmail(getClientIP(request));
     if (rateLimitResponse) return rateLimitResponse;
 

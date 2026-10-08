@@ -1,283 +1,200 @@
-# Sahel Coders - Website Starter (Next.js 15)
+# JNJL — Plateforme de la Journée Nationale du Jeune Leader
 
-Un starter de production moderne pour applications web avec Next.js 15, React 19, et une stack de sécurité complète.
+Plateforme officielle de la **Journée Nationale du Jeune Leader (JNJL)**, au Niger. Elle réunit :
+
+- le **site public** de l'événement (présentation, actualités, programme, intervenants, partenaires, éditions passées) ;
+- le **parcours des ambassadeurs** : candidature, paiement des frais, formation, QCM, classement régional, engagement, badge, attestation ;
+- l'**inscription des participants** à l'événement, avec badge téléchargeable ;
+- l'**espace d'administration** : gestion des éditions, des candidatures, des contenus, des paiements et des statistiques.
+
+Site en production : <https://jnjl.ne>
+
+Guides détaillés : [`docs/guide-super-admin.md`](docs/guide-super-admin.md) (tous les modules, du point de vue d'un administrateur) et [`docs/module-qcm.md`](docs/module-qcm.md).
+
+---
 
 ## Technologies
 
-- **Framework**: Next.js 15 (App Router)
-- **Runtime**: React 19.2
-- **Base de données**: Prisma + MongoDB
-- **Authentification**: JWT RS256 + AES-256-GCM + Refresh tokens
-- **Styling**: Tailwind CSS + Radix UI (shadcn/ui)
-- **Validation**: Zod
-- **Logging**: Pino (JSON structuré)
-- **Cache / Rate limiting**: Redis (ioredis)
-- **2FA**: TOTP (otplib + Google Authenticator)
-- **Formulaires**: React Hook Form
-- **Notifications**: Sonner
-- **Icons**: Lucide React + Tabler Icons
+| Domaine | Choix |
+|---|---|
+| Framework | Next.js 15 (App Router, Server Actions) · React 19 · TypeScript |
+| Base de données | PostgreSQL via Prisma (hébergée sur Neon) |
+| Authentification | JWT RS256 chiffrés en AES-256-GCM, refresh tokens hashés, 2FA TOTP |
+| Interface | Tailwind CSS 3 · shadcn/ui (Radix, Base UI) · Lucide · GSAP / Framer Motion |
+| Éditeur de contenu | Tiptap (actualités, supports de formation) |
+| Fichiers | Cloudflare R2 (production) ou disque local (développement) |
+| E-mails | Resend |
+| Paiement en ligne | i-pay (liens de paiement hébergés, webhook, rattrapage) |
+| Documents | Modèles Word (docxtemplater + PizZip), PDF (pdf-lib), QR codes |
+| Cache et limitation de débit | Redis (ioredis) en plus d'une limite en mémoire dans le middleware |
+| Journalisation | Pino |
+| Tests | Jest |
+| Hébergement | Vercel |
 
-## Authentification
+---
 
-### Flux de connexion
-1. `POST /api/auth/login` — vérification email/mot de passe
-   - Si 2FA activé → retourne `{ requires2FA: true, tempToken }` (challenge 5 min)
-2. `POST /api/auth/2fa/login` — vérification TOTP → session complète
-3. Tokens retournés : `accessToken` (JWT 1h) + `refreshToken` (7j / 30j avec rememberMe)
+## Fonctionnalités
 
-### Fonctionnalités
-- Inscription avec vérification email obligatoire
-- Double authentification TOTP (Google Authenticator, Authy, Bitwarden…)
-- Refresh tokens (SHA-256 hashé en base, jamais stocké en clair)
-- Sessions multiples configurables (`allowMultipleSessions` dans `settings/`)
-- Réinitialisation et changement de mot de passe
-- Changement d'email avec confirmation
-- Backoff progressif sur les tentatives de connexion échouées
-- Notification email sur nouvelle IP/appareil
+### Site public
+- Accueil, À propos, Actualités, Programme, Intervenants, Partenaires, Éditions précédentes, Contact.
+- **Ouverture des candidatures pilotée depuis l'administration** : les candidatures ambassadeurs et les inscriptions des participants s'ouvrent ou se ferment depuis *Paramètres*. Une page fermée l'indique clairement, le menu et les boutons s'adaptent, et les envois sont refusés côté serveur.
+- Bouton WhatsApp flottant dont le lien se règle dans *Paramètres*.
+- Référencement : métadonnées par page, `sitemap.xml`, `robots.txt`, données structurées.
 
-## Sécurité
+### Parcours ambassadeur
+Étapes : candidature → paiement → formation → QCM → classement → sélection → repêchage → documents → engagement → badge → embarquement → présence → attestation.
 
-### Tokens
-- JWT signés **RS256** (clé privée RSA) puis chiffrés **AES-256-GCM**
-- Refresh tokens haute entropie (64 octets aléatoires), stockés hashés (SHA-256)
-- `tempToken` 2FA limité à 5 minutes avec `purpose: "2fa_challenge"` dans le payload
+- Paiement en ligne obligatoire pour accéder à la suite du parcours (le paiement manuel reste possible, sur autorisation d'un administrateur).
+- Formation en ligne ou présentielle (suivie par les points focaux régionaux).
+- QCM de classement, quotas et sélection par région.
+- Fiche d'engagement, ordre de mission et demande de permission générés à partir des **modèles Word officiels** (`lib/document-templates/`).
+- Badge et attestation générés en PDF, avec QR code.
 
-### Rate limiting (deux couches)
-| Couche | Scope | Limite |
-|--------|-------|--------|
-| In-memory (middleware/Edge) | Global par IP | 20 req / 60s |
-| Redis sliding window (API routes) | Auth par IP | 10 tentatives / 15 min |
-| Redis sliding window (API routes) | Signup/Email par IP | 5 req / 1h |
+### Administration
+- Rôles et permissions fines, avec limitation par région pour le personnel régional.
+- Statistiques par édition, région et sexe.
+- Éditeur de modèles de documents, galerie, partenaires, intervenants, programme, actualités.
+- Suivi des paiements en ligne (en attente, échoués, doublons, écarts de montant).
+- Notifications dans l'application et par e-mail.
 
-### Content Security Policy
-- Nonce par requête généré dans le middleware (Edge Runtime)
-- `'strict-dynamic'` + `'nonce-{nonce}'` — aucun inline script autorisé sans nonce
-- En-têtes supplémentaires : `X-Frame-Options`, `X-Content-Type-Options`, `HSTS`, `Permissions-Policy`
+---
 
-### Détection de mots de passe compromis (HIBP)
-- K-anonymity : seuls les 5 premiers caractères du hash SHA-1 sont envoyés
-- L'API HIBP ne reçoit jamais le mot de passe complet
-- Header `Add-Padding: true` pour masquer la taille de la réponse
-- Fail-open : une erreur réseau ne bloque pas l'inscription
+## Démarrage
 
-### Uploads
-- Validation du magic number binaire (JPEG, PNG, GIF, WebP, PDF)
-- Extension sanitisée, nom de fichier remplacé par un UUID aléatoire
-- Vérification du type MIME déclaré vs signature réelle
+### Prérequis
+- Node.js 18 ou plus récent
+- Une base PostgreSQL (Neon recommandé)
+- Redis (facultatif en développement : la limitation de débit s'en passe si Redis est absent)
 
-### Audit log
-Chaque action sensible est tracée dans `AuditLog` (Prisma) :
-`LOGIN_SUCCESS`, `LOGIN_FAILURE`, `LOGOUT`, `SIGNUP`, `2FA_ENABLED`, `2FA_DISABLED`, `2FA_FAILURE`, `2FA_SUCCESS`, `PASSWORD_RESET`, `PASSWORD_CHANGED`, `IMPERSONATION_START`, `IMPERSONATION_END`, `EMAIL_CHANGED`, `ACCOUNT_DISABLED`, `ACCOUNT_DELETED`
+### Installation
 
-## Impersonation admin
-
-Permet à un ADMIN d'auditer un compte utilisateur sans connaître son mot de passe.
-
-```
-POST /api/admin/impersonate   { targetUserId }   Authorization: Bearer <adminToken>
-DELETE /api/admin/impersonate/end                Authorization: Bearer <impersonationToken>
+```bash
+npm install
+cp .env.example .env     # puis renseigner les variables (voir ci-dessous)
+npm run db:push          # synchronise le schéma Prisma avec la base
+npm run seed             # données de départ (rôles, permissions, comptes de test)
+npm run dev
 ```
 
-- La session admin n'est jamais touchée — un cookie `impersonationToken` séparé (httpOnly) est créé
-- Session d'impersonation limitée à **15 minutes**, non renouvelable
-- Impossible d'impersonner un autre ADMIN
-- Bannière orange affichée dans l'UI tant que la session d'impersonation est active
-- Server Actions : `startImpersonation(targetUserId)` / `endImpersonation()` (cookies gérés côté serveur uniquement)
+L'application est servie sur <http://localhost:3000>.
 
-## Logging structuré (Pino)
+### Variables d'environnement
 
-```ts
-import { logger } from "@/lib/logger";
+Toutes les valeurs se renseignent dans `.env` (jamais versionné) et, en production, dans les variables du projet Vercel. Le fichier [`.env.example`](.env.example) liste les noms.
 
-logger.logAuth("LOGIN_SUCCESS", userId, email);
-logger.logRequest("GET", "/api/health", 200, 12);
-logger.logDatabase("query", "user.findUnique", 8);
-logger.logSecurity("RATE_LIMIT", ip, "Trop de tentatives");
+| Variable | Rôle |
+|---|---|
+| `DATABASE_URL`, `DIRECT_URL` | Connexion à PostgreSQL (la seconde sert aux migrations) |
+| `NEXT_PUBLIC_APP_URL` | URL publique du site (sans redirection : utiliser le domaine principal) |
+| `RSA_PRIVATE_KEY`, `RSA_PUBLIC_KEY` | Paire de clés RS256 pour signer les JWT |
+| `AES_SECRET_KEY` | Clé de 32 octets en base64 pour chiffrer les jetons |
+| `REDIS_URL` | Connexion Redis |
+| `RESEND_API_KEY`, `MAIL_FROM`, `CONTACT_EMAIL` | E-mails : clé, expéditeur (domaine vérifié) et destinataire du formulaire de contact |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` | Stockage des fichiers (sans elles : disque local) |
+| `IPAY_SECRET_KEY`, `IPAY_ENV`, `IPAY_WEBHOOK_SECRET` | Paiement i-pay (`IPAY_ENV` vaut `sandbox` ou `live`) |
+| `CRON_SECRET` | Protège la route de rattrapage des paiements |
+| `LOG_LEVEL` | Niveau de journalisation (`debug`, `info`…) |
+
+Générer les clés de sécurité :
+
+```bash
+openssl genrsa -out private.pem 2048          # puis en extraire la clé publique
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # AES_SECRET_KEY
 ```
 
-- Pino-pretty en développement, JSON brut en production
-- Niveau contrôlé par `LOG_LEVEL` (env)
+> Ne jamais copier de vraies valeurs dans `.env.example`, dans le code ou dans un message : ce fichier est publié avec le dépôt.
 
-## Health check
+### Scripts
 
-```
-GET /api/health
-```
+| Commande | Usage |
+|---|---|
+| `npm run dev` | Serveur de développement |
+| `npm run build` / `npm start` | Build et serveur de production |
+| `npm run type-check` | Vérification TypeScript |
+| `npm run lint` / `npm run lint:fix` | ESLint |
+| `npm run format` | Prettier |
+| `npm test` | Tests Jest |
+| `npm run db:push` | Synchronise le schéma avec la base |
+| `npm run db:migrate` | Crée et applique une migration |
+| `npm run db:studio` | Interface Prisma Studio |
+| `npm run seed` / `npm run seed:qcm` | Données de départ / banque de questions |
 
-Retourne `200 { status: "ok" }` si DB + Redis répondent, `503 { status: "degraded" }` sinon. Utile pour les probes Kubernetes / load balancers.
+---
 
 ## Structure du projet
 
 ```
-website-starter/
-├── app/
-│   ├── (dashboard)/
-│   │   ├── admin/
-│   │   │   └── users/          # Interface d'impersonation
-│   │   └── …
-│   ├── api/
-│   │   ├── admin/impersonate/  # POST + DELETE /end
-│   │   ├── auth/
-│   │   │   ├── login/
-│   │   │   ├── signup/
-│   │   │   ├── 2fa/
-│   │   │   │   ├── setup/      # GET — génère QR code TOTP
-│   │   │   │   ├── verify-setup/ # POST — confirme enrollment
-│   │   │   │   └── login/      # POST — étape 2 connexion
-│   │   │   ├── refresh/
-│   │   │   ├── logout/
-│   │   │   ├── forgot-password/
-│   │   │   ├── reset-password/
-│   │   │   ├── change-password/
-│   │   │   ├── change-email/
-│   │   │   └── verify/
-│   │   ├── health/             # GET — healthcheck DB + Redis
-│   │   ├── profile/
-│   │   └── upload/
-│   └── layout.tsx              # Lit x-nonce pour CSP
-├── actions/
-│   ├── impersonate.ts          # Server Actions (cookies httpOnly)
-│   └── getUser.ts              # Vérifie impersonationToken en priorité
-├── components/
-│   ├── ImpersonationBanner.tsx # Bannière admin session
-│   ├── admin/ImpersonateButton.tsx
-│   └── …
-├── lib/
-│   ├── tokens.ts               # JWT RS256 + AES-256-GCM
-│   ├── rateLimit.ts            # In-memory + Redis sliding window
-│   ├── redis.ts                # Singleton ioredis
-│   ├── audit.ts                # AuditLog helper
-│   ├── hibp.ts                 # HIBP k-anonymity
-│   ├── logger.ts               # Pino wrapper
-│   ├── mail.ts                 # Nodemailer (login notif, vérif, reset)
-│   ├── upload.ts               # Magic number + UUID filename
-│   └── geo.ts                  # IP → géolocalisation
-├── context/SessionContext.tsx
-├── middleware.ts               # CSP nonce + rate limiting Edge
-├── settings/index.ts           # Config centralisée
-└── prisma/schema.prisma
+app/
+  (public)/        Site public (accueil, actualités, programme, participer, candidature ambassadeur…)
+  (dashboard)/
+    admin/         Espace d'administration (un dossier par module)
+    ambassadeur/   Espace de l'ambassadeur (paiement, formation, QCM, engagement, badge…)
+  auth/            Connexion, inscription, réinitialisation du mot de passe
+  api/             Routes API (authentification, candidatures, paiement i-pay, cron, santé)
+actions/           Server Actions (logique métier côté serveur)
+components/        Composants (site, admin, ambassadeur, interface commune)
+lib/               Briques techniques : jetons, e-mails, paiement, PDF, stockage, permissions…
+  document-templates/   Modèles Word officiels
+prisma/            Schéma de la base et données de départ
+schemas/           Schémas de validation Zod
+settings/          Configuration centrale, navigation, charte graphique
+docs/              Guides d'administration
+middleware.ts      Authentification, CSP à nonce, limitation de débit
 ```
-
-## Installation
-
-### Prérequis
-- Node.js 18+
-- MongoDB (local ou Atlas)
-- Redis (local ou Redis Cloud)
-
-### Démarrage
-
-```bash
-git clone <repository-url>
-cd website-starter
-
-npm install
-
-cp .env.example .env.local
-# Remplir les variables (voir section ci-dessous)
-
-npm run postinstall        # Génère le client Prisma
-npm run db:push            # Synchronise le schéma
-npm run dev
-```
-
-### Variables d'environnement
-
-```env
-# Base de données
-DATABASE_URL="mongodb://localhost:27017/sahel-coders"
-
-# Application
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-
-# JWT (RS256) — générer avec openssl
-RSA_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n…"
-RSA_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n…"
-
-# AES-256-GCM — 32 octets aléatoires en base64
-AES_SECRET_KEY="base64-encoded-32-bytes"
-
-# Redis
-REDIS_URL="redis://localhost:6379"
-
-# Email (Nodemailer)
-MAIL_AUTH_USER="your-email@gmail.com"
-MAIL_AUTH_PASS="your-app-password"
-MAIL_HOST="smtp.gmail.com"
-MAIL_PORT="587"
-
-# Optionnel
-LOG_LEVEL="debug"          # trace | debug | info | warn | error
-```
-
-#### Génération des clés RSA
-
-```bash
-openssl genrsa -out private.pem 2048
-openssl rsa -in private.pem -pubout -out public.pem
-```
-
-#### Génération de la clé AES
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
-
-## Scripts
-
-```bash
-npm run dev              # Développement
-npm run build            # Build production
-npm run start            # Serveur production
-npm run lint             # ESLint
-npm run type-check       # TypeScript
-npm run db:push          # Sync schéma Prisma
-npm run db:migrate       # Migration Prisma
-npm run db:studio        # Prisma Studio
-npm run seed             # Seed base de données
-npm test                 # Tests Jest
-npm run test:coverage    # Couverture
-```
-
-## Déploiement
-
-### VPS (Nginx + PM2 + Redis)
-
-Voir la configuration VPS dans la documentation interne (Nginx, Redis, PM2, BullBoard).
-
-### Vercel
-
-```bash
-npm i -g vercel
-vercel
-```
-
-Ajouter toutes les variables d'environnement dans le dashboard Vercel. Redis : utiliser Redis Cloud ou Upstash.
-
-### Docker
-
-```bash
-docker build -t website-starter .
-docker run -p 3000:3000 \
-  -e DATABASE_URL="…" \
-  -e RSA_PRIVATE_KEY="…" \
-  -e AES_SECRET_KEY="…" \
-  -e REDIS_URL="…" \
-  website-starter
-```
-
-## Contribution
-
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/ma-feature`)
-3. Commit (`git commit -m 'feat: description'`)
-4. Push (`git push origin feature/ma-feature`)
-5. Ouvrir une Pull Request
-
-## Licence
-
-MIT — voir `LICENSE`.
 
 ---
 
-Développé par l'équipe Sahel Coders
+## Rôles et permissions
+
+Rôles : `SUPER_ADMIN`, `ADMIN`, `STAFF`, `WEBMASTER` (contenus du site public) et `USER`.
+
+- Le `SUPER_ADMIN` a un accès global.
+- Un `ADMIN`, un `STAFF` ou un `WEBMASTER` ne reçoit que les **permissions attribuées individuellement**.
+- Le personnel régional est limité à sa région.
+- La navigation et la protection des routes reposent sur la même liste (`settings/navigation.ts`).
+
+Les modules et leurs règles sont détaillés dans le [guide administrateur](docs/guide-super-admin.md).
+
+---
+
+## Sécurité
+
+- **Jetons** : JWT signés RS256 puis chiffrés AES-256-GCM, stockés dans des cookies `httpOnly` ; refresh tokens hashés en base.
+- **2FA** TOTP, backoff progressif sur les échecs de connexion, notification en cas de nouvelle connexion.
+- **Limitation de débit en deux couches** : en mémoire dans le middleware (Edge), puis Redis sur les routes sensibles. Le formulaire de contact ajoute un champ piège, un délai minimum, des limites par adresse IP et par e-mail, et un plafond de liens.
+- **CSP** avec nonce généré à chaque requête, et en-têtes de sécurité (`HSTS`, `X-Frame-Options`, `Permissions-Policy`…).
+- **Mots de passe** : détection des mots de passe compromis par k-anonymat (HIBP).
+- **Fichiers** : vérification de la signature binaire, nom de fichier remplacé par un identifiant aléatoire.
+- **Contenu riche** : le HTML des éditeurs est nettoyé côté serveur avant enregistrement et avant affichage.
+- **Journal d'audit** des actions sensibles et **impersonation** administrateur limitée à 15 minutes, non renouvelable.
+- Les e-mails d'accès contiennent un mot de passe provisoire à changer à la première connexion.
+
+---
+
+## Paiement en ligne (i-pay)
+
+1. L'ambassadeur accepté clique sur « Payer » : le serveur crée un lien de paiement hébergé (montant fixé côté serveur).
+2. Au retour, ou à la réception du webhook, le serveur **revérifie le statut et le montant auprès d'i-pay** avant de valider : le navigateur n'est jamais cru sur parole.
+3. La validation est idempotente (un seul paiement par candidature) ; un doublon est signalé « à rembourser ».
+4. Une route de rattrapage (`/api/cron/ipay-reconcile`, protégée par `CRON_SECRET`) et un bouton de vérification couvrent les cas où le webhook est perdu.
+
+Le mode `sandbox` sert aux essais ; il utilise un compte distinct du mode `live`. Les moyens de paiement proposés dépendent de ce qui est activé sur le compte i-pay.
+
+---
+
+## Déploiement
+
+Le site est déployé sur **Vercel** : chaque envoi sur la branche `main` déclenche un déploiement.
+
+- Renseigner les variables d'environnement dans les réglages du projet Vercel (voir le tableau ci-dessus), puis redéployer.
+- Le dossier `prisma/migrations/` n'est **pas versionné** : après une modification de `schema.prisma`, appliquer le schéma à la base partagée (`npm run db:push` ou `npm run db:migrate`) avant de déployer le code qui en dépend.
+- Vérifier le domaine d'envoi dans Resend (enregistrements SPF et DKIM, et DMARC recommandé) pour que les e-mails n'arrivent pas dans les indésirables.
+- Surveillance : `GET /api/health` répond `200` si la base et Redis répondent, `503` sinon.
+
+---
+
+## Contribuer
+
+1. Vérifier avant d'envoyer : `npm run type-check` puis `npm run build`.
+2. Ne jamais versionner de secrets : `.env` est ignoré ; `.env.example` ne contient que des noms de variables et des valeurs vides.
+3. Les données supprimées sont archivées (`isDeleted`) : filtrer sur `isDeleted: false` dans les requêtes.

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requirePermission } from "@/actions/requirePermission";
+import { requireSuperAdmin } from "@/actions/requirePermission";
+import { REGISTRATION_KEYS, getRegistrationState, type RegistrationState } from "@/lib/site-settings";
 
 const WHATSAPP_KEY = "site.whatsapp_group_url";
 
@@ -36,13 +37,13 @@ export async function getWhatsappGroupUrl(): Promise<string> {
 }
 
 export async function getSiteSettingsAction() {
-  await requirePermission("editions.manage");
-  return { whatsappGroupUrl: await getWhatsappGroupUrl() };
+  await requireSuperAdmin();
+  return { whatsappGroupUrl: await getWhatsappGroupUrl(), registration: await getRegistrationState() };
 }
 
 /** Enregistre (ou, si vide, retire) le lien du groupe WhatsApp du site public. */
 export async function setWhatsappGroupUrlAction(input: string) {
-  await requirePermission("editions.manage");
+  await requireSuperAdmin();
   const value = normalizeWhatsappUrl(input);
 
   if (!value) {
@@ -57,4 +58,33 @@ export async function setWhatsappGroupUrlAction(input: string) {
 
   revalidatePath("/", "layout");
   return { whatsappGroupUrl: value };
+}
+
+/** Ouvre ou ferme les candidatures ambassadeurs et les inscriptions des participants (site public). */
+export async function setRegistrationSettingsAction(input: RegistrationState): Promise<RegistrationState> {
+  await requireSuperAdmin();
+
+  const note = (value: string) => String(value ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 200);
+  const entries: [string, string][] = [
+    [REGISTRATION_KEYS.ambassadorsOpen, input.ambassadorsOpen ? "true" : "false"],
+    [REGISTRATION_KEYS.participantsOpen, input.participantsOpen ? "true" : "false"],
+    [REGISTRATION_KEYS.ambassadorsNote, note(input.ambassadorsNote)],
+    [REGISTRATION_KEYS.participantsNote, note(input.participantsNote)],
+  ];
+
+  for (const [key, value] of entries) {
+    // Un message vide supprime la ligne ; un réglage ouvert/fermé est toujours enregistré explicitement.
+    if (!value && key.endsWith("_note")) {
+      await db.setting.deleteMany({ where: { key } });
+    } else {
+      await db.setting.upsert({
+        where: { key },
+        create: { key, value, description: "Ouverture des candidatures du site public" },
+        update: { value },
+      });
+    }
+  }
+
+  revalidatePath("/", "layout");
+  return getRegistrationState();
 }

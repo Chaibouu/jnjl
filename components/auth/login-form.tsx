@@ -3,7 +3,7 @@
 import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { useState, useTransition } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,6 +23,7 @@ import { FormError } from "@/components/form-error";
 import { FormSuccess } from "@/components/form-success";
 import { Social } from "@/components/auth/social";
 import { login } from "@/actions/login";
+import { DEFAULT_LOGIN_REDIRECT } from "@/routes";
 import { Checkbox } from "@/components/ui/checkbox";
 import appConfig from "@/settings";
 import charter from "@/settings/charter";
@@ -35,12 +36,14 @@ const highlights = [
 
 export const LoginForm = () => {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  // Après connexion : retour à la page demandée si elle est interne au site, sinon tableau de bord.
+  // Une adresse externe ou « //hôte » est ignorée (évite une redirection vers un site tiers).
+  const requested = searchParams.get("callbackUrl");
+  const callbackUrl =
+    requested && requested.startsWith("/") && !requested.startsWith("//") ? requested : DEFAULT_LOGIN_REDIRECT;
   const urlError = searchParams.get("error") === "OAuthAccountNotLinked"
     ? "Email already in use with different provider!"
     : "";
-
-  const router = useRouter(); // Pour rediriger l'utilisateur
 
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [showPassword, setShowPassword] = useState(false); // Pour basculer le mot de passe
@@ -71,7 +74,8 @@ export const LoginForm = () => {
           if (data?.success) {
             form.reset();
             setSuccess(data.success);
-            router.push(callbackUrl); // Redirection après succès
+            // Rechargement complet : la session (menu, avatar) repart du bon état, comme à la déconnexion.
+            window.location.assign(callbackUrl);
           }
 
           // if (data?.twoFactor) {
