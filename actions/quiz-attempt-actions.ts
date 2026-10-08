@@ -1,5 +1,6 @@
 "use server";
 
+import { assertApplicationPaid, isPaymentPending } from "@/lib/ambassador-access";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
@@ -23,6 +24,7 @@ async function getMyAmbassadorApplication(editionId: string) {
   if (!application) {
     throw new Error("Aucune candidature ambassadeur trouvée pour votre compte sur cette édition");
   }
+  await assertApplicationPaid(application);
   return application;
 }
 
@@ -52,6 +54,7 @@ export async function getMyQuizStatusAction() {
     where: { userId: user.id, editionId: edition.id },
   });
   if (!application) return null;
+  if (await isPaymentPending(application)) return null;
 
   const quizzes = await db.quiz.findMany({
     where: { editionId: edition.id, status: "PUBLISHED" },

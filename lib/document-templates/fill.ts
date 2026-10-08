@@ -3,7 +3,7 @@ import { join } from "path";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 
-export type DocxTemplateName = "permission-request" | "mission-order";
+export type DocxTemplateName = "permission-request" | "mission-order" | "engagement";
 
 /**
  * Remplit un modèle Word (documents/*.docx d'origine, convertis en modèles avec des
@@ -17,7 +17,7 @@ export function fillDocxTemplate(name: DocxTemplateName, data: Record<string, st
   const zip = new PizZip(content);
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
   doc.render(data);
-  return doc.getZip().generate({ type: "nodebuffer" });
+  return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
 export const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

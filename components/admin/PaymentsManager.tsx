@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Receipt, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RecordPaymentDialog } from "@/components/admin/RecordPaymentDialog";
+import { setManualPaymentAllowedAction } from "@/actions/payment-actions";
 
 type PaymentItem = {
   id: string;
@@ -14,9 +15,11 @@ type PaymentItem = {
   lastName: string;
   region: { name: string; code: string };
   edition: { name: string; year: number };
+  manualPaymentAllowed: boolean;
   payment: {
     id: string;
     amount: number;
+    method: string;
     reference: string | null;
     validatedAt: Date | null;
     validatedBy: { name: string | null } | null;
@@ -25,11 +28,27 @@ type PaymentItem = {
 
 export function PaymentsManager({
   applications,
+  canAuthorizeManual,
 }: {
   applications: PaymentItem[];
+  canAuthorizeManual: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  const toggleManual = (application: PaymentItem) => {
+    setError("");
+    startTransition(async () => {
+      try {
+        await setManualPaymentAllowedAction(application.id, !application.manualPaymentAllowed);
+        router.refresh();
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -53,7 +72,8 @@ export function PaymentsManager({
         <h1 className="mt-1 text-3xl font-bold">Paiements</h1>
         <p className="mt-2 text-muted-foreground">
           Candidats acceptés en attente ou déjà à jour de leurs frais
-          d’inscription (5 000 FCFA), saisis par le point focal régional.
+          d’inscription (5 000 FCFA). Le paiement se fait en ligne ; la saisie manuelle par le
+          point focal est réservée aux candidats que l’administration y autorise.
         </p>
       </header>
 
@@ -78,6 +98,7 @@ export function PaymentsManager({
             />
           </div>
         </div>
+        {error && <p className="border-b px-5 py-3 text-sm text-destructive">{error}</p>}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
@@ -107,11 +128,11 @@ export function PaymentsManager({
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
                           Payé — {application.payment.amount.toLocaleString("fr-FR")} FCFA
                         </span>
-                        {application.payment.validatedBy?.name && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            par {application.payment.validatedBy.name}
-                          </p>
-                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {application.payment.method === "ONLINE"
+                            ? "En ligne (i-pay)"
+                            : `Manuel${application.payment.validatedBy?.name ? ` — ${application.payment.validatedBy.name}` : ""}`}
+                        </p>
                       </div>
                     ) : (
                       <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
@@ -135,11 +156,24 @@ export function PaymentsManager({
                           <Receipt className="mr-1.5 h-4 w-4" />
                           Reçu
                         </Button>
+                      ) : application.manualPaymentAllowed ? (
+                        <>
+                          <RecordPaymentDialog
+                            application={application}
+                            onRecorded={() => router.refresh()}
+                          />
+                          {canAuthorizeManual && (
+                            <Button size="sm" variant="ghost" disabled={isPending} onClick={() => toggleManual(application)}>
+                              Retirer l’autorisation
+                            </Button>
+                          )}
+                        </>
+                      ) : canAuthorizeManual ? (
+                        <Button size="sm" variant="outline" disabled={isPending} onClick={() => toggleManual(application)}>
+                          Autoriser le paiement manuel
+                        </Button>
                       ) : (
-                        <RecordPaymentDialog
-                          application={application}
-                          onRecorded={() => router.refresh()}
-                        />
+                        <span className="text-xs text-muted-foreground">Paiement en ligne</span>
                       )}
                     </div>
                   </td>

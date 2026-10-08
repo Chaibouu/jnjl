@@ -101,8 +101,9 @@ export function AmbassadorAccountManager({
     setError("");
     startTransition(async () => {
       try {
-        await sendAmbassadorPasswordResetAction(account.user.id);
-        setMessage(`Lien de réinitialisation envoyé à ${account.email}`);
+        const result = await sendAmbassadorPasswordResetAction(account.user.id);
+        if (result.ok) setMessage(`Lien de réinitialisation envoyé à ${account.email}`);
+        else setError(result.error);
       } catch (actionError) {
         setError(
           actionError instanceof Error

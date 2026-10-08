@@ -20,36 +20,41 @@ export function SectionHeader({
   description,
   align = "center",
   className = "",
+  tone = "dark",
 }: {
   eyebrow: string;
   title: ReactNode;
   description?: string;
   align?: "center" | "left";
   className?: string;
+  /** « light » : texte clair, pour un fond coloré ou sombre. */
+  tone?: "dark" | "light";
 }) {
   const isCenter = align === "center";
+  const light = tone === "light";
+  const accent = light ? charter.gold : charter.orange;
   return (
     <div className={`${isCenter ? "text-center" : "text-left"} ${className}`}>
       <span
         className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
-        style={{ color: charter.orange }}
+        style={{ color: accent }}
       >
-        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: charter.orange }} />
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
         {eyebrow}
       </span>
       <h2
         className="mt-3 text-3xl font-bold leading-tight tracking-tight sm:text-4xl"
-        style={{ color: charter.ink }}
+        style={{ color: light ? "#fff" : charter.ink }}
       >
         {title}
       </h2>
       <div className={`mt-2 ${isCenter ? "flex justify-center" : ""}`}>
-        <Squiggle />
+        <Squiggle color={accent} />
       </div>
       {description && (
         <p
           className={`mt-4 text-base leading-relaxed ${isCenter ? "mx-auto max-w-xl" : "max-w-lg"}`}
-          style={{ color: charter.inkSoft }}
+          style={{ color: light ? "rgba(255,255,255,0.85)" : charter.inkSoft }}
         >
           {description}
         </p>

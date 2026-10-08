@@ -110,6 +110,26 @@ const config = {
         gradient: {
           to: { backgroundPosition: "var(--bg-size, 300%) 0" },
         },
+        "float-slow": {
+          "0%, 100%": { transform: "translate3d(0, 0, 0) scale(1)" },
+          "50%": { transform: "translate3d(0, -26px, 0) scale(1.06)" },
+        },
+        "float-card": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "pulse-ring": {
+          "0%": { transform: "scale(0.9)", opacity: "0.7" },
+          "100%": { transform: "scale(2.2)", opacity: "0" },
+        },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(18px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slow-pan": {
+          "0%, 100%": { transform: "scale(1.05) translate3d(0, 0, 0)" },
+          "50%": { transform: "scale(1.14) translate3d(-1.5%, -1%, 0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -117,6 +137,11 @@ const config = {
         marquee: "marquee var(--duration, 40s) infinite linear",
         "marquee-vertical": "marquee-vertical var(--duration, 40s) linear infinite",
         gradient: "gradient 8s linear infinite",
+        "float-slow": "float-slow 9s ease-in-out infinite",
+        "float-card": "float-card 5s ease-in-out infinite",
+        "pulse-ring": "pulse-ring 2.2s ease-out infinite",
+        "slow-pan": "slow-pan 24s ease-in-out infinite",
+        "fade-up": "fade-up 0.7s ease-out both",
       },
       fontFamily: {
         satoshi: ["Satoshi", "sans-serif"],

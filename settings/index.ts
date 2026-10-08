@@ -21,6 +21,8 @@ const appConfig = {
     "/api/applications/ambassador",
     "/participer",
     "/api/applications/event",
+    "/api/payments/ipay/webhook",
+    "/api/cron/ipay-reconcile",
     "/actualites",
     "/partenaires",
     "/intervenants",

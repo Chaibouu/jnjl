@@ -13,11 +13,14 @@ export function Reveal({
   className,
   delay = 0,
   y = 24,
+  stagger = 0,
 }: {
   children: React.ReactNode;
   className?: string;
   delay?: number;
   y?: number;
+  /** Délai (s) entre l'apparition de chaque enfant direct : effet cascade. */
+  stagger?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -27,13 +30,14 @@ export function Reveal({
 
     const context = gsap.context(() => {
       gsap.fromTo(
-        el,
+        stagger > 0 ? Array.from(el.children) : el,
         { opacity: 0, y },
         {
           opacity: 1,
           y: 0,
           duration: 0.7,
           delay,
+          stagger,
           ease: "power2.out",
           scrollTrigger: {
             trigger: el,
@@ -45,7 +49,7 @@ export function Reveal({
     }, ref);
 
     return () => context.revert();
-  }, [delay, y]);
+  }, [delay, y, stagger]);
 
   return (
     <div ref={ref} className={className}>

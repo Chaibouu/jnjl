@@ -315,8 +315,8 @@ région, consentement. Une personne ne peut déposer qu'**une candidature par é
 **Fiche admin** : informations classées par catégories. Deux décisions :
 
 - **Accepter** : le système **crée le compte utilisateur** (rôle `USER`, actif, email considéré comme vérifié, mot de passe
-  aléatoire inutilisable), passe la candidature en *Retenu* à l'étape **PAIEMENT**, puis **envoie un email** avec un lien pour
-  définir son mot de passe. Si l'email échoue, le compte reste créé : utilisez ensuite « Envoyer un lien de réinitialisation »
+  provisoire aléatoire de 12 caractères, propre à chaque compte), passe la candidature en *Retenu* à l'étape **PAIEMENT**, puis **envoie un email** avec ses accès
+  (identifiant + mot de passe provisoire, à changer depuis « Mon profil »). Un accusé de réception est aussi envoyé dès le dépôt de la candidature. Si l'email échoue, le compte reste créé : utilisez ensuite « Envoyer un lien de réinitialisation »
   dans Comptes.
 - **Rejeter** : demande un **motif** (obligatoire, mémorisé). Une candidature déjà retenue ne peut pas être rejetée. Notification + email.
 
@@ -353,6 +353,13 @@ et le contenu complet. Le bouton **« Marquer comme terminé » n'est disponible
 de terminer un module qui n'a pas été **ouvert** dans le lecteur (impossible de tout valider d'un coup). Le lecteur propose les modules précédent / suivant ;
 un module terminé peut être relu librement. Quand tous les modules sont terminés, l'ambassadeur accède au QCM qui clôture la formation
 (si un QCM y est rattaché).
+
+**Formation présentielle** — menu **Formations › Formation présentielle** (`/admin/formation/presentielle`, permission
+`training.inperson.manage`) : liste des ambassadeurs ayant **payé** et devant suivre la formation. Le **staff** ne voit que
+sa région, l'**admin** la liste nationale. Le bouton **« Formation faite »** enregistre la date et l'auteur, et fait passer
+l'ambassadeur à l'étape QCM s'il attendait à FORMATION. **Sans formation obligatoire en ligne dans l'édition**, l'ambassadeur
+passe directement à QCM dès la validation du paiement (il ne reste plus bloqué en FORMATION) ; la formation présentielle sert
+alors de suivi.
 
 Règles : on **ne peut pas supprimer** une formation déjà suivie (progression ou attestations existantes) ; supprimer une formation vierge supprime
 ses modules et transforme ses QCM en **QCM libres**. L'édition d'une formation ne peut pas être changée.
@@ -402,7 +409,7 @@ refuser n'avance pas l'étape (le candidat reste non sélectionné). La décisio
 La **demande de permission** et l'**ordre de mission** ne bloquent plus le parcours : dès que son **engagement est signé**,
 chaque ambassadeur les génère lui-même en libre-service (**Mes documents › Demande de permission / Ordre de mission**) — un
 court formulaire (établissement, niveau, moyen de transport…) remplit le vrai modèle Word officiel (signature et cachet
-inclus) et produit un **.docx** téléchargeable immédiatement. La numérotation (`0001/AAAA/LA/AMG/AAF` pour la demande,
+inclus) et produit un **.docx** téléchargeable immédiatement. La numérotation (`001/AAAA/LA/AMG/JNJL` pour la demande,
 `001/LA/AM/RH/AAAA` pour l'ordre de mission) est **séquentielle et stable** : régénérer un document garde le même numéro.
 
 Cet écran admin ne sert plus qu'à **consulter** ce que chaque ambassadeur a généré, ou à **déposer un document de secours**
@@ -413,8 +420,9 @@ mais **n'avance aucune étape**.
 
 - **Admin** : rédige le **texte de la fiche d'engagement** de l'édition (20 caractères minimum) et suit qui a signé (lien vers le PDF signé).
 - **Ambassadeur** (étape ENGAGEMENT) : lit le texte et coche l'acceptation — **la case ne peut plus être décochée** une fois cochée.
-  Le nom de signature est **repris automatiquement du compte** (plus de saisie manuelle). La plateforme génère un **PDF**
-  (édition, ambassadeur, texte, signature, date/heure), le stocke, l'enregistre et passe l'ambassadeur à **BADGE**. Le
+  Le nom de signature est **repris automatiquement du compte** (plus de saisie manuelle). La plateforme génère la fiche à partir du **modèle Word officiel** (fiche d'inscription remplie : nom, prénom, sexe, email,
+  téléphone, lieu de résidence ; formule d'engagement au nom de l'ambassadeur ; signature électronique datée), la stocke,
+  l'enregistre et passe l'ambassadeur à **BADGE**. Le
   **téléchargement n'est possible qu'une fois la case cochée**.
   Avant de cocher, un bouton **« Prévisualiser ma fiche »** affiche la fiche telle qu'elle sera générée (marquée « Aperçu — non signé »).
   Après signature, **« Prévisualiser ma fiche signée »** affiche le PDF directement dans la page (téléchargement possible).

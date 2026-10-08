@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { CheckCircle2, Mail, MapPin, Phone } from "lucide-react";
 import { submitContactMessageAction } from "@/actions/contact-actions";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ export function ContactForm() {
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [isPending, startTransition] = useTransition();
+  // Heure d'affichage du formulaire : sert à écarter les robots qui l'envoient instantanément.
+  const openedAt = useRef(Date.now());
 
   const update = (field: keyof typeof form, value: string) =>
     setForm(current => ({ ...current, [field]: value }));
@@ -28,8 +30,9 @@ export function ContactForm() {
     setError("");
     startTransition(async () => {
       try {
-        await submitContactMessageAction(form);
+        await submitContactMessageAction({ ...form, elapsedMs: Date.now() - openedAt.current });
         setForm(emptyForm);
+        openedAt.current = Date.now();
         setSent(true);
       } catch (actionError) {
         setError(
@@ -155,7 +158,7 @@ export function ContactInfo() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide" style={{ color: charter.inkFaint }}>Email</p>
-            <p className="text-sm font-medium" style={{ color: charter.ink }}>contact@jnjl.ne</p>
+            <p className="text-sm font-medium" style={{ color: charter.ink }}>jnjl.niger@gmail.com</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -164,7 +167,7 @@ export function ContactInfo() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide" style={{ color: charter.inkFaint }}>Téléphone</p>
-            <p className="text-sm font-medium" style={{ color: charter.ink }}>+227 00 00 00 00</p>
+            <p className="text-sm font-medium" style={{ color: charter.ink }}>+227 90 34 11 34</p>
           </div>
         </div>
         <div className="flex items-center gap-3">

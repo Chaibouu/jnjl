@@ -17,7 +17,7 @@ import {
 import { LoginSchema } from "@/schemas";
 import { audit } from "@/lib/audit";
 import { checkPasswordPwned } from "@/lib/hibp";
-import { rateLimitRedisAuth } from "@/lib/rateLimit";
+import { rateLimitRedisAuth } from "@/lib/rateLimit-redis";
 import type { NextRequest } from "next/server";
 
 function hashRefreshToken(token: string): string {

@@ -2,10 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Eye, Search, X } from "lucide-react";
+import { Check, Eye, KeyRound, Search, X } from "lucide-react";
 import {
   acceptAmbassadorApplicationAction,
   rejectAmbassadorApplicationAction,
+  resendAmbassadorAccessEmailAction,
 } from "@/actions/ambassador-application-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
@@ -64,7 +65,7 @@ export function AmbassadorApplicationManager({
     setError("");
     startTransition(async () => {
       try {
-        await acceptAmbassadorApplicationAction(application.id);
+        const result = await acceptAmbassadorApplicationAction(application.id);
         setApplications(items =>
           items.map(item =>
             item.id === application.id
@@ -72,7 +73,13 @@ export function AmbassadorApplicationManager({
               : item
           )
         );
-        setMessage("Candidature acceptée et compte créé.");
+        if (result.emailSent) {
+          setMessage("Candidature acceptée et compte créé. L'email d'accès a été envoyé.");
+        } else {
+          setError(
+            "Candidature acceptée et compte créé, mais l'email d'accès n'a pas pu être envoyé. Utilisez le bouton « Renvoyer les accès » (clé) sur cette ligne."
+          );
+        }
       } catch (actionError) {
         setError(
           actionError instanceof Error
@@ -82,6 +89,26 @@ export function AmbassadorApplicationManager({
       }
     });
   };
+  const resendAccess = async (application: Application) => {
+    const confirmed = await confirm({
+      title: "Renvoyer les accès ?",
+      description: `Un nouveau mot de passe provisoire sera généré pour ${application.firstName} ${application.lastName} et envoyé à ${application.email}. L'ancien mot de passe ne fonctionnera plus.`,
+      confirmLabel: "Renvoyer les accès",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await resendAmbassadorAccessEmailAction(application.id, true);
+        if (result.ok) setMessage(`Accès renvoyés à ${application.email}.`);
+        else setError(result.error);
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Impossible de renvoyer les accès");
+      }
+    });
+  };
+
   const reject = async (application: Application) => {
     const reason = await prompt({
       title: "Rejeter cette candidature ?",
@@ -197,6 +224,18 @@ export function AmbassadorApplicationManager({
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {application.status === "RETENU" && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          title="Renvoyer les accès"
+                          onClick={() => resendAccess(application)}
+                          disabled={isPending}
+                        >
+                          <KeyRound className="h-4 w-4 text-primary" />
+                        </Button>
+                      )}
                       {["SOUMIS", "EN_COURS_ANALYSE", "LISTE_ATTENTE"].includes(
                         application.status
                       ) && (

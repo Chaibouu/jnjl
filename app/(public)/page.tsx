@@ -4,10 +4,8 @@ import {
   ArrowRight,
   Award,
   Calendar,
-  CheckCircle2,
   GraduationCap,
   MapPin,
-  Sparkles,
   Users,
 } from "lucide-react";
 import { getActiveEditionOverviewAction } from "@/actions/edition-actions";
@@ -19,10 +17,10 @@ import { Marquee } from "@/components/ui/marquee";
 import { Particles } from "@/components/ui/particles";
 import { AnimatedGradientText } from "@/components/ui/animated-gradient-text";
 import { SectionHeader } from "@/components/site/SectionHeader";
-import { WaveDivider } from "@/components/site/WaveDivider";
 import { AboutSection } from "@/components/site/AboutSection";
 import { Reveal } from "@/components/site/Reveal";
-import { HeroScene } from "@/components/site/HeroScene";
+import { NewsCard } from "@/components/site/NewsCard";
+import { CountUp } from "@/components/site/CountUp";
 import { ContactForm, ContactInfo } from "@/components/site/ContactForm";
 import appConfig from "@/settings";
 import charter from "@/settings/charter";
@@ -62,10 +60,14 @@ export default async function HomePage() {
   ]);
 
   // Un compteur à zéro donne une mauvaise impression : on ne l'affiche qu'une fois alimenté.
-  const heroStats = [
+  const heroStats: { label: string; value: string; count?: number; suffix?: string }[] = [
     { label: "Édition", value: edition ? String(edition.year) : "—" },
-    ...(speakers.length > 0 ? [{ label: "Intervenants", value: `${speakers.length}+` }] : []),
-    ...(partners.length > 0 ? [{ label: "Partenaires", value: `${partners.length}+` }] : []),
+    ...(speakers.length > 0
+      ? [{ label: "Intervenants", value: `${speakers.length}+`, count: speakers.length, suffix: "+" }]
+      : []),
+    ...(partners.length > 0
+      ? [{ label: "Partenaires", value: `${partners.length}+`, count: partners.length, suffix: "+" }]
+      : []),
   ];
 
   return (
@@ -90,198 +92,219 @@ export default async function HomePage() {
         ]}
       />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20" style={{ backgroundColor: charter.bg }}>
+      {/* Hero : photo de l'événement plein cadre, couleurs de la charte, éléments en mouvement */}
+      <section className="relative isolate overflow-hidden text-white">
+        <Image
+          src="/header.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="-z-20 object-cover object-[50%_78%]"
+        />
         <div
-          className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full blur-3xl"
-          style={{ backgroundColor: `${charter.orange}1f` }}
+          className="absolute inset-0 -z-10"
+          style={{
+            background: `linear-gradient(100deg, ${charter.ink}ee 0%, ${charter.ink}b3 42%, ${charter.ink}4d 75%, ${charter.orangeDark}59 100%)`,
+          }}
           aria-hidden="true"
         />
         <div
-          className="pointer-events-none absolute -right-16 top-1/3 h-72 w-72 rounded-full blur-3xl"
-          style={{ backgroundColor: `${charter.gold}26` }}
+          className="pointer-events-none absolute -left-24 -top-24 -z-10 h-96 w-96 rounded-full motion-safe:animate-float-slow"
+          style={{ background: `radial-gradient(circle, ${charter.orange}99 0%, transparent 68%)` }}
           aria-hidden="true"
         />
-        <Particles
-          className="absolute inset-0"
-          quantity={70}
-          color={charter.orange}
-          size={0.5}
-          ease={60}
+        <div
+          className="pointer-events-none absolute -bottom-24 right-1/4 -z-10 h-80 w-80 rounded-full motion-safe:animate-float-slow [animation-delay:-4s]"
+          style={{ background: `radial-gradient(circle, ${charter.green}99 0%, transparent 68%)` }}
+          aria-hidden="true"
         />
+        <div
+          className="pointer-events-none absolute right-8 top-10 -z-10 h-56 w-56 rounded-full motion-safe:animate-float-slow [animation-delay:-7s]"
+          style={{ background: `radial-gradient(circle, ${charter.gold}99 0%, transparent 68%)` }}
+          aria-hidden="true"
+        />
+        <Particles className="absolute inset-0 -z-10" quantity={55} color={charter.gold} size={0.6} ease={60} />
 
-        <div className="relative mx-auto grid max-w-6xl gap-14 md:grid-cols-2 md:items-center">
-          {/* Text */}
+        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 pb-24 pt-12 sm:px-6 sm:pt-16 md:grid-cols-[1.2fr_0.8fr] md:items-center [@media(min-height:900px)]:pb-32 [@media(min-height:900px)]:pt-28">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold shadow-sm">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: charter.orange }} />
-              <AnimatedGradientText colorFrom={charter.orange} colorTo={charter.gold}>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold backdrop-blur">
+              <span className="relative flex h-2 w-2">
+                <span
+                  className="absolute inline-flex h-full w-full rounded-full opacity-75 motion-safe:animate-ping"
+                  style={{ backgroundColor: charter.gold }}
+                />
+                <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: charter.gold }} />
+              </span>
+              <AnimatedGradientText colorFrom={charter.gold} colorTo="#ffffff">
                 Journée Nationale du Jeune Leader
               </AnimatedGradientText>
             </span>
 
-            <h1 className="mt-5 text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl" style={{ color: charter.ink }}>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl [@media(min-height:900px)]:lg:text-7xl">
               {edition ? edition.name : appConfig.appName}
             </h1>
 
             {edition?.theme && (
-              <p className="mt-3 text-lg font-medium" style={{ color: charter.orangeDark }}>
+              <p className="mt-3 text-lg font-semibold sm:text-xl [@media(min-height:900px)]:sm:text-2xl" style={{ color: charter.gold }}>
                 {edition.theme}
               </p>
             )}
 
-            <p className="mt-4 max-w-lg text-base leading-relaxed" style={{ color: charter.inkSoft }}>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/80 sm:text-base [@media(min-height:900px)]:sm:text-lg">
               {appConfig.websiteDescription}
             </p>
 
             {edition && (edition.location || edition.startDate) && (
-              <div className="mt-5 flex flex-wrap items-center gap-4 text-sm font-medium" style={{ color: charter.inkSoft }}>
+              <div className="mt-5 flex flex-wrap items-center gap-2.5 text-sm font-medium">
                 {edition.location && (
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="h-4 w-4" style={{ color: charter.orange }} />
+                  <span className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur">
+                    <MapPin className="h-4 w-4" style={{ color: charter.gold }} />
                     {edition.location}
                   </span>
                 )}
                 {edition.startDate && (
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" style={{ color: charter.orange }} />
+                  <span className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur">
+                    <Calendar className="h-4 w-4" style={{ color: charter.gold }} />
                     {formatRange(edition.startDate, edition.endDate)}
                   </span>
                 )}
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Button
                 size="lg"
                 nativeButton={false}
-                className="h-12 gap-2 rounded-none px-8 text-base font-semibold text-white shadow-lg transition-opacity duration-200 hover:opacity-90"
+                className="group h-12 gap-2 rounded-none px-8 text-base font-semibold text-white shadow-lg shadow-black/30 transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95"
                 style={{ backgroundColor: charter.orange }}
                 render={<Link href="/ambassadeurs/candidature" />}
               >
                 Devenir Ambassadeur
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 nativeButton={false}
-                className="h-12 rounded-none border-2 px-8 text-base font-semibold"
+                className="h-12 rounded-none border-2 border-white/40 bg-white/5 px-8 text-base font-semibold text-white backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:text-black"
                 render={<Link href="/programme" />}
               >
                 Voir le programme
               </Button>
             </div>
 
-            {/* Inline stats */}
-            <div className="mt-10 flex flex-wrap gap-8 border-t pt-6" style={{ borderColor: charter.border }}>
+            {/* Chiffres clés animés */}
+            <div className="mt-8 flex flex-wrap gap-x-10 gap-y-3 border-t border-white/20 pt-5">
               {heroStats.map(stat => (
                 <div key={stat.label}>
-                  <p className="text-2xl font-bold" style={{ color: charter.ink }}>
-                    {stat.value}
+                  <p className="text-2xl font-extrabold sm:text-3xl" style={{ color: charter.gold }}>
+                    {stat.count !== undefined ? <CountUp value={stat.count} suffix={stat.suffix} /> : stat.value}
                   </p>
-                  <p className="mt-0.5 text-xs" style={{ color: charter.inkFaint }}>
-                    {stat.label}
-                  </p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wide text-white/70">{stat.label}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Visual */}
-          <div className="relative isolate hidden md:block">
-            <HeroScene className="pointer-events-none absolute -inset-16 -z-10" />
-            <div
-              className="rounded-3xl p-8 shadow-xl"
-              style={{ background: `linear-gradient(135deg, ${charter.ink}, #000)` }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white p-2">
-                  <Image src={appConfig.logoUrl} height={40} width={40} alt={appConfig.appName} className="h-full w-full object-contain" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{appConfig.appName}</p>
-                  <p className="text-xs text-white/50">Plateforme nationale</p>
-                </div>
-              </div>
-
-              <div className="mt-8 space-y-4">
-                {[
-                  { icon: Sparkles, label: "Thème", value: edition?.theme || "À venir" },
-                  { icon: MapPin, label: "Lieu", value: edition?.location || "À venir" },
-                  { icon: Calendar, label: "Dates", value: edition ? formatRange(edition.startDate, edition.endDate) : "À venir" },
-                ].map(row => (
-                  <div key={row.label} className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur">
-                    <row.icon className="h-4 w-4 shrink-0" style={{ color: charter.gold }} />
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-wide text-white/50">{row.label}</p>
-                      <p className="truncate text-sm font-medium text-white">{row.value}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Floating badge */}
-            <div className="absolute -bottom-6 -left-6 flex items-center gap-3 rounded-2xl border bg-white px-5 py-4 shadow-lg" style={{ borderColor: charter.border }}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${charter.orange}15` }}>
-                <CheckCircle2 className="h-5 w-5" style={{ color: charter.orange }} />
+          {/* Visuel : carte flottante */}
+          <div className="relative isolate hidden md:flex md:justify-end">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/15 px-5 py-4 shadow-2xl backdrop-blur-md motion-safe:animate-float-card">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-1.5">
+                <Image
+                  src={appConfig.logoUrl}
+                  height={40}
+                  width={40}
+                  alt={appConfig.appName}
+                  className="h-full w-full object-contain"
+                />
               </div>
               <div>
-                <p className="text-sm font-bold leading-none" style={{ color: charter.ink }}>
-                  Édition active
-                </p>
-                <p className="mt-1 text-xs" style={{ color: charter.inkFaint }}>
-                  Candidatures ouvertes
-                </p>
+                <p className="text-sm font-bold leading-none">{appConfig.appName}</p>
+                <p className="mt-1 text-xs text-white/70">Plateforme nationale</p>
               </div>
             </div>
           </div>
         </div>
-      </section>
 
-      <WaveDivider className="-mt-1 h-10 bg-white" />
+        {/* Vague de transition vers la section suivante */}
+        <svg
+          className="pointer-events-none absolute -bottom-px left-0 w-full"
+          viewBox="0 0 1440 90"
+          preserveAspectRatio="none"
+          height="90"
+          aria-hidden="true"
+        >
+          <path d="M0 50C240 90 480 90 720 55C960 20 1200 20 1440 60V90H0Z" fill="#ffffff" />
+        </svg>
+      </section>
 
       <AboutSection />
 
       {/* Stats band */}
       {edition && edition.stats.length > 0 && (
-        <section className="px-4 py-14 sm:px-6" style={{ background: `linear-gradient(120deg, ${charter.ink}, #05070a)` }}>
-          <div className="mx-auto grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <section
+          className="relative overflow-hidden px-4 py-16 sm:px-6"
+          style={{ background: `linear-gradient(120deg, ${charter.green}, #4d7a28)` }}
+        >
+          <div
+            className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-white/10 motion-safe:animate-float-slow"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute -bottom-20 right-10 h-72 w-72 rounded-full opacity-25 motion-safe:animate-float-slow [animation-delay:-5s]"
+            style={{ backgroundColor: charter.gold }}
+            aria-hidden="true"
+          />
+          <Reveal stagger={0.12} className="relative mx-auto grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {edition.stats.map(stat => (
-              <div key={stat.id} className="text-center">
-                <p className="text-4xl font-bold tabular-nums" style={{ color: charter.gold }}>
-                  {stat.value.toLocaleString("fr-FR")}
+              <div key={stat.id} className="rounded-2xl border border-white/20 bg-white/10 px-4 py-6 text-center backdrop-blur-sm">
+                <p className="text-4xl font-extrabold text-white sm:text-5xl">
+                  <CountUp value={Number(stat.value)} />
                 </p>
-                <p className="mt-2 text-sm text-white/70">{stat.label}</p>
+                <p className="mt-2 text-sm font-medium text-white/85">{stat.label}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </section>
       )}
 
       {/* Nos parcours */}
-      <section className="bg-white px-4 py-20 sm:px-6 sm:py-28">
-        <div className="mx-auto max-w-6xl">
+      <section
+        className="relative overflow-hidden px-4 py-20 sm:px-6 sm:py-28"
+        style={{ background: `linear-gradient(135deg, ${charter.orange}, ${charter.orangeDark})` }}
+      >
+        <div
+          className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 motion-safe:animate-float-slow"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -bottom-28 -left-20 h-96 w-96 rounded-full opacity-20 motion-safe:animate-float-slow [animation-delay:-6s]"
+          style={{ backgroundColor: charter.gold }}
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto max-w-6xl">
           <SectionHeader
+            tone="light"
             eyebrow="Participer"
             title="Trois façons de vivre la JNJL"
             description="Quel que soit votre profil, la JNJL vous propose un parcours adapté pour vous engager."
             className="mb-14"
           />
 
-          <Reveal className="grid gap-6 sm:grid-cols-3">
-            {TRACKS.map(track => {
+          <Reveal stagger={0.15} className="grid gap-6 sm:grid-cols-3">
+            {TRACKS.map((track, index) => {
               const Icon = track.icon;
+              const color = [charter.orange, charter.green, charter.ink][index];
               const content = (
                 <>
                   <div
-                    className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl"
-                    style={{ backgroundColor: `${charter.orange}12` }}
+                    className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-md transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110"
+                    style={{ backgroundColor: color }}
                   >
-                    <Icon className="h-6 w-6" style={{ color: charter.orange }} />
+                    <Icon className="h-7 w-7" />
                   </div>
-                  <h3 className="text-lg font-bold" style={{ color: charter.ink }}>
+                  <h3 className="text-xl font-bold" style={{ color: charter.ink }}>
                     {track.title}
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed" style={{ color: charter.inkSoft }}>
@@ -289,8 +312,8 @@ export default async function HomePage() {
                   </p>
                   <div className="mt-5 flex items-center gap-1.5 text-sm font-semibold">
                     {track.href ? (
-                      <span className="flex items-center gap-1.5" style={{ color: charter.orange }}>
-                        Postuler <ArrowRight className="h-3.5 w-3.5" />
+                      <span className="flex items-center gap-1.5" style={{ color: charter.orangeDark }}>
+                        Postuler <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1.5" />
                       </span>
                     ) : (
                       <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -305,13 +328,12 @@ export default async function HomePage() {
                 <Link
                   key={track.title}
                   href={track.href}
-                  className="group rounded-2xl border p-7 transition-shadow duration-200 hover:shadow-lg"
-                  style={{ borderColor: charter.border }}
+                  className="group rounded-2xl bg-white p-7 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl"
                 >
                   {content}
                 </Link>
               ) : (
-                <div key={track.title} className="rounded-2xl border p-7" style={{ borderColor: charter.border }}>
+                <div key={track.title} className="group rounded-2xl bg-white/95 p-7 shadow-lg">
                   {content}
                 </div>
               );
@@ -331,52 +353,9 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <Reveal className="mt-10 grid gap-6 sm:grid-cols-3">
-              {news.map(item => (
-                <Link
-                  key={item.id}
-                  href={`/actualites/${item.slug}`}
-                  className="group overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg"
-                  style={{ borderColor: charter.border }}
-                >
-                  <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                    {item.coverImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item.coverImage}
-                        alt={item.title}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-sm font-medium text-muted-foreground">
-                        {appConfig.appName}
-                      </div>
-                    )}
-                    {item.category && (
-                      <span
-                        className="absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow"
-                        style={{ backgroundColor: charter.ink }}
-                      >
-                        {item.category}
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <h3 className="font-semibold leading-snug" style={{ color: charter.ink }}>
-                      {item.title}
-                    </h3>
-                    {item.excerpt && (
-                      <p className="mt-2 line-clamp-2 text-sm" style={{ color: charter.inkFaint }}>
-                        {item.excerpt}
-                      </p>
-                    )}
-                    {item.publishedAt && (
-                      <p className="mt-3 text-xs" style={{ color: charter.inkFaint }}>
-                        {new Date(item.publishedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
-                      </p>
-                    )}
-                  </div>
-                </Link>
+            <Reveal stagger={0.12} className="mt-10 grid gap-6 sm:grid-cols-3">
+              {news.map((item, index) => (
+                <NewsCard key={item.id} item={item} index={index} />
               ))}
             </Reveal>
           </div>
@@ -394,11 +373,11 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <Reveal className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <Reveal stagger={0.1} className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {speakers.slice(0, 4).map(speaker => (
                 <div
                   key={speaker.id}
-                  className="overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg"
+                  className="overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
                   style={{ borderColor: charter.border }}
                 >
                   <div className="relative aspect-square w-full overflow-hidden bg-muted">
@@ -464,30 +443,44 @@ export default async function HomePage() {
 
       {/* CTA band */}
       <section className="px-4 py-16 sm:px-6 sm:py-20">
-        <div
-          className="mx-auto max-w-6xl overflow-hidden rounded-3xl px-8 py-14 text-center shadow-xl sm:px-16"
-          style={{ background: `linear-gradient(120deg, ${charter.ink}, #05070a)` }}
-        >
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">Rejoignez la JNJL</h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/70">
+        <div className="relative isolate mx-auto max-w-6xl overflow-hidden rounded-3xl px-8 py-16 text-center shadow-2xl sm:px-16">
+          <Image
+            src="/entetes/galerie-3.jpg"
+            alt=""
+            fill
+            sizes="(min-width: 1152px) 1152px, 100vw"
+            className="-z-20 object-cover"
+          />
+          <div
+            className="absolute inset-0 -z-10"
+            style={{ background: `linear-gradient(120deg, ${charter.ink}ee, ${charter.orangeDark}cc)` }}
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute -right-10 -top-10 -z-10 h-56 w-56 rounded-full motion-safe:animate-float-slow"
+            style={{ background: `radial-gradient(circle, ${charter.gold}99 0%, transparent 68%)` }}
+            aria-hidden="true"
+          />
+          <h2 className="text-3xl font-extrabold text-white sm:text-5xl">Rejoignez la JNJL</h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
             Devenez Ambassadeur de votre région et portez la voix de la jeunesse nigérienne lors de la prochaine édition.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button
               size="lg"
               nativeButton={false}
-              className="h-12 gap-2 rounded-none px-8 text-base font-semibold text-white shadow-lg transition-opacity duration-200 hover:opacity-90"
+              className="group h-12 gap-2 rounded-none px-8 text-base font-semibold text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:opacity-95"
               style={{ backgroundColor: charter.orange }}
               render={<Link href="/ambassadeurs/candidature" />}
             >
               Postuler maintenant
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
             <Button
               size="lg"
               variant="outline"
               nativeButton={false}
-              className="h-12 rounded-none border-2 border-white/30 bg-transparent px-8 text-base font-semibold text-white hover:bg-white/10 hover:text-white"
+              className="h-12 rounded-none border-2 border-white/40 bg-transparent px-8 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white hover:text-black"
               render={<Link href="/programme" />}
             >
               Voir le programme

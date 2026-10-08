@@ -22,6 +22,21 @@ export async function listMyNotificationsAction() {
   });
 }
 
+/** Dernières notifications + nombre de non lues, pour la cloche du header. */
+export async function getNotificationBellAction() {
+  const user = await getCurrentUser();
+  const [items, unread] = await Promise.all([
+    db.notification.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { id: true, title: true, message: true, link: true, isRead: true, createdAt: true },
+    }),
+    db.notification.count({ where: { userId: user.id, isRead: false } }),
+  ]);
+  return { items, unread };
+}
+
 export async function countMyUnreadNotificationsAction() {
   const user = await getCurrentUser();
   return db.notification.count({ where: { userId: user.id, isRead: false } });

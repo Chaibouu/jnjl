@@ -84,7 +84,7 @@ export async function updateQuizAction(id: string, input: QuizInput) {
   const existing = await db.quiz.findUnique({ where: { id } });
   if (!existing) throw new Error("QCM introuvable");
 
-  return db.quiz.update({
+  const updated = await db.quiz.update({
     where: { id },
     data: {
       editionId: data.editionId,
@@ -101,6 +101,30 @@ export async function updateQuizAction(id: string, input: QuizInput) {
       showCorrectAnswers: data.showCorrectAnswers,
     },
   });
+
+  // QCM passé avant d'être déclaré « de classement » : on rattrape les tentatives déjà terminées,
+  // sinon ces ambassadeurs resteraient bloqués à l'étape QCM.
+  if (!existing.countsForRanking && data.countsForRanking) {
+    const attempts = await db.quizAttempt.findMany({
+      where: { quizId: id, status: "COMPLETED", ambassadorApplication: { stage: { in: ["FORMATION", "QCM"] } } },
+      orderBy: { submittedAt: "desc" },
+      select: { ambassadorApplicationId: true, percentage: true },
+    });
+    const latest = new Map<string, number>();
+    for (const attempt of attempts) {
+      if (!latest.has(attempt.ambassadorApplicationId)) {
+        latest.set(attempt.ambassadorApplicationId, attempt.percentage ?? 0);
+      }
+    }
+    for (const [applicationId, percentage] of latest) {
+      await db.ambassadorApplication.update({
+        where: { id: applicationId },
+        data: { quizScore: percentage, stage: "CLASSEMENT" },
+      });
+    }
+  }
+
+  return updated;
 }
 
 export async function deleteQuizAction(id: string) {

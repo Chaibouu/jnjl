@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { generatePasswordResetToken } from "@/lib/tokens";
-import { sendPasswordResetEmail } from "@/lib/mail";
+import { describeMailError, sendPasswordResetEmail } from "@/lib/mail";
 import {
   setAmbassadorPasswordSchema,
   type SetAmbassadorPasswordInput,
@@ -91,12 +91,19 @@ export async function setAmbassadorPasswordAction(
   return { id: userId };
 }
 
-export async function sendAmbassadorPasswordResetAction(userId: string) {
+export async function sendAmbassadorPasswordResetAction(
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
   await requirePermission("ambassadors.accounts.manage");
   const target = await getManagedAmbassadorUser(userId);
-  if (!target.email) throw new Error("Ce compte n'a pas d'adresse email");
+  if (!target.email) return { ok: false, error: "Ce compte n'a pas d'adresse email" };
 
-  const resetToken = await generatePasswordResetToken(target.email);
-  await sendPasswordResetEmail(target.email, resetToken);
-  return { id: userId };
+  try {
+    const resetToken = await generatePasswordResetToken(target.email);
+    await sendPasswordResetEmail(target.email, resetToken);
+    return { ok: true };
+  } catch (error) {
+    console.error("Lien de réinitialisation non envoyé:", error);
+    return { ok: false, error: describeMailError(error) };
+  }
 }

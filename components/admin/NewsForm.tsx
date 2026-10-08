@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { MediaUploadField } from "@/components/admin/MediaUploadField";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { toPlainText } from "@/lib/rich-content";
 import charter from "@/settings/charter";
 
 type NewsItem = {
@@ -101,6 +103,11 @@ export function NewsForm({
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    // L'éditeur riche n'a pas de champ « required » natif : on vérifie que l'article n'est pas vide.
+    if (toPlainText(form.content).length < 10) {
+      setError("Le contenu est requis (au moins quelques mots).");
+      return;
+    }
     startTransition(async () => {
       try {
         const input: NewsInput = { ...form };
@@ -216,12 +223,11 @@ export function NewsForm({
 
       <Field>
         <FieldLabel>Contenu</FieldLabel>
-        <Textarea
-          className="min-h-[220px] rounded-none border border-border bg-muted/40 transition-colors focus-visible:border-ring focus-visible:bg-white"
-          placeholder="Rédigez le corps de l’article..."
+        <RichTextEditor
+          key={news?.id ?? "new"}
           value={form.content}
-          onChange={event => update("content", event.target.value)}
-          required
+          onChange={html => update("content", html)}
+          placeholder="Rédigez l’article : titres, listes, images, liens, vidéo…"
         />
       </Field>
 

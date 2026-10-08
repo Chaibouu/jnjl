@@ -45,6 +45,13 @@ export const adminNavigation: NavigationItem[] = [
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF", "WEBMASTER", "USER"],
   },
   {
+    title: "Mon paiement",
+    icon: "material-symbols:payments",
+    path: "/ambassadeur/paiement",
+    allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
+  },
+  {
     title: "Mes formations",
     icon: "material-symbols:school",
     path: "/ambassadeur/formation",
@@ -216,6 +223,20 @@ export const adminNavigation: NavigationItem[] = [
     path: "/admin/formation",
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
     requiredPermission: "training.manage",
+    children: [
+      {
+        title: "Formation",
+        path: "/admin/formation",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+        requiredPermission: "training.manage",
+      },
+      {
+        title: "Formation présentielle",
+        path: "/admin/formation/presentielle",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+        requiredPermission: "training.inperson.manage",
+      },
+    ],
   },
   {
     title: "Classement & Sélection",

@@ -69,6 +69,7 @@ function PermissionRequestCard({
   const [destinataireTitre, setDestinataireTitre] = useState("");
   const [etablissement, setEtablissement] = useState(data.institution);
   const [niveau, setNiveau] = useState(data.educationLevel);
+  const [statut, setStatut] = useState<"ETUDIANT" | "EMPLOYE">("ETUDIANT");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -82,6 +83,7 @@ function PermissionRequestCard({
           civilite,
           etablissement,
           niveau,
+          statut,
         });
         onGenerated({ fileUrl, generatedAt: new Date() } as never);
       } catch (actionError) {
@@ -118,11 +120,23 @@ function PermissionRequestCard({
           />
         </Field>
         <Field>
-          <FieldLabel>Établissement</FieldLabel>
+          <FieldLabel>Établissement ou structure</FieldLabel>
           <Input value={etablissement} onChange={event => setEtablissement(event.target.value)} required />
         </Field>
         <Field>
-          <FieldLabel>Niveau / filière</FieldLabel>
+          <FieldLabel>Vous êtes</FieldLabel>
+          <Select value={statut} onValueChange={value => value && setStatut(value as "ETUDIANT" | "EMPLOYE")}>
+            <SelectTrigger className="h-10 w-full">
+              <SelectValue>{(value: string) => (value === "EMPLOYE" ? "Employé(e) de la structure" : "Inscrit(e) dans l'établissement")}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ETUDIANT">Inscrit(e) dans l&apos;établissement</SelectItem>
+              <SelectItem value="EMPLOYE">Employé(e) de la structure</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel>{statut === "EMPLOYE" ? "Poste occupé" : "Niveau / filière"}</FieldLabel>
           <Input value={niveau} onChange={event => setNiveau(event.target.value)} required />
         </Field>
         {error && <p className="bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

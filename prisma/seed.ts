@@ -83,6 +83,11 @@ const PERMISSIONS: { code: string; label: string; category: string }[] = [
   },
   { code: "quiz.manage", label: "Gérer les QCM", category: "Ambassadeurs" },
   {
+    code: "training.inperson.manage",
+    label: "Marquer la formation présentielle comme faite",
+    category: "Ambassadeurs",
+  },
+  {
     code: "ambassadors.accounts.manage",
     label: "Gérer les comptes ambassadeurs (activation, mot de passe)",
     category: "Ambassadeurs",
@@ -191,108 +196,113 @@ type SeedUser = {
 /** Mot de passe partagé pour le lot de comptes de test destinés aux utilisateurs externes. */
 const TEST_ACCOUNTS_PASSWORD = "JnjlTest#2026";
 
-const STAFF_REGIONAL_PERMISSIONS = ["payments.manage", "boarding.manage", "attendance.manage"];
+const STAFF_REGIONAL_PERMISSIONS = [
+  "payments.manage",
+  "boarding.manage",
+  "attendance.manage",
+  "training.inperson.manage",
+];
 
 const USERS: SeedUser[] = [
   {
     name: "Chaibou",
     email: "chaibouabdoulwahab@gmail.com",
-    role: UserRole.ADMIN,
+    role: UserRole.SUPER_ADMIN,
     password: "admin@chaibou",
     permissions: PERMISSIONS.map(p => p.code), // admin historique — accès large pour continuer à tester
   },
-  {
-    name: "Super Admin JNJL",
-    email: "superadmin@jnjl.ne",
-    role: UserRole.SUPER_ADMIN,
-    password: "SuperAdmin@2026",
-    permissions: [],
-  },
-  {
-    name: "Admin Éditions",
-    email: "admin@jnjl.ne",
-    role: UserRole.ADMIN,
-    password: "Admin@2026",
-    permissions: [
-      "editions.manage",
-      "editions.publish",
-      "editions.archive",
-      "news.manage",
-      "contact.manage",
-      "program.manage",
-      "speakers.manage",
-      "partners.manage",
-      "media.manage",
-      "applications.event.manage",
-      "applications.leader.manage",
-      "applications.ambassador.manage",
-      "ambassadors.accounts.manage",
-      "training.manage",
-      "quotas.manage",
-      "selection.manage",
-      "repechage.manage",
-      "documents.manage",
-      "engagement.manage",
-      "badges.manage",
-      "boarding.manage",
-      "attendance.manage",
-      "stats.view",
-    ],
-  },
-  {
-    name: "Staff Accueil",
-    email: "staff@jnjl.ne",
-    role: UserRole.STAFF,
-    password: "Staff@2026",
-    permissions: ["attendance.manage", "applications.event.manage"],
-  },
-  {
-    name: "Staff Point Focal",
-    email: "pointfocal@jnjl.ne",
-    role: UserRole.STAFF,
-    password: "PointFocal@2026",
-    permissions: ["payments.manage", "boarding.manage"],
-  },
+  // {
+  //   name: "Super Admin JNJL",
+  //   email: "superadmin@jnjl.ne",
+  //   role: UserRole.ADMIN,
+  //   password: "SuperAdmin@2026",
+  //   permissions: [],
+  // },
+  // {
+  //   name: "Admin Éditions",
+  //   email: "admin@jnjl.ne",
+  //   role: UserRole.ADMIN,
+  //   password: "Admin@2026",
+  //   permissions: [
+  //     "editions.manage",
+  //     "editions.publish",
+  //     "editions.archive",
+  //     "news.manage",
+  //     "contact.manage",
+  //     "program.manage",
+  //     "speakers.manage",
+  //     "partners.manage",
+  //     "media.manage",
+  //     "applications.event.manage",
+  //     "applications.leader.manage",
+  //     "applications.ambassador.manage",
+  //     "ambassadors.accounts.manage",
+  //     "training.manage",
+  //     "quotas.manage",
+  //     "selection.manage",
+  //     "repechage.manage",
+  //     "documents.manage",
+  //     "engagement.manage",
+  //     "badges.manage",
+  //     "boarding.manage",
+  //     "attendance.manage",
+  //     "stats.view",
+  //   ],
+  // },
+  // {
+  //   name: "Staff Accueil",
+  //   email: "staff@jnjl.ne",
+  //   role: UserRole.STAFF,
+  //   password: "Staff@2026",
+  //   permissions: ["attendance.manage", "applications.event.manage"],
+  // },
+  // {
+  //   name: "Staff Point Focal",
+  //   email: "pointfocal@jnjl.ne",
+  //   role: UserRole.STAFF,
+  //   password: "PointFocal@2026",
+  //   permissions: ["payments.manage", "boarding.manage"],
+  // },
 
-  // ─── Comptes de test pour utilisateurs externes (1 super admin, 2 admins, 8 staff régionaux) ───
-  {
-    name: "Super Admin (Test)",
-    email: "test.superadmin@jnjl.ne",
-    role: UserRole.SUPER_ADMIN,
-    password: TEST_ACCOUNTS_PASSWORD,
-    permissions: [],
-  },
-  {
-    name: "Admin Test 1",
-    email: "test.admin1@jnjl.ne",
-    role: UserRole.ADMIN,
-    password: TEST_ACCOUNTS_PASSWORD,
-    permissions: PERMISSIONS.map(p => p.code),
-  },
-  {
-    name: "Admin Test 2",
-    email: "test.admin2@jnjl.ne",
-    role: UserRole.ADMIN,
-    password: TEST_ACCOUNTS_PASSWORD,
-    permissions: PERMISSIONS.map(p => p.code),
-  },
-  ...REGIONS.map(
-    (region): SeedUser => ({
-      name: `Staff Régional ${region.name} (Test)`,
-      email: `test.staff.${region.code.toLowerCase()}@jnjl.ne`,
-      role: UserRole.STAFF,
-      password: TEST_ACCOUNTS_PASSWORD,
-      permissions: STAFF_REGIONAL_PERMISSIONS,
-      focalRegionCode: region.code,
-    })
-  ),
-  {
-    name: "Webmaster (Test)",
-    email: "test.webmaster@jnjl.ne",
-    role: UserRole.WEBMASTER,
-    password: TEST_ACCOUNTS_PASSWORD,
-    permissions: ["news.manage", "partners.manage", "speakers.manage", "program.manage", "media.manage", "contact.manage"],
-  },
+  // // ─── Comptes de test pour utilisateurs externes (1 super admin, 2 admins, 8 staff régionaux) ───
+  // {
+  //   name: "Super Admin (Test)",
+  //   email: "test.superadmin@jnjl.ne",
+  //   role: UserRole.SUPER_ADMIN,
+  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   permissions: [],
+  // },
+  // {
+  //   name: "Admin Test 1",
+  //   email: "test.admin1@jnjl.ne",
+  //   role: UserRole.ADMIN,
+  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   permissions: PERMISSIONS.map(p => p.code),
+  // },
+  // {
+  //   name: "Admin Test 2",
+  //   email: "test.admin2@jnjl.ne",
+  //   role: UserRole.ADMIN,
+  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   permissions: PERMISSIONS.map(p => p.code),
+  // },
+  // ...REGIONS.map(
+  //   (region): SeedUser => ({
+  //     name: `Staff Régional ${region.name} (Test)`,
+  //     email: `test.staff.${region.code.toLowerCase()}@jnjl.ne`,
+  //     role: UserRole.STAFF,
+  //     password: TEST_ACCOUNTS_PASSWORD,
+  //     permissions: STAFF_REGIONAL_PERMISSIONS,
+  //     focalRegionCode: region.code,
+  //   })
+  // ),
+  // {
+  //   name: "Webmaster (Test)",
+  //   email: "test.webmaster@jnjl.ne",
+  //   role: UserRole.WEBMASTER,
+  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   permissions: ["news.manage", "partners.manage", "speakers.manage", "program.manage", "media.manage", "contact.manage"],
+  // },
 ];
 
 async function seedPermissions() {

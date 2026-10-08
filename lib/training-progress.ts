@@ -100,3 +100,12 @@ export function describeGate(gate: Extract<QuizGate, { unlocked: false }>): stri
     ? `Terminez d'abord la formation « ${gate.courseTitle} » pour passer ce QCM`
     : "Vous devez terminer votre formation avant de passer ce QCM";
 }
+
+/**
+ * Vrai si l'édition n'a aucun module de formation obligatoire : l'étape FORMATION n'a alors
+ * rien à valider et l'ambassadeur doit passer directement au QCM.
+ */
+export async function hasNoRequiredTraining(editionId: string): Promise<boolean> {
+  const count = await db.trainingModule.count({ where: { course: { editionId, isRequired: true } } });
+  return count === 0;
+}

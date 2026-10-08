@@ -109,7 +109,7 @@ export function organizationJsonLd() {
     url: getSiteUrl(),
     logo: absoluteUrl(appConfig.logoUrl),
     description: appConfig.websiteDescription,
-    email: "contact@jnjl.ne",
+    email: "jnjl.niger@gmail.com",
     areaServed: { "@type": "Country", name: "Niger" },
     address: { "@type": "PostalAddress", addressLocality: "Niamey", addressCountry: "NE" },
   };

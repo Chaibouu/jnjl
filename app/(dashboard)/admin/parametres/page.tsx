@@ -1,7 +1,9 @@
 import { listEditionsForSelectAction } from "@/actions/edition-actions";
 import { listRegionalQuotasAction } from "@/actions/quota-actions";
 import { getEditionDocumentSettingsAction } from "@/actions/edition-document-settings-actions";
+import { getSiteSettingsAction } from "@/actions/site-settings-actions";
 import { ParametresManager } from "@/components/admin/ParametresManager";
+import { WhatsAppSettings } from "@/components/admin/WhatsAppSettings";
 
 export default async function ParametresPage() {
   const editions = await listEditionsForSelectAction();
@@ -14,12 +16,17 @@ export default async function ParametresPage() {
       ])
     : [[], null];
 
+  const siteSettings = await getSiteSettingsAction();
+
   return (
-    <ParametresManager
-      editions={editions}
-      initialEditionId={initialEdition?.id ?? ""}
-      initialQuotas={quotas}
-      initialDocumentSettings={documentSettings}
-    />
+    <div className="space-y-6">
+      <WhatsAppSettings initialUrl={siteSettings.whatsappGroupUrl} />
+      <ParametresManager
+        editions={editions}
+        initialEditionId={initialEdition?.id ?? ""}
+        initialQuotas={quotas}
+        initialDocumentSettings={documentSettings}
+      />
+    </div>
   );
 }

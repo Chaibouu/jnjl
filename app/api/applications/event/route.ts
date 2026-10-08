@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { eventApplicationSchema } from "@/schemas/event-application";
 import { createParticipantBadge } from "@/actions/participant-badge-actions";
-import { rateLimitRedisEmail } from "@/lib/rateLimit";
+import { rateLimitRedisEmail } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
 
 export async function POST(request: NextRequest) {

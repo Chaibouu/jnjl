@@ -59,18 +59,11 @@ export default async function MyEngagementPage() {
             Cette étape n&apos;est pas encore accessible pour votre candidature.
           </p>
         </div>
-      ) : !data.engagementText ? (
-        <div className="rounded-2xl border bg-card p-10 text-center shadow-sm">
-          <p className="text-sm text-muted-foreground">
-            La fiche d&apos;engagement n&apos;a pas encore été publiée par l&apos;administration. Revenez bientôt.
-          </p>
-        </div>
       ) : (
         <EngagementSignForm
           engagementText={data.engagementText}
-          editionName={data.editionName}
-          ambassadorName={data.fullName}
           region={data.region}
+          initialValues={data.form}
         />
       )}
     </section>

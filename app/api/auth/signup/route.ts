@@ -7,7 +7,7 @@ import { sendVerificationEmail } from "@/lib/mail";
 import { SignupSchema } from "@/schemas";
 import { checkPasswordPwned } from "@/lib/hibp";
 import { audit } from "@/lib/audit";
-import { rateLimitRedisEmail } from "@/lib/rateLimit";
+import { rateLimitRedisEmail } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
 import type { NextRequest } from "next/server";
 

@@ -11,6 +11,8 @@ export const contactMessageSchema = z.object({
     .max(5000),
   // Champ honeypot invisible : rempli uniquement par les bots.
   website: z.string().max(0).optional().or(z.literal("")),
+  // Temps (ms) passé sur la page avant l'envoi : un robot soumet instantanément, un humain jamais en moins de 3 s.
+  elapsedMs: z.number().min(0).optional(),
 });
 
 export type ContactMessageInput = z.infer<typeof contactMessageSchema>;

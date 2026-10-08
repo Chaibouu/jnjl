@@ -42,12 +42,34 @@ import {
 import { cn } from "@/lib/utils";
 import charter from "@/settings/charter";
 
+const EDUCATION_LEVEL_OPTIONS: [string, string][] = [
+  ["BEPC", "BEPC"],
+  ["Seconde", "Seconde"],
+  ["Première", "Première"],
+  ["Baccalauréat", "Baccalauréat"],
+  ["Licence I", "Licence I"],
+  ["Licence II", "Licence II"],
+  ["Licence III", "Licence III"],
+  ["Master I", "Master I"],
+  ["Master II", "Master II"],
+  ["Doctorat", "Doctorat"],
+];
+
 type Option = { id: string; name: string; year?: number; code?: string };
 type ActiveEdition = { id: string; name: string; year: number } | null;
 type FormPath = FieldPath<AmbassadorApplicationInput>;
 type TextFieldPath = Exclude<FormPath, "hasDisability" | "consent">;
 const inputClass =
-  "h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white";
+  "h-11 w-full rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white";
+
+/** Astérisque rouge signalant un champ obligatoire. */
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden="true">
+      {" "}*
+    </span>
+  );
+}
 
 type Step = {
   title: string;
@@ -382,6 +404,7 @@ function RegionStep({
           <FormItem>
             <FormLabel className="text-sm font-semibold">
               Région de rattachement
+              <RequiredMark />
             </FormLabel>
             <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
@@ -460,11 +483,12 @@ function IdentityStep({
         label="Lieu de naissance"
         placeholder="Ville / commune"
       />
-      <Field
+      <SelectField
         control={control}
         name="educationLevel"
         label="Niveau académique"
-        placeholder="Ex. Licence"
+        placeholder="Choisir"
+        options={EDUCATION_LEVEL_OPTIONS}
       />
       <Field
         control={control}
@@ -509,6 +533,7 @@ function SituationStep({
           name="disabilityDetails"
           label="Précisions (optionnel)"
           placeholder="Vous pouvez préciser"
+          required={false}
         />
       )}
       <FormField
@@ -551,12 +576,14 @@ function SelectField({
   label,
   placeholder,
   options,
+  required = true,
 }: {
   control: Control<AmbassadorApplicationInput>;
-  name: "gender";
+  name: "gender" | "educationLevel";
   label: string;
   placeholder: string;
   options: string[][];
+  required?: boolean;
 }) {
   return (
     <FormField
@@ -564,7 +591,10 @@ function SelectField({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-sm font-semibold">{label}</FormLabel>
+          <FormLabel className="text-sm font-semibold">
+            {label}
+            {required && <RequiredMark />}
+          </FormLabel>
           <Select onValueChange={field.onChange} value={field.value ?? ""}>
             <FormControl>
               <SelectTrigger className={inputClass}>
@@ -595,12 +625,14 @@ function Field({
   label,
   placeholder,
   type = "text",
+  required = true,
 }: {
   control: Control<AmbassadorApplicationInput>;
   name: TextFieldPath;
   label: string;
   placeholder?: string;
   type?: string;
+  required?: boolean;
 }) {
   return (
     <FormField
@@ -608,7 +640,10 @@ function Field({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel className="text-sm font-semibold">{label}</FormLabel>
+          <FormLabel className="text-sm font-semibold">
+            {label}
+            {required && <RequiredMark />}
+          </FormLabel>
           <FormControl>
             <Input
               {...field}

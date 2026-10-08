@@ -3,6 +3,9 @@ import { SectionHeader } from "@/components/site/SectionHeader";
 import { Reveal } from "@/components/site/Reveal";
 import charter from "@/settings/charter";
 
+// Une couleur de la charte par pilier : la section reste vivante sans quitter l'identité JNJL.
+const PILLAR_COLORS = [charter.orange, charter.green, charter.gold, charter.ink] as const;
+
 const PILLARS = [
   {
     icon: Compass,
@@ -41,20 +44,26 @@ export function AboutSection() {
           className="mb-14"
         />
 
-        <Reveal className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {PILLARS.map(pillar => {
+        <Reveal stagger={0.12} className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map((pillar, index) => {
+            const color = PILLAR_COLORS[index];
             const Icon = pillar.icon;
             return (
               <div
                 key={pillar.title}
-                className="rounded-2xl border p-7"
+                className="group relative overflow-hidden rounded-2xl border bg-white p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
                 style={{ borderColor: charter.border }}
               >
+                <span
+                  className="absolute inset-x-0 top-0 h-1.5"
+                  style={{ backgroundColor: color }}
+                  aria-hidden="true"
+                />
                 <div
-                  className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl"
-                  style={{ backgroundColor: `${charter.orange}12` }}
+                  className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-md transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110"
+                  style={{ backgroundColor: color }}
                 >
-                  <Icon className="h-6 w-6" style={{ color: charter.orange }} />
+                  <Icon className="h-7 w-7" style={{ color: color === charter.gold ? charter.ink : "#fff" }} />
                 </div>
                 <h3 className="text-lg font-bold" style={{ color: charter.ink }}>
                   {pillar.title}

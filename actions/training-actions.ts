@@ -1,5 +1,6 @@
 "use server";
 
+import { assertApplicationPaid, isPaymentPending } from "@/lib/ambassador-access";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { requirePermission } from "@/actions/requirePermission";
@@ -225,6 +226,7 @@ async function getMyAmbassadorApplication(editionId: string) {
   if (!application) {
     throw new Error("Aucune candidature ambassadeur trouvée pour votre compte sur cette édition");
   }
+  await assertApplicationPaid(application);
   return application;
 }
 
@@ -241,6 +243,7 @@ export async function getMyTrainingStatusAction() {
     where: { userId: user.id, editionId: edition.id },
   });
   if (!application) return null;
+  if (await isPaymentPending(application)) return null;
 
   const courses = await db.trainingCourse.findMany({
     where: { editionId: edition.id },

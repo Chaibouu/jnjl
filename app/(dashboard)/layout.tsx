@@ -16,6 +16,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { user, isAuthenticated } = useSession();
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function DashboardLayout({
       <div className="flex h-screen overflow-hidden">
         {/* <!-- ===== Sidebar Start ===== --> */}
         {/* <Sidebar navigation={adminNavigation} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} /> */}
-        <SidebarClear/>
+        <SidebarClear mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
         {/* <!-- ===== Sidebar End ===== --> */}
 
         {/* <!-- ===== Content Area Start ===== --> */}
@@ -54,7 +55,12 @@ export default function DashboardLayout({
 
           {/* <!-- ===== Header Start ===== --> */}
           {/* <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} /> */}
-          <HeaderClear sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <HeaderClear 
+            sidebarOpen={sidebarOpen} 
+            setSidebarOpen={setSidebarOpen}
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
           {/* <!-- ===== Header End ===== --> */}
 
           {/* <!-- ===== Main Content Start ===== --> */}

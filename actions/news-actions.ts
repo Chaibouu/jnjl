@@ -3,6 +3,16 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { newsSchema, type NewsInput } from "@/schemas/news";
+import { sanitizeRichHtml, toPlainText } from "@/lib/rich-content";
+
+/** Contenu nettoyé (HTML de l'éditeur riche) ; refuse un article vide. */
+function cleanContent(content: string) {
+  const html = sanitizeRichHtml(content).trim();
+  if (toPlainText(html).length < 10 && !/<img|<iframe/i.test(html)) {
+    throw new Error("Le contenu est requis");
+  }
+  return html;
+}
 
 export async function listNewsAction() {
   await requirePermission("news.manage");
@@ -30,7 +40,7 @@ export async function createNewsAction(input: NewsInput) {
       title: data.title,
       slug: data.slug,
       excerpt: emptyToNull(data.excerpt),
-      content: data.content,
+      content: cleanContent(data.content),
       category: emptyToNull(data.category),
       coverImage: emptyToNull(data.coverImage),
       editionId: emptyToNull(data.editionId),
@@ -55,7 +65,7 @@ export async function updateNewsAction(id: string, input: NewsInput) {
       title: data.title,
       slug: data.slug,
       excerpt: emptyToNull(data.excerpt),
-      content: data.content,
+      content: cleanContent(data.content),
       category: emptyToNull(data.category),
       coverImage: emptyToNull(data.coverImage),
       editionId: emptyToNull(data.editionId),

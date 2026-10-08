@@ -1,6 +1,6 @@
 "use server";
 
-import { ApplicationStatus, PaymentStatus } from "@prisma/client";
+import { ApplicationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { requirePermission } from "@/actions/requirePermission";
@@ -12,6 +12,8 @@ import {
 } from "@/schemas/payment";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
+import { hasNoRequiredTraining } from "@/lib/training-progress";
+import { createValidatedPayment } from "@/lib/payment-settlement";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 /**
@@ -27,6 +29,11 @@ const applicationInclude = {
   edition: { select: { id: true, name: true, year: true } },
   payment: {
     include: { validatedBy: { select: { id: true, name: true } } },
+  },
+  paymentAttempts: {
+    orderBy: { createdAt: "desc" as const },
+    take: 3,
+    select: { id: true, status: true, duplicate: true, createdAt: true, expiresAt: true },
   },
 } as const;
 
@@ -71,39 +78,26 @@ export async function recordManualPaymentAction(
   if (application.payment) {
     throw new Error("Un paiement a déjà été enregistré pour ce candidat");
   }
+  if (!application.manualPaymentAllowed) {
+    throw new Error(
+      "Le paiement manuel n'est pas autorisé pour ce candidat : il règle en ligne. Un administrateur peut l'autoriser à titre exceptionnel."
+    );
+  }
 
-  const now = new Date();
-  await db.$transaction(async transaction => {
-    const payment = await transaction.payment.create({
-      data: {
-        ambassadorApplicationId,
-        amount: data.amount,
-        method: "MANUAL",
-        provider: "point_focal",
-        reference: data.reference?.trim() || null,
-        status: PaymentStatus.VALIDE,
-        validatedById: actor.id,
-        validatedAt: now,
-      },
-    });
-
-    await transaction.document.create({
-      data: {
-        type: "PAYMENT_RECEIPT",
-        // Reçu consultable/imprimable depuis l'admin — pas de génération PDF
-        // à ce stade (voir phase Documents), juste une page dédiée horodatée.
-        fileUrl: `/admin/paiements/${ambassadorApplicationId}/recu`,
-        userId: application.userId,
-        ambassadorApplicationId,
-        paymentId: payment.id,
-      },
-    });
-
-    await transaction.ambassadorApplication.update({
-      where: { id: ambassadorApplicationId },
-      data: { stage: "FORMATION" },
-    });
-  });
+  // Sans formation obligatoire dans l'édition, l'ambassadeur passe directement au QCM.
+  const skipTraining = await hasNoRequiredTraining(application.editionId);
+  await db.$transaction(transaction =>
+    createValidatedPayment(transaction, {
+      applicationId: ambassadorApplicationId,
+      userId: application.userId,
+      skipTraining,
+      amount: data.amount,
+      method: "MANUAL",
+      provider: "point_focal",
+      reference: data.reference?.trim() || null,
+      validatedById: actor.id,
+    })
+  );
 
   await notify({
     userId: application.userId,
@@ -155,4 +149,20 @@ export async function getAmbassadorPaymentReceiptAction(
   if (!application.payment) throw new Error("Aucun paiement enregistré pour ce candidat");
 
   return application;
+}
+
+/** Un administrateur autorise (ou retire) le paiement manuel pour un candidat précis, à titre exceptionnel. */
+export async function setManualPaymentAllowedAction(ambassadorApplicationId: string, allowed: boolean) {
+  await requirePermission("payments.validate");
+  const application = await db.ambassadorApplication.findUnique({
+    where: { id: ambassadorApplicationId },
+    select: { payment: { select: { id: true } } },
+  });
+  if (!application) throw new Error("Candidature introuvable");
+  if (application.payment) throw new Error("Ce candidat a déjà payé");
+  await db.ambassadorApplication.update({
+    where: { id: ambassadorApplicationId },
+    data: { manualPaymentAllowed: allowed },
+  });
+  return { id: ambassadorApplicationId, allowed };
 }

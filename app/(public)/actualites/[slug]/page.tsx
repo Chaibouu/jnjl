@@ -1,3 +1,4 @@
+import { toDisplayHtml, toPlainText } from "@/lib/rich-content";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublishedNewsBySlugAction } from "@/actions/news-actions";
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: Params) {
     const news = await getPublishedNewsBySlugAction(slug);
     return buildMetadata({
       title: news.title,
-      description: news.excerpt || news.content,
+      description: news.excerpt || toPlainText(news.content).slice(0, 200),
       path: `/actualites/${news.slug}`,
       image: news.coverImage,
       type: "article",
@@ -42,7 +43,7 @@ export default async function NewsDetailPage({ params }: Params) {
         data={[
           articleJsonLd({
             title: news.title,
-            description: news.excerpt || news.content,
+            description: news.excerpt || toPlainText(news.content).slice(0, 200),
             path: `/actualites/${news.slug}`,
             image: news.coverImage,
             publishedAt: news.publishedAt,
@@ -77,9 +78,10 @@ export default async function NewsDetailPage({ params }: Params) {
         <img src={news.coverImage} alt={news.title} className="mt-6 w-full rounded-2xl object-cover" />
       )}
 
-      <div className="prose prose-neutral mt-8 max-w-none whitespace-pre-line text-base leading-relaxed">
-        {news.content}
-      </div>
+      <div
+        className="rich-content mt-8 max-w-none text-base"
+        dangerouslySetInnerHTML={{ __html: toDisplayHtml(news.content) }}
+      />
     </article>
   );
 }

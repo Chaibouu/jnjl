@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import charter from "@/settings/charter";
+import { OFFICIAL_ENGAGEMENT_TEXT } from "@/lib/engagement-format";
 
 type EditionOption = { id: string; name: string; year: number };
 type Candidate = {
@@ -137,15 +138,31 @@ export function EngagementManager({
             className="min-h-[200px] rounded-none border border-border bg-muted/40 transition-colors focus-visible:border-ring focus-visible:bg-white"
           />
         </Field>
-        <Button
-          type="button"
-          loading={isPending}
-          onClick={save}
-          className="mt-4 rounded-none text-white hover:opacity-90"
-          style={{ backgroundColor: charter.orange }}
-        >
-          Enregistrer
-        </Button>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button
+            type="button"
+            loading={isPending}
+            onClick={save}
+            className="rounded-none text-white hover:opacity-90"
+            style={{ backgroundColor: charter.orange }}
+          >
+            Enregistrer
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setText(OFFICIAL_ENGAGEMENT_TEXT)}
+            className="rounded-none"
+          >
+            Utiliser le texte officiel (6ème édition)
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Mise en forme automatique : 1re ligne = titre ; « Moi, … » = formule d&apos;ouverture ; « Vu… » /
+          « Convaincu(e)… » = considérants ; « Je m&apos;engage… » puis une ligne par engagement. Ce texte
+          s&apos;affiche à l&apos;ambassadeur avant la signature ; le document signé est généré à partir du modèle
+          Word officiel (fiche d&apos;inscription + formule d&apos;engagement), dont le texte est fixe.
+        </p>
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -180,7 +197,7 @@ export function EngagementManager({
                     style={{ color: charter.orange }}
                   >
                     <FileText className="h-3.5 w-3.5" />
-                    PDF
+                    {candidate.engagement.fileUrl.toLowerCase().endsWith(".pdf") ? "PDF" : "Word"}
                   </a>
                 </div>
               ) : (

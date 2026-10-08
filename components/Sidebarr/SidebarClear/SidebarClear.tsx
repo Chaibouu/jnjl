@@ -16,10 +16,16 @@ import { ChevronDown, Menu, X, PanelLeft, PanelLeftClose } from "lucide-react";
 const OPEN_WIDTH = 272;
 const CLOSED_WIDTH = 72;
 
-export function SidebarClear() {
+export function SidebarClear({
+  mobileOpen,
+  setMobileOpen,
+}: {
+  mobileOpen?: boolean;
+  setMobileOpen?: (value: boolean) => void;
+}) {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // const [mobileOpen, setMobileOpen] = useState(false); // Géré maintenant par le parent
   const pathname = usePathname();
 
   // Restaurer l'état pinned depuis localStorage
@@ -41,11 +47,11 @@ export function SidebarClear() {
 
   return (
     <>
-      {/* Bouton mobile */}
-      <button
+      {/* Bouton mobile - Déplacé vers le header */}
+      {/* <button
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label="Toggle menu"
-        className="md:hidden fixed top-4 left-4 z-[60] p-2.5 rounded-xl shadow-lg border border-white/20 hover:opacity-90 transition-all"
+        className="md:hidden fixed top-2 left-4 z-[60] p-2.5 rounded-xl shadow-lg border border-white/20 hover:opacity-90 transition-all"
         style={{ backgroundColor: appConfig.primaryColor }}
       >
         {mobileOpen ? (
@@ -53,7 +59,7 @@ export function SidebarClear() {
         ) : (
           <Menu className="h-5 w-5 text-white" />
         )}
-      </button>
+      </button> */}
 
       {/* Overlay mobile */}
       <AnimatePresence>
@@ -62,7 +68,7 @@ export function SidebarClear() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
+            onClick={() => setMobileOpen && setMobileOpen(false)}
             className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           />
         )}
@@ -103,7 +109,7 @@ export function SidebarClear() {
               onTogglePin={() => {}}
               pathname={pathname}
               isMobile
-              onNavigate={() => setMobileOpen(false)}
+              onNavigate={() => setMobileOpen && setMobileOpen(false)}
             />
           </motion.aside>
         )}

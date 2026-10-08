@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { SectionHeader } from "@/components/site/SectionHeader";
+import { PageHero } from "@/components/site/PageHero";
 import { ParticipantApplicationForm } from "@/components/participants/ParticipantApplicationForm";
 import { RecoverBadgeForm } from "@/components/participants/RecoverBadgeForm";
 import charter from "@/settings/charter";
@@ -15,6 +15,8 @@ export const metadata = buildMetadata({
 });
 
 export const dynamic = "force-dynamic";
+
+const STEPS = ["Remplissez le formulaire", "Téléchargez votre badge", "Présentez-le le jour J"] as const;
 
 export default async function ParticiperPage() {
   const [activeEdition, regions] = await Promise.all([
@@ -30,25 +32,49 @@ export default async function ParticiperPage() {
   ]);
 
   return (
-    <div className="px-4 py-16 sm:px-6 sm:py-24" style={{ backgroundColor: charter.bg }}>
-      <div className="mx-auto max-w-3xl">
-        <SectionHeader
-          eyebrow="Participer"
-          title="Participez à la JNJL"
-          description="Complétez ce formulaire pour déposer votre candidature de participation à la prochaine édition."
-          className="mb-8"
-        />
-        <RecoverBadgeForm />
-        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: charter.border }}>
-          <Image
-            src="/header.jpg"
-            alt="Journée Nationale du Jeune Leader"
-            width={1000}
-            height={750}
-            priority
-            className="h-48 w-full object-cover sm:h-64"
-          />
-          <ParticipantApplicationForm embedded regions={regions} hasActiveEdition={!!activeEdition} />
+    <div style={{ backgroundColor: charter.bg }}>
+      <PageHero
+        eyebrow="Participer"
+        title="Participez à la JNJL"
+        description="Inscrivez-vous en quelques minutes. Votre badge est généré dès l'envoi du formulaire."
+        image="/entetes/galerie-4.jpg"
+        imagePosition="50% 32%"
+        tint="orange"
+      />
+
+      <div className="px-4 pb-20 pt-6 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <ol
+            className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm"
+            style={{ color: charter.inkSoft }}
+          >
+            {STEPS.map((step, index) => (
+              <li key={step} className="flex items-center gap-2">
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={{ backgroundColor: charter.orange }}
+                >
+                  {index + 1}
+                </span>
+                {step}
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-8">
+            <RecoverBadgeForm />
+            <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: charter.border }}>
+              <Image
+                src="/header.jpg"
+                alt="Journée Nationale du Jeune Leader"
+                width={1000}
+                height={750}
+                priority
+                className="h-40 w-full object-cover sm:h-52"
+              />
+              <ParticipantApplicationForm embedded regions={regions} hasActiveEdition={!!activeEdition} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { ambassadorApplicationSchema } from "@/schemas/ambassador-application";
-import { rateLimitRedisEmail } from "@/lib/rateLimit";
+import { rateLimitRedisEmail } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
+import { sendApplicationReceivedEmail } from "@/lib/mail";
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,6 +72,13 @@ export async function POST(request: NextRequest) {
       },
       select: { id: true },
     });
+
+    try {
+      await sendApplicationReceivedEmail(email, data.firstName);
+    } catch (mailError) {
+      // La candidature est enregistrée même si l'accusé de réception ne peut pas partir.
+      console.error("Accusé de réception candidature ambassadeur non envoyé:", mailError);
+    }
 
     return NextResponse.json(
       { success: true, applicationId: application.id },

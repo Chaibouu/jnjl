@@ -26,7 +26,7 @@ export async function getRankingAction(editionId: string) {
 
   const [applications, quotas] = await Promise.all([
     db.ambassadorApplication.findMany({
-      where: { editionId, status: "RETENU", ...(regionId ? { regionId } : {}) },
+      where: { editionId, status: "RETENU", payment: { is: { status: "VALIDE" } }, ...(regionId ? { regionId } : {}) },
       select: applicationSelect,
       orderBy: [{ rank: "asc" }, { quizScore: "desc" }],
     }),
@@ -60,6 +60,7 @@ export async function computeRankingAction(editionId: string) {
     where: {
       editionId,
       status: "RETENU",
+      payment: { is: { status: "VALIDE" } },
       quizScore: { not: null },
       ...(regionId ? { regionId } : {}),
     },
@@ -101,6 +102,7 @@ export async function runSelectionAction(editionId: string) {
       where: {
         editionId,
         status: "RETENU",
+        payment: { is: { status: "VALIDE" } },
         rank: { not: null },
         ...(regionId ? { regionId } : {}),
       },

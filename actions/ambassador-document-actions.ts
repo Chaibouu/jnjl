@@ -32,7 +32,7 @@ const PATRONAGE_FALLBACK =
 
 /** Reprend le format d'origine des documents Word (numéro séquentiel + année en cours). */
 const REFERENCE_FORMAT = {
-  PERMISSION_REQUEST: { digits: 4, suffix: (year: number) => `/${year}/LA/AMG/AAF`, build: (n: string, year: number) => `${n}/${year}/LA/AMG/AAF` },
+  PERMISSION_REQUEST: { digits: 3, suffix: (year: number) => `/${year}/LA/AMG/JNJL`, build: (n: string, year: number) => `${n}/${year}/LA/AMG/JNJL` },
   MISSION_ORDER: { digits: 3, suffix: (year: number) => `/LA/AM/RH/${year}`, build: (n: string, year: number) => `${n}/LA/AM/RH/${year}` },
 } as const;
 
@@ -50,9 +50,10 @@ async function resolveReference(
     where: { ambassadorApplicationId: applicationId, type },
     select: { reference: true },
   });
-  if (existing?.reference) return existing.reference;
-
   const format = REFERENCE_FORMAT[type];
+  // Une référence émise dans un ancien format est renumérotée au format du modèle en vigueur.
+  if (existing?.reference?.endsWith(format.suffix(year))) return existing.reference;
+
   const count = await db.document.count({
     where: { type, reference: { endsWith: format.suffix(year) } },
   });
@@ -66,6 +67,7 @@ async function loadContext(user: User) {
   const application = await db.ambassadorApplication.findFirst({
     where: { userId: user.id, editionId: editionRecord.id },
     include: {
+      region: { select: { name: true } },
       engagement: { select: { id: true } },
       documents: { where: { type: { in: ["PERMISSION_REQUEST", "MISSION_ORDER"] } } },
     },
@@ -183,20 +185,12 @@ async function saveGeneratedDocument(params: {
   return fileUrl;
 }
 
-function genderWording(gender: string | null | undefined) {
-  const feminine = gender === "FEMININ";
-  return {
-    qualite: feminine ? "étudiante" : "étudiant",
-    inscription: feminine ? "inscrite" : "inscrit",
-    qualite_accord: feminine ? "sélectionnée" : "sélectionné",
-  };
-}
-
 export async function generateMyPermissionRequestAction(input: {
   destinataireTitre: string;
   civilite: "Monsieur" | "Madame";
   etablissement: string;
   niveau: string;
+  statut: "ETUDIANT" | "EMPLOYE";
 }) {
   const user = await getCurrentUser();
   const { edition, application } = await loadContext(user);
@@ -204,31 +198,37 @@ export async function generateMyPermissionRequestAction(input: {
   const destinataireTitre = input.destinataireTitre.trim();
   const etablissement = input.etablissement.trim();
   const niveau = input.niveau.trim();
-  if (destinataireTitre.length < 3) throw new Error("Précisez le destinataire (ex. Monsieur le Directeur Général)");
-  if (etablissement.length < 2) throw new Error("Précisez le nom de l'établissement");
-  if (niveau.length < 2) throw new Error("Précisez votre niveau ou votre filière");
+  if (destinataireTitre.length < 3) throw new Error("Précisez le destinataire (ex. le Directeur Général)");
+  if (etablissement.length < 2) throw new Error("Précisez le nom de l'établissement ou de la structure");
+  if (niveau.length < 2) throw new Error("Précisez votre niveau, votre filière ou votre poste");
   if (!["Monsieur", "Madame"].includes(input.civilite)) throw new Error("Civilité invalide");
+  if (!["ETUDIANT", "EMPLOYE"].includes(input.statut)) throw new Error("Précisez si vous êtes inscrit(e) ou employé(e)");
 
   const days =
     Math.round(
       (edition.absenceEndDate.getTime() - edition.absenceStartDate.getTime()) / (1000 * 60 * 60 * 24)
     ) + 1;
   const reference = await resolveReference(application.id, "PERMISSION_REQUEST", edition.year);
+  const feminine = application.gender === "FEMININ";
 
+  // Modèle Word officiel (documents/news/DEMANDE D'ABSCENCE AMBASSADEURS JNJL6.docx) : seuls les
+  // pointillés du modèle sont remplacés, le reste du texte et la mise en page restent intacts.
   const buffer = fillDocxTemplate("permission-request", {
     date_lettre: formatDate(new Date()),
     reference,
+    civilite: input.civilite,
     destinataire_titre: destinataireTitre,
     etablissement,
-    civilite: input.civilite,
+    titre_ambassadeur: feminine ? "Mme" : "M.",
     nom_ambassadeur: `${application.firstName} ${application.lastName}`,
-    niveau,
+    statut_ambassadeur:
+      input.statut === "ETUDIANT"
+        ? `Inscrit${feminine ? "e" : ""} dans votre établissement`
+        : `Employé${feminine ? "e" : ""} au sein de votre structure`,
+    qualite: niveau,
     duree_texte: formatDureeTexte(edition.absenceStartDate, edition.absenceEndDate, days),
-    periode: formatPeriode(edition.startDate, edition.endDate),
-    edition_nom: `la Journée Nationale du Jeune Leader (${edition.name})`,
-    lieu: edition.location ?? "Niamey",
-    patronage: edition.patronageText?.trim() || PATRONAGE_FALLBACK,
-    ...genderWording(application.gender),
+    selectionne: feminine ? "sélectionnée" : "sélectionné",
+    region: application.region.name,
   });
 
   const fileUrl = await saveGeneratedDocument({

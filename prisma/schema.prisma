@@ -65,10 +65,11 @@ model User {
   reviewedAmbassadorApplications AmbassadorApplication[] @relation("AmbassadorApplicationReviewer")
 
   // ── JNJL : pipeline ambassadeur ──
-  validatedPayments  Payment[]
-  repechageDecisions Repechage[]
-  validatedBoardings Boarding[]
-  updatedQuotas      RegionalQuota[]
+  validatedPayments   Payment[]
+  requestedRepechages Repechage[] @relation("RepechageRequester")
+  repechageDecisions  Repechage[] @relation("RepechageDecider")
+  validatedBoardings  Boarding[]
+  updatedQuotas       RegionalQuota[]
 
   // ── JNJL : participation & présence ──
   eventParticipations EventParticipation[]
@@ -646,12 +647,18 @@ model AmbassadorApplication {
   reviewedBy       User?             @relation("AmbassadorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   reviewedAt       DateTime?
   rejectionReason  String?
+  // Formation présentielle : marquée « faite » par le staff (région) ou un admin.
+  inPersonTrainingAt   DateTime?
+  inPersonTrainingById String?
   quizScore        Float?
   rank             Int? // classement régional après QCM
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   payment          Payment?
+  // Paiement manuel (point focal) : réservé aux candidats que l'admin y autorise explicitement.
+  manualPaymentAllowed Boolean @default(false)
+  paymentAttempts  PaymentAttempt[]
   trainingProgress TrainingProgress[]
   quizAttempts     QuizAttempt[]
   selection        Selection?
@@ -711,6 +718,49 @@ model Payment {
   createdAt               DateTime              @default(now())
 
   receipt Document?
+}
+
+enum PaymentAttemptStatus {
+  INITIATED
+  SUCCEEDED
+  FAILED
+  EXPIRED
+  MISMATCH // paiement réussi chez le prestataire mais montant inattendu : à examiner
+}
+
+// Tentative de paiement en ligne (i-pay). Une candidature peut en avoir plusieurs : un échec
+// ou une expiration ne bloque jamais une nouvelle tentative. `Payment` n'est créé qu'au succès.
+model PaymentAttempt {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  reference               String                @unique // référence du lien i-pay (aléatoire, ≥ 32 car.)
+  amount                  Int
+  pageUrl                 String?
+  status                  PaymentAttemptStatus  @default(INITIATED)
+  duplicate               Boolean               @default(false) // succès alors qu'un paiement existait déjà : à rembourser
+  providerTransactionId   String?
+  payerMsisdn             String?
+  note                    String?
+  expiresAt               DateTime
+  resolvedAt              DateTime?
+  createdAt               DateTime              @default(now())
+
+  @@index([ambassadorApplicationId, status])
+  @@index([status, createdAt])
+}
+
+// Journal brut des notifications reçues du prestataire (traçabilité en cas de litige).
+model PaymentWebhookLog {
+  id         String   @id @default(cuid())
+  authorized Boolean
+  reference  String?
+  status     String?
+  outcome    String?
+  payload    Json?
+  receivedAt DateTime @default(now())
+
+  @@index([reference])
 }
 
 // Une formation regroupe des modules. Elle peut être suivie d'un ou plusieurs QCM
@@ -921,15 +971,25 @@ enum RepechageStatus {
 }
 
 // Repêchage manuel — toujours justifié et tracé (Règle 12).
+// Les staffs peuvent soumettre une demande avec motif (status = EN_ATTENTE).
+// Les administrateurs peuvent valider, refuser, ou repêcher directement.
 model Repechage {
   id                      String                @id @default(cuid())
   ambassadorApplicationId String                @unique
   ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
-  justification           String                @db.Text
-  decidedById             String
-  decidedBy               User                  @relation(fields: [decidedById], references: [id], onDelete: Restrict)
+  justification           String                @db.Text // Motif de la demande de repêchage ou justification
+  
+  requestedById           String?
+  requestedBy             User?                 @relation("RepechageRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  decidedById             String?
+  decidedBy               User?                 @relation("RepechageDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  decisionComment         String?               @db.Text
+  decidedAt               DateTime?
   status                  RepechageStatus       @default(EN_ATTENTE)
   createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @default(now()) @updatedAt
 }
 
 // Acceptation de la fiche d'engagement numérique (§15) — condition bloquante pour le badge.
