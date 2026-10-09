@@ -173,7 +173,20 @@ export const adminNavigation: NavigationItem[] = [
         allowedRoles: ["SUPER_ADMIN", "ADMIN"],
         requiredPermission: "ambassadors.accounts.manage",
       },
+      {
+        title: "Accès (Super Admin)",
+        path: "/admin/ambassadeurs/acces",
+        // Remise des accès quand l'e-mail n'est pas parti : mots de passe provisoires, réservé au Super Admin.
+        allowedRoles: ["SUPER_ADMIN"],
+      },
     ],
+  },
+  {
+    title: "E-mails",
+    icon: "material-symbols:mail",
+    path: "/admin/emails",
+    // Envois groupés (candidats, ambassadeurs, utilisateurs, tout le monde) : Super Admin uniquement.
+    allowedRoles: ["SUPER_ADMIN"],
   },
   {
     title: "Paiements",

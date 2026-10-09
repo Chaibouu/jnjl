@@ -521,6 +521,44 @@ Les emails nécessitent les variables `MAIL_HOST`, `MAIL_PORT`, `MAIL_AUTH_USER`
 
 ---
 
+### 12.5 Accès des ambassadeurs — `/admin/ambassadeurs/acces` (**Super Admin uniquement**)
+
+Quand l'e-mail d'accès d'un ambassadeur accepté n'est pas arrivé (limite d'envoi du plan gratuit atteinte, adresse
+erronée…), cet écran permet de le savoir et d'y remédier :
+
+- **Suivi** : pour chaque ambassadeur accepté, l'état de son e-mail d'accès (livré, en cours, en échec, adresse refusée,
+  remis à la main). À l'ouverture de la page, l'état réel est relevé auprès du fournisseur d'e-mails ; le bouton
+  **Actualiser l'état des e-mails** relance cette vérification. Les compteurs montrent les envois du jour.
+- **Renvoyer l'e-mail** (par ligne), **Renvoyer les e-mails en échec** (en bloc) ou sur une sélection : un nouveau mot de
+  passe provisoire est généré et envoyé. L'envoi s'arrête de lui-même si la limite du fournisseur est atteinte.
+- **À la main** : le mot de passe provisoire est affiché **une seule fois**, avec un message prêt à copier et un bouton
+  WhatsApp ; export CSV pour plusieurs personnes. À utiliser quand l'e-mail ne peut pas partir.
+
+Chaque génération **remplace l'ancien mot de passe** et ferme les sessions ouvertes de la personne. Seuls les comptes
+ambassadeur (rôle USER) sont concernés, jamais un compte administrateur ou staff. L'action est tracée dans le journal
+d'audit (`ACCESS_GENERATED`).
+
+### 12.6 Envois groupés — `/admin/emails` (**Super Admin uniquement**)
+
+Pour écrire à un groupe de personnes : **candidats en attente**, **candidats acceptés**, **candidats non retenus**,
+**participants à l'événement**, **tous les utilisateurs** ou **tout le monde** (adresses dédoublonnées), éventuellement
+limité à une **région**. Les candidatures et participants sont ceux de l'édition active.
+
+1. Choisir le groupe (le nombre de destinataires s'affiche) puis rédiger l'objet et le message dans l'éditeur.
+   `{{prenom}}` est remplacé par le prénom de chaque personne. La mise en forme (couleurs, logo) est automatique.
+2. **Aperçu** et **M'envoyer un test** pour vérifier le rendu dans sa propre boîte.
+3. **Envoyer** : confirmation obligatoire avec le nombre de personnes. L'envoi se fait par petits lots avec une barre de
+   progression ; il faut garder la page ouverte.
+
+Le plan gratuit du service d'e-mails limite le nombre d'envois par jour. L'écran affiche la **limite quotidienne** (à
+régler sur celle du plan) et une **réserve** gardée pour les e-mails indispensables (accès, mot de passe oublié) : une
+campagne ne l'utilise jamais. Quand la limite du jour est atteinte, la campagne passe **en pause** et se **reprend**
+le lendemain depuis la liste des campagnes (les destinataires déjà servis ne reçoivent rien deux fois). Les envois en
+échec se relancent avec **Relancer les échecs**.
+
+> Les destinataires sont figés à la création de la campagne. Il n'y a pas encore de lien de désinscription : réservez ces
+> envois aux informations utiles (candidatures, accès, annonces de l'édition).
+
 ## 13. Stockage des fichiers
 
 Les PDF (engagements, attestations, documents administratifs) sont enregistrés via un module unique :

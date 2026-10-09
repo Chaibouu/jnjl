@@ -23,7 +23,7 @@ const PUBLIC_SITE_URL = "https://jnjl.ne";
  * variable configurée, on retombe sur le domaine de production : le logo s'affiche alors partout,
  * y compris dans les emails de test envoyés depuis un poste local.
  */
-function publicBaseUrl(): string {
+export function publicBaseUrl(): string {
   const base = getAppUrl();
   return !base || /localhost|127\.0\.0\.1|\.local\b/i.test(base) ? PUBLIC_SITE_URL : base;
 }
@@ -42,10 +42,12 @@ export function renderEmail(options: {
   /** Corps de l'email (HTML déjà échappé par l'appelant). */
   body: string;
   cta?: Cta;
+  /** Phrase discrète sous les coordonnées (ex. « Vous recevez ce message car… »). */
+  footerNote?: string;
 }): string {
   const base = publicBaseUrl();
   const logo = `${base}${appConfig.logoUrl}`;
-  const { title, preheader = "", body, cta } = options;
+  const { title, preheader = "", body, cta, footerNote } = options;
 
   const button = cta
     ? `<tr><td style="padding:8px 32px 28px 32px;" align="left">
@@ -86,6 +88,7 @@ export function renderEmail(options: {
       <tr><td style="background:${charter.bg};padding:18px 32px;border-top:1px solid ${charter.border};color:#6b7280;font-size:12px;line-height:1.6;">
         ${escapeHtml(appConfig.appName)} — Journée Nationale du Jeune Leader, Niamey (Niger)<br />
         <a href="${escapeHtml(base)}" style="color:${charter.orange};text-decoration:none;">${escapeHtml(base.replace(/^https?:\/\//, ""))}</a>
+        ${footerNote ? `<br /><span style="color:#9ca3af;">${escapeHtml(footerNote)}</span>` : ""}
       </td></tr>
     </table>
   </td></tr>

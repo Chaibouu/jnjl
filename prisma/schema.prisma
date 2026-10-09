@@ -57,17 +57,17 @@ model User {
   news News[] @relation("NewsAuthor")
 
   // ── JNJL : candidatures ──
-  eventApplications          EventApplication[]      @relation("EventApplicationUser")
-  reviewedEventApplications  EventApplication[]      @relation("EventApplicationReviewer")
-  leaderApplications         LeaderApplication[]     @relation("LeaderApplicationUser")
-  reviewedLeaderApplications LeaderApplication[]     @relation("LeaderApplicationReviewer")
-  ambassadorApplications     AmbassadorApplication[] @relation("AmbassadorApplicationUser")
+  eventApplications              EventApplication[]      @relation("EventApplicationUser")
+  reviewedEventApplications      EventApplication[]      @relation("EventApplicationReviewer")
+  leaderApplications             LeaderApplication[]     @relation("LeaderApplicationUser")
+  reviewedLeaderApplications     LeaderApplication[]     @relation("LeaderApplicationReviewer")
+  ambassadorApplications         AmbassadorApplication[] @relation("AmbassadorApplicationUser")
   reviewedAmbassadorApplications AmbassadorApplication[] @relation("AmbassadorApplicationReviewer")
 
   // ── JNJL : pipeline ambassadeur ──
   validatedPayments   Payment[]
-  requestedRepechages Repechage[] @relation("RepechageRequester")
-  repechageDecisions  Repechage[] @relation("RepechageDecider")
+  requestedRepechages Repechage[]     @relation("RepechageRequester")
+  repechageDecisions  Repechage[]     @relation("RepechageDecider")
   validatedBoardings  Boarding[]
   updatedQuotas       RegionalQuota[]
 
@@ -196,6 +196,57 @@ model Setting {
   @@map("settings")
 }
 
+// Envoi d'un message à un groupe de personnes (candidats, ambassadeurs acceptés, utilisateurs…), réservé au Super Admin.
+// Les destinataires sont figés à la création ; l'envoi se fait par petits lots et peut être repris (quota du jour atteint…).
+model EmailCampaign {
+  id           String                   @id @default(cuid())
+  subject      String
+  body         String                   @db.Text // HTML nettoyé ; {{prenom}} est remplacé pour chaque destinataire
+  audience     String // PENDING | ACCEPTED | REJECTED | USERS | PARTICIPANTS | EVERYONE
+  regionId     String?
+  status       String                   @default("DRAFT") // DRAFT | SENDING | PAUSED | DONE
+  pausedReason String?
+  createdById  String?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  recipients   EmailCampaignRecipient[]
+
+  @@index([createdAt])
+}
+
+model EmailCampaignRecipient {
+  id         String        @id @default(cuid())
+  campaignId String
+  campaign   EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  email      String
+  name       String?
+  status     String        @default("PENDING") // PENDING | SENDING | SENT | FAILED
+  error      String?
+  sentAt     DateTime?
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status])
+}
+
+// Trace des e-mails envoyés par la plateforme (accès, candidatures, contact…) : permet de savoir si un candidat
+// a bien reçu ses accès, sans dépendre uniquement du tableau de bord du fournisseur d'e-mails.
+model EmailLog {
+  id        String   @id @default(cuid())
+  kind      String // "access" | "application_received" | "contact" | "password_reset"…
+  toEmail   String
+  subject   String
+  status    String // ACCEPTED (pris en charge) | DELIVERED | FAILED | BOUNCED | COMPLAINED
+  resendId  String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([toEmail, kind, createdAt])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
@@ -306,36 +357,36 @@ enum EditionStatus {
 }
 
 model Edition {
-  id          String        @id @default(cuid())
-  year        Int           @unique
-  name        String // "JNJL 2026"
-  slug        String        @unique
-  theme       String?
-  description String?       @db.Text
-  engagementText String?    @db.Text
-  startDate   DateTime?
-  endDate     DateTime?
-  location    String?
+  id                      String        @id @default(cuid())
+  year                    Int           @unique
+  name                    String // "JNJL 2026"
+  slug                    String        @unique
+  theme                   String?
+  description             String?       @db.Text
+  engagementText          String?       @db.Text
+  startDate               DateTime?
+  endDate                 DateTime?
+  location                String?
   // Repris tel quel dans la demande de permission générée par l'ambassadeur (§ documents administratifs).
-  patronageText String?     @db.Text
+  patronageText           String?       @db.Text
   // Couleur de fond du badge ambassadeur (hex, ex. "#282828") — repli sur charter.tertiary si vide.
-  badgeBackgroundColor String?
+  badgeBackgroundColor    String?
   // DATE DE DEPART / DATE DE RETOUR de l'ordre de mission — repli sur startDate/endDate si vide.
-  missionDepartureDate DateTime?
-  missionReturnDate    DateTime?
+  missionDepartureDate    DateTime?
+  missionReturnDate       DateTime?
   // Période de l'autorisation d'absence dans la demande de permission — repli sur startDate/endDate si vide.
-  absenceStartDate DateTime?
-  absenceEndDate   DateTime?
+  absenceStartDate        DateTime?
+  absenceEndDate          DateTime?
   // Réglages de l'attestation de participation — chacun a son propre repli si vide.
-  attestationTheme       String? // repli sur theme
-  attestationLocation    String? // repli sur location
-  attestationStartDate   DateTime? // repli sur startDate
-  attestationEndDate     DateTime? // repli sur endDate
-  attestationEditionLabel String?  // ex. "3è édition de la JNJL" — repli sur name
-  status      EditionStatus @default(DRAFT)
-  isDeleted   Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  attestationTheme        String? // repli sur theme
+  attestationLocation     String? // repli sur location
+  attestationStartDate    DateTime? // repli sur startDate
+  attestationEndDate      DateTime? // repli sur endDate
+  attestationEditionLabel String? // ex. "3è édition de la JNJL" — repli sur name
+  status                  EditionStatus @default(DRAFT)
+  isDeleted               Boolean       @default(false)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
 
   programDays            ProgramDay[]
   news                   News[]
@@ -552,28 +603,28 @@ enum ApplicationStatus {
 
 // Candidature publique pour participer à une édition — sans compte obligatoire (Règle 1).
 model EventApplication {
-  id           String            @id @default(cuid())
-  editionId    String
-  edition      Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
-  userId       String? // renseigné uniquement si le candidat possède déjà un compte
-  user         User?             @relation("EventApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
-  firstName    String
-  lastName     String
-  email        String
-  phone        String
-  gender       String? // MASCULIN | FEMININ
-  regionId     String?
-  region       Region?           @relation(fields: [regionId], references: [id], onDelete: SetNull)
-  profession   String?
+  id                    String            @id @default(cuid())
+  editionId             String
+  edition               Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  userId                String? // renseigné uniquement si le candidat possède déjà un compte
+  user                  User?             @relation("EventApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
+  firstName             String
+  lastName              String
+  email                 String
+  phone                 String
+  gender                String? // MASCULIN | FEMININ
+  regionId              String?
+  region                Region?           @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  profession            String?
   hasParticipatedBefore Boolean?
-  motivation   String?           @db.Text
-  documents    Document[]
-  status       ApplicationStatus @default(SOUMIS)
-  reviewedById String?
-  reviewedBy   User?             @relation("EventApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt   DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  motivation            String?           @db.Text
+  documents             Document[]
+  status                ApplicationStatus @default(SOUMIS)
+  reviewedById          String?
+  reviewedBy            User?             @relation("EventApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt            DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   participation EventParticipation?
 
@@ -624,48 +675,48 @@ enum AmbassadorStage {
 
 // Candidature Ambassadeur — jamais un second compte (Règle 3) : rattachée à l'utilisateur existant.
 model AmbassadorApplication {
-  id               String            @id @default(cuid())
-  editionId        String
-  edition          Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
-  userId           String?
-  user             User?             @relation("AmbassadorApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
-  regionId         String
-  region           Region            @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  firstName        String
-  lastName         String
-  email            String
-  phone            String
-  gender           String?
-  birthDate        DateTime?
-  birthPlace       String?
-  educationLevel   String?
-  hasDisability    Boolean           @default(false)
-  disabilityDetails String?
-  status           ApplicationStatus @default(SOUMIS)
-  stage            AmbassadorStage   @default(CANDIDATURE)
-  reviewedById     String?
-  reviewedBy       User?             @relation("AmbassadorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt       DateTime?
-  rejectionReason  String?
+  id                   String            @id @default(cuid())
+  editionId            String
+  edition              Edition           @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  userId               String?
+  user                 User?             @relation("AmbassadorApplicationUser", fields: [userId], references: [id], onDelete: SetNull)
+  regionId             String
+  region               Region            @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  firstName            String
+  lastName             String
+  email                String
+  phone                String
+  gender               String?
+  birthDate            DateTime?
+  birthPlace           String?
+  educationLevel       String?
+  hasDisability        Boolean           @default(false)
+  disabilityDetails    String?
+  status               ApplicationStatus @default(SOUMIS)
+  stage                AmbassadorStage   @default(CANDIDATURE)
+  reviewedById         String?
+  reviewedBy           User?             @relation("AmbassadorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt           DateTime?
+  rejectionReason      String?
   // Formation présentielle : marquée « faite » par le staff (région) ou un admin.
   inPersonTrainingAt   DateTime?
   inPersonTrainingById String?
-  quizScore        Float?
-  rank             Int? // classement régional après QCM
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  quizScore            Float?
+  rank                 Int? // classement régional après QCM
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
-  payment          Payment?
+  payment              Payment?
   // Paiement manuel (point focal) : réservé aux candidats que l'admin y autorise explicitement.
-  manualPaymentAllowed Boolean @default(false)
-  paymentAttempts  PaymentAttempt[]
-  trainingProgress TrainingProgress[]
-  quizAttempts     QuizAttempt[]
-  selection        Selection?
-  repechage        Repechage?
-  engagement       Engagement?
-  boarding         Boarding?
-  documents        Document[]
+  manualPaymentAllowed Boolean            @default(false)
+  paymentAttempts      PaymentAttempt[]
+  trainingProgress     TrainingProgress[]
+  quizAttempts         QuizAttempt[]
+  selection            Selection?
+  repechage            Repechage?
+  engagement           Engagement?
+  boarding             Boarding?
+  documents            Document[]
 
   @@index([editionId, email])
   @@index([editionId, regionId, status])
@@ -870,28 +921,28 @@ model QuestionOption {
 // Un QCM par édition (ex. "Évaluation formation Ambassadeurs 2026") assemblé
 // depuis la banque de questions — jamais de question codée en dur (§11).
 model Quiz {
-  id                 String         @id @default(cuid())
+  id                 String          @id @default(cuid())
   editionId          String
-  edition            Edition        @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  edition            Edition         @relation(fields: [editionId], references: [id], onDelete: Cascade)
   title              String
-  description        String?        @db.Text
-  status             QuizStatus     @default(DRAFT)
+  description        String?         @db.Text
+  status             QuizStatus      @default(DRAFT)
   durationMinutes    Int?
-  passingScore       Float          @default(70)
-  maxAttempts        Int            @default(1)
-  shuffleQuestions   Boolean        @default(false)
-  shuffleOptions     Boolean        @default(false)
-  showScore          Boolean        @default(true)
-  showCorrectAnswers Boolean        @default(false)
+  passingScore       Float           @default(70)
+  maxAttempts        Int             @default(1)
+  shuffleQuestions   Boolean         @default(false)
+  shuffleOptions     Boolean         @default(false)
+  showScore          Boolean         @default(true)
+  showCorrectAnswers Boolean         @default(false)
   // Formation à terminer avant ce QCM (nul = QCM libre, non lié à une formation).
   courseId           String?
   course             TrainingCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
   // Le score de ce QCM alimente le classement régional du parcours ambassadeur.
-  countsForRanking   Boolean        @default(false)
+  countsForRanking   Boolean         @default(false)
   questions          QuizQuestion[]
   attempts           QuizAttempt[]
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   @@index([editionId, status])
   @@index([courseId])
@@ -978,18 +1029,18 @@ model Repechage {
   ambassadorApplicationId String                @unique
   ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
   justification           String                @db.Text // Motif de la demande de repêchage ou justification
-  
-  requestedById           String?
-  requestedBy             User?                 @relation("RepechageRequester", fields: [requestedById], references: [id], onDelete: SetNull)
 
-  decidedById             String?
-  decidedBy               User?                 @relation("RepechageDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  requestedById String?
+  requestedBy   User?   @relation("RepechageRequester", fields: [requestedById], references: [id], onDelete: SetNull)
 
-  decisionComment         String?               @db.Text
-  decidedAt               DateTime?
-  status                  RepechageStatus       @default(EN_ATTENTE)
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @default(now()) @updatedAt
+  decidedById String?
+  decidedBy   User?   @relation("RepechageDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  decisionComment String?         @db.Text
+  decidedAt       DateTime?
+  status          RepechageStatus @default(EN_ATTENTE)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @default(now()) @updatedAt
 }
 
 // Acceptation de la fiche d'engagement numérique (§15) — condition bloquante pour le badge.

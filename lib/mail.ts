@@ -1,4 +1,6 @@
 import { getAppUrl } from "@/lib/app-url";
+import { db } from "@/lib/db";
+import { personalize, renderCampaignHtml } from "@/lib/email-campaign";
 import appConfig from "@/settings";
 import { escapeHtml, infoRow, infoTable, multilineHtml, quoteBlock, renderEmail } from "@/lib/email-layout";
 
@@ -22,6 +24,9 @@ export function describeMailError(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   if (/RESEND_API_KEY/.test(text)) {
     return "Le service d'envoi d'emails n'est pas configuré sur ce serveur : la variable RESEND_API_KEY est absente (Vercel › Settings › Environment Variables).";
+  }
+  if (/quota_exceeded/i.test(text)) {
+    return "Limite d'envoi du service d'e-mails atteinte (quota du plan gratuit) : réessayez après minuit (heure UTC) ou passez à un plan supérieur. En attendant, remettez les accès à la main.";
   }
   if (/\(401\)/.test(text)) return "La clé du service d'emails (RESEND_API_KEY) est invalide ou révoquée.";
   if (/\((403|422)\)/.test(text)) {
@@ -47,7 +52,34 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-async function sendMail(message: { to: string; subject: string; html: string; text?: string; replyTo?: string }) {
+/** Garde une trace de l'envoi (jamais bloquant : un échec d'écriture ne doit pas empêcher l'email de partir). */
+async function logEmail(entry: { kind: string; to: string; subject: string; status: string; resendId?: string | null; error?: string | null }) {
+  try {
+    await db.emailLog.create({
+      data: {
+        kind: entry.kind,
+        toEmail: entry.to.toLowerCase(),
+        subject: entry.subject,
+        status: entry.status,
+        resendId: entry.resendId ?? null,
+        error: entry.error ? entry.error.slice(0, 300) : null,
+      },
+    });
+  } catch (error) {
+    console.error("Journal des emails : écriture impossible", error);
+  }
+}
+
+async function sendMail(message: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+  /** Nature de l'email (« access », « contact »…) : sert au suivi dans l'administration. */
+  kind?: string;
+}) {
+  const kind = message.kind ?? "other";
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     if (process.env.NODE_ENV === "production") {
@@ -80,14 +112,21 @@ async function sendMail(message: { to: string; subject: string; html: string; te
         body: payload,
         cache: "no-store",
       });
-      if (response.ok) return;
+      if (response.ok) {
+        const body = (await response.json().catch(() => null)) as { id?: string } | null;
+        await logEmail({ kind, to: message.to, subject: message.subject, status: "ACCEPTED", resendId: body?.id });
+        return;
+      }
 
       const detail = await response.text().catch(() => "");
       lastError = `${response.status} ${detail}`.slice(0, 300);
       console.error(`Resend : envoi refusé (tentative ${attempt + 1}/${delays.length})`, lastError);
-      // Erreur définitive (clé invalide, domaine non vérifié, adresse refusée…) : inutile de réessayer.
-      if (response.status !== 429 && response.status < 500) {
-        throw new Error(`Envoi d'email refusé (${response.status})`);
+      // Erreur définitive (clé invalide, domaine non vérifié, adresse refusée, quota du plan dépassé…) :
+      // inutile de réessayer, cela ne ferait que ralentir les envois groupés.
+      const quotaExceeded = /quota_exceeded/i.test(detail);
+      if (quotaExceeded || (response.status !== 429 && response.status < 500)) {
+        await logEmail({ kind, to: message.to, subject: message.subject, status: "FAILED", error: lastError });
+        throw new Error(`Envoi d'email refusé (${response.status})${quotaExceeded ? " quota_exceeded" : ""}`);
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("Envoi d'email refusé")) throw error;
@@ -95,6 +134,7 @@ async function sendMail(message: { to: string; subject: string; html: string; te
       console.error(`Resend : échec réseau (tentative ${attempt + 1}/${delays.length})`, lastError);
     }
   }
+  await logEmail({ kind, to: message.to, subject: message.subject, status: "FAILED", error: lastError });
   throw new Error(`Envoi d'email impossible après ${delays.length} tentatives (${lastError})`);
 }
 
@@ -107,6 +147,7 @@ export const sendNotificationEmail = async (
 ) => {
   const url = link ? `${domain}${link}` : null;
   await sendMail({
+    kind: "notification",
     to,
     subject: `${appConfig.appName} — ${title}`,
     html: renderEmail({
@@ -120,6 +161,7 @@ export const sendNotificationEmail = async (
 
 export const sendTwoFactorTokenEmail = async (email: string, token: string) => {
   await sendMail({
+    kind: "two_factor",
     to: email,
     subject: `${appConfig.appName} — Votre code de vérification`,
     html: renderEmail({
@@ -138,6 +180,7 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
   const resetLink = `${domain}/auth/reset-password?token=${encodeURIComponent(token)}`;
 
   await sendMail({
+    kind: "password_reset",
     to: email,
     subject: `${appConfig.appName} — Réinitialisation de votre mot de passe`,
     html: renderEmail({
@@ -155,6 +198,7 @@ export const sendVerificationEmail = async (email: string, token: string) => {
   const confirmLink = `${domain}/auth/verify?token=${encodeURIComponent(token)}`;
 
   await sendMail({
+    kind: "verification",
     to: email,
     subject: `${appConfig.appName} — Vérifiez votre compte`,
     html: renderEmail({
@@ -181,6 +225,7 @@ export const sendLoginNotificationEmail = async (
   }
 ) => {
   await sendMail({
+    kind: "login_alert",
     to: email,
     subject: `${appConfig.appName} — Nouvelle connexion à votre compte`,
     html: renderEmail({
@@ -221,6 +266,7 @@ export const sendContactMessageEmail = async (input: {
   const replySubject = encodeURIComponent(`Re: ${subject}`);
 
   await sendMail({
+    kind: "contact",
     to,
     replyTo: input.email,
     subject: `[Contact ${appConfig.appName}] ${subject}`,
@@ -260,6 +306,7 @@ export const sendChangeEmailVerification = async (
   const verificationLink = `${domain}/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
 
   await sendMail({
+    kind: "change_email",
     to: email,
     subject: `${appConfig.appName} — Confirmez votre nouvelle adresse email`,
     html: renderEmail({
@@ -276,6 +323,7 @@ export const sendChangeEmailVerification = async (
 /** Accusé de réception d'une candidature ambassadeur (aucun compte n'existe encore à ce stade). */
 export const sendApplicationReceivedEmail = async (email: string, firstName: string) => {
   await sendMail({
+    kind: "application_received",
     to: email,
     subject: `${appConfig.appName} — Votre candidature a bien été envoyée`,
     html: renderEmail({
@@ -313,6 +361,7 @@ export const sendApplicationAcceptedEmail = async (
       <p style="margin:0;font-size:13px;color:#6b7280;">Vous ne vous en souvenez plus ? <a href="${escapeHtml(`${domain}/auth/forgot-password`)}" style="color:#D6650F;">Réinitialisez votre mot de passe ici</a>.</p>`;
 
   await sendMail({
+    kind: "access",
     to: email,
     subject: `${appConfig.appName} — Votre candidature a été acceptée`,
     html: renderEmail({
@@ -326,5 +375,20 @@ export const sendApplicationAcceptedEmail = async (
         <p style="margin:14px 0 0 0;">Prochaine étape : une fois connecté(e), réglez vos frais d'inscription depuis « Mon paiement ».</p>`,
       cta: { label: "Me connecter", href: loginUrl },
     }),
+  });
+};
+
+/** Message envoyé en groupe par le Super Admin (candidats, ambassadeurs, utilisateurs…). */
+export const sendCampaignEmail = async (input: {
+  to: string;
+  subject: string;
+  bodyHtml: string;
+  firstName: string | null;
+}) => {
+  await sendMail({
+    kind: "campaign",
+    to: input.to,
+    subject: personalize(input.subject, input.firstName, false),
+    html: renderCampaignHtml(input.subject, input.bodyHtml, input.firstName),
   });
 };
