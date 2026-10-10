@@ -17,7 +17,7 @@ import {
   generateAccessAction,
   generateAccessBatchAction,
   getAccessOverviewAction,
-  refreshEmailStatusesAction,
+  syncEmailStatusesAction,
   type AccessMailState,
   type AccessOverview,
   type AccessRow,
@@ -46,8 +46,8 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 const MAIL_BADGE: Record<AccessMailState | "NONE", { label: string; className: string }> = {
-  NONE: { label: "Aucun suivi", className: "bg-gray-100 text-gray-600" },
-  ACCEPTED: { label: "Envoi en cours", className: "bg-amber-100 text-amber-700" },
+  NONE: { label: "Aucun e-mail trouvé", className: "bg-orange-100 text-orange-700" },
+  ACCEPTED: { label: "En vérification", className: "bg-amber-100 text-amber-700" },
   DELIVERED: { label: "E-mail livré", className: "bg-green-100 text-green-700" },
   MANUAL: { label: "Remis manuellement", className: "bg-blue-100 text-blue-700" },
   FAILED: { label: "E-mail en échec", className: "bg-red-100 text-red-700" },
@@ -55,11 +55,20 @@ const MAIL_BADGE: Record<AccessMailState | "NONE", { label: string; className: s
   COMPLAINED: { label: "Signalé comme spam", className: "bg-red-100 text-red-700" },
 };
 
-/** Cas où le candidat n'a vraisemblablement pas reçu ses accès. */
-const needsAttention = (row: AccessRow) =>
-  !row.mail || ["FAILED", "BOUNCED", "COMPLAINED", "ACCEPTED"].includes(row.mail.status);
+/**
+ * Trois groupes, du plus urgent au plus rassurant :
+ *  - TODO : aucun e-mail d'accès trouvé, ou e-mail en échec / refusé / signalé → il faut agir ;
+ *  - CHECKING : e-mail accepté par le service d'envoi, livraison pas encore confirmée → rien à faire ;
+ *  - DONE : e-mail livré ou accès remis à la main.
+ */
+type Group = "TODO" | "CHECKING" | "DONE";
+const groupOf = (row: AccessRow): Group => {
+  if (!row.mail) return "TODO";
+  if (["FAILED", "BOUNCED", "COMPLAINED"].includes(row.mail.status)) return "TODO";
+  return row.mail.status === "ACCEPTED" ? "CHECKING" : "DONE";
+};
 
-type Filter = "ALL" | "TODO" | "DONE";
+type Filter = "ALL" | Group;
 
 async function copyText(value: string) {
   try {
@@ -90,32 +99,40 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
+  const [syncRead, setSyncRead] = useState(0);
   const [isPending, startTransition] = useTransition();
 
   const reload = useCallback(async () => setOverview(await getAccessOverviewAction()), []);
 
-  /** Met à jour l'état de livraison des e-mails auprès du fournisseur, puis recharge la liste. */
+  /**
+   * Synchronise l'état des e-mails avec l'historique du fournisseur, page après page, jusqu'à la fin, puis
+   * recharge la liste. Se lance seule à l'ouverture de la page.
+   */
   const refreshStatuses = useCallback(
     async (silent: boolean) => {
       setChecking(true);
+      setSyncRead(0);
       if (!silent) {
         setMessage("");
         setError("");
       }
       try {
-        const result = await refreshEmailStatusesAction();
-        if (result.ok) {
-          await reload();
-          if (!silent) {
-            setMessage(
-              result.pending > 0
-                ? `${result.checked} e-mail(s) vérifié(s). Il en reste ${result.pending} à vérifier : cliquez de nouveau.`
-                : "L'état des e-mails est à jour."
-            );
+        let cursor: string | null = null;
+        let totalRead = 0;
+        let calls = 0;
+        do {
+          const result = await syncEmailStatusesAction(cursor);
+          if (!result.ok) {
+            if (!silent) setError(result.error);
+            break;
           }
-        } else if (!silent) {
-          setError(result.error);
-        }
+          totalRead += result.read;
+          setSyncRead(totalRead);
+          cursor = result.next;
+          calls += 1;
+        } while (cursor && calls < 15); // 15 appels × 3 pages × 100 envois = 4 500 e-mails au plus
+        await reload();
+        if (!silent) setMessage(`L'état des e-mails est à jour (${totalRead} e-mails vérifiés chez le fournisseur).`);
       } catch {
         if (!silent) setError("La vérification a échoué. Réessayez dans un instant.");
       } finally {
@@ -133,16 +150,21 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
     return overview.rows.filter(row => {
-      if (filter === "TODO" && !needsAttention(row)) return false;
-      if (filter === "DONE" && needsAttention(row)) return false;
+      if (filter !== "ALL" && groupOf(row) !== filter) return false;
       return !query || `${row.fullName} ${row.email} ${row.phone} ${row.region}`.toLowerCase().includes(query);
     });
   }, [overview.rows, search, filter]);
 
-  const todoCount = overview.rows.filter(needsAttention).length;
-  // « Non envoyés » : l'e-mail a échoué ou a été refusé. Les envois sans suivi ne sont pas inclus d'office, car
-  // leur e-mail est peut-être bien arrivé : renvoyer réinitialiserait un mot de passe qui fonctionne.
-  const failedRows = overview.rows.filter(row => row.mail && ["FAILED", "BOUNCED", "COMPLAINED"].includes(row.mail.status));
+  const group = (name: Group) => overview.rows.filter(row => groupOf(row) === name).length;
+  const todoCount = group("TODO");
+  const checkingCount = group("CHECKING");
+  const doneCount = group("DONE");
+  const neverCount = overview.rows.filter(row => !row.mail).length;
+  const problemCount = todoCount - neverCount;
+  // E-mails à renvoyer : ceux qui ont échoué et ceux qui n'ont jamais été envoyés. Pas les adresses refusées ni les
+  // signalements de spam : un nouvel envoi échouerait de nouveau (ou aggraverait la situation) ; ces personnes se
+  // contactent à la main. Les envois « en vérification » ne sont jamais concernés : leur e-mail est probablement arrivé.
+  const failedRows = overview.rows.filter(row => !row.mail || row.mail.status === "FAILED");
   const allSelected = rows.length > 0 && rows.every(row => selected.has(row.id));
 
   const toggle = (id: string) =>
@@ -234,6 +256,7 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
           <Stat label="E-mails envoyés aujourd'hui" value={overview.today.sent} />
           <Stat label="En échec aujourd'hui" value={overview.today.failed} danger={overview.today.failed > 0} />
           <Stat label="Accès à traiter" value={todoCount} danger={todoCount > 0} />
+          <Stat label="En vérification" value={checkingCount} />
           <Button
             type="button"
             variant="outline"
@@ -246,15 +269,31 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
           </Button>
           <Button
             type="button"
-            disabled={failedRows.length === 0 || isPending}
+            disabled={failedRows.length === 0 || isPending || checking}
+            title={checking ? "Attendez la fin de la vérification" : undefined}
             onClick={() => setConfirm({ rows: failedRows, mode: "email" })}
             className="rounded-none text-white"
             style={{ backgroundColor: charter.orange }}
           >
             <Mail className="mr-2 h-4 w-4" />
-            Renvoyer les e-mails en échec ({failedRows.length})
+            Renvoyer les e-mails manquants ({failedRows.length})
           </Button>
         </div>
+
+        {checking ? (
+          <p className="mt-4 flex items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            Vérification auprès du service d&apos;e-mails en cours{syncRead > 0 ? ` (${syncRead} e-mails lus)` : ""}… Les chiffres se
+            mettent à jour à la fin.
+          </p>
+        ) : (
+          <p className="mt-4 rounded-lg bg-muted/40 p-3 text-sm">
+            Bilan : <strong className="text-green-700">{doneCount} reçus</strong> ·{" "}
+            <strong className="text-amber-700">{checkingCount} en vérification</strong> ·{" "}
+            <strong className="text-red-700">{problemCount} en échec ou refusés</strong> ·{" "}
+            <strong className="text-orange-700">{neverCount} sans e-mail d&apos;accès</strong>
+          </p>
+        )}
 
         {overview.today.failed > 0 && (
           <p className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
@@ -272,7 +311,8 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
             {(
               [
                 ["TODO", `À traiter (${todoCount})`],
-                ["DONE", "Reçus"],
+                ["CHECKING", `En vérification (${checkingCount})`],
+                ["DONE", `Reçus (${doneCount})`],
                 ["ALL", "Tous"],
               ] as const
             ).map(([code, label]) => (
@@ -402,7 +442,7 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
-                    {filter === "TODO" ? "Tous les accès ont été reçus." : "Aucun ambassadeur trouvé."}
+                    {filter === "TODO" ? "Rien à traiter : tous les accès sont reçus ou en cours de vérification." : "Aucun ambassadeur dans cette liste."}
                   </td>
                 </tr>
               )}

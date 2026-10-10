@@ -235,79 +235,113 @@ export async function generateAccessBatchAction(
 
 // ─── Suivi de livraison (fournisseur d'e-mails) ──────────────────────────────
 
-const FINAL_STATUS: Record<string, AccessMailState> = {
-  delivered: "DELIVERED",
-  failed: "FAILED",
-  bounced: "BOUNCED",
-  complained: "COMPLAINED",
-};
+/** Traduit l'état donné par le fournisseur. « Ouvert » et « cliqué » prouvent que l'e-mail est arrivé. */
+function statusFromEvent(event: string | undefined): AccessMailState {
+  switch (event) {
+    case "delivered":
+    case "opened":
+    case "clicked":
+      return "DELIVERED";
+    case "failed":
+      return "FAILED";
+    case "bounced":
+      return "BOUNCED";
+    case "complained":
+      return "COMPLAINED";
+    default:
+      return "ACCEPTED"; // envoyé / en file / retardé : livraison pas encore confirmée
+  }
+}
 
+/** Petite attente entre deux pages : le fournisseur limite le débit à 2 requêtes par seconde. */
+const PAGES_PER_CALL = 3;
+const PAGE_SIZE = 100;
+
+export type SyncResult = { read: number; updated: number; imported: number; next: string | null };
 
 /**
- * Met à jour l'état de livraison des derniers e-mails (le fournisseur accepte l'envoi puis le marque
- * « livré » ou « échoué » après coup) et reprend les e-mails d'acceptation envoyés avant la mise en place de ce
- * suivi. Traite un petit lot par appel : relancer pour continuer.
+ * Synchronise le suivi avec l'historique du fournisseur d'e-mails, par pages de 100 envois (les plus récents
+ * d'abord) :
+ *  - met à jour l'état de livraison des envois déjà suivis (livré, échoué, refusé…) ;
+ *  - reprend les e-mails d'acceptation envoyés avant la mise en place du suivi.
+ * Traite quelques pages par appel et renvoie le curseur de la suite ; l'écran relance jusqu'à la fin.
  */
-export async function refreshEmailStatusesAction(): Promise<
-  { ok: true; checked: number; pending: number } | { ok: false; error: string }
-> {
+export async function syncEmailStatusesAction(cursor: string | null): Promise<{ ok: true } & SyncResult | { ok: false; error: string }> {
   await requireSuperAdmin();
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return { ok: false, error: "RESEND_API_KEY n'est pas configurée sur ce serveur" };
   const headers = { Authorization: `Bearer ${apiKey}` };
 
+  let read = 0;
+  let updated = 0;
+  let imported = 0;
+  let next: string | null = cursor;
+
   try {
-    // 1. Reprise des e-mails d'acceptation déjà envoyés (une seule requête, sans doublon).
-    const listing = await fetch("https://api.resend.com/emails?limit=100", { headers, cache: "no-store" });
-    if (listing.ok) {
-      const body = (await listing.json()) as {
+    for (let page = 0; page < PAGES_PER_CALL; page += 1) {
+      const url = `https://api.resend.com/emails?limit=${PAGE_SIZE}${next ? `&after=${encodeURIComponent(next)}` : ""}`;
+      const response = await fetch(url, { headers, cache: "no-store" });
+      if (!response.ok) {
+        if (response.status === 429) return { ok: false, error: "Le service d'e-mails limite le débit : réessayez dans quelques secondes." };
+        return { ok: false, error: `Le service d'e-mails a répondu une erreur (${response.status}).` };
+      }
+      const body = (await response.json()) as {
+        has_more?: boolean;
         data?: { id: string; to?: string[]; subject: string; last_event: string; created_at: string }[];
       };
-      const known = new Set(
-        (await db.emailLog.findMany({ where: { resendId: { not: null } }, select: { resendId: true } })).map(row => row.resendId)
-      );
-      for (const item of body.data ?? []) {
-        if (known.has(item.id) || !/candidature a été acceptée/i.test(item.subject)) continue;
-        const recipient = item.to?.[0]?.toLowerCase();
-        if (!recipient) continue;
-        await db.emailLog.create({
-          data: {
+      const items = body.data ?? [];
+      read += items.length;
+      if (items.length === 0) {
+        next = null;
+        break;
+      }
+
+      const known = await db.emailLog.findMany({
+        where: { resendId: { in: items.map(item => item.id) } },
+        select: { id: true, resendId: true, status: true },
+      });
+      const byResendId = new Map(known.map(row => [row.resendId as string, row]));
+
+      // États à mettre à jour, regroupés pour limiter les requêtes.
+      const toUpdate = new Map<AccessMailState, string[]>();
+      const toCreate: { kind: string; toEmail: string; subject: string; status: string; resendId: string; createdAt: Date }[] = [];
+
+      for (const item of items) {
+        const status = statusFromEvent(item.last_event);
+        const row = byResendId.get(item.id);
+        if (row) {
+          // On ne « rétrograde » jamais un envoi confirmé, ni une remise manuelle.
+          if (status !== "ACCEPTED" && row.status !== status && row.status !== "MANUAL") {
+            toUpdate.set(status, [...(toUpdate.get(status) ?? []), row.id]);
+          }
+        } else if (/candidature a été acceptée/i.test(item.subject) && item.to?.[0]) {
+          toCreate.push({
             kind: "access",
-            toEmail: recipient,
+            toEmail: item.to[0].toLowerCase(),
             subject: item.subject,
-            status: FINAL_STATUS[item.last_event] ?? "ACCEPTED",
+            status,
             resendId: item.id,
             createdAt: new Date(item.created_at),
-          },
-        });
+          });
+        }
       }
-    }
 
-    // 2. Vérification des envois encore « pris en charge », les plus récents d'abord.
-    const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-    const waiting = await db.emailLog.findMany({
-      where: { status: "ACCEPTED", resendId: { not: null }, createdAt: { gte: since } },
-      orderBy: [{ kind: "asc" }, { createdAt: "desc" }],
-      take: 12,
-      select: { id: true, resendId: true },
-    });
-
-    let checked = 0;
-    for (const log of waiting) {
-      const response = await fetch(`https://api.resend.com/emails/${log.resendId}`, { headers, cache: "no-store" });
-      if (response.ok) {
-        const detail = (await response.json()) as { last_event?: string };
-        const next = FINAL_STATUS[detail.last_event ?? ""];
-        if (next) await db.emailLog.update({ where: { id: log.id }, data: { status: next } });
+      for (const [status, ids] of toUpdate) {
+        await db.emailLog.updateMany({ where: { id: { in: ids } }, data: { status } });
+        updated += ids.length;
       }
-      checked += 1;
+      if (toCreate.length > 0) {
+        await db.emailLog.createMany({ data: toCreate });
+        imported += toCreate.length;
+      }
+
+      next = body.has_more ? items[items.length - 1].id : null;
+      if (!next) break;
       await pause(600);
     }
-
-    const pending = await db.emailLog.count({ where: { status: "ACCEPTED", resendId: { not: null }, createdAt: { gte: since } } });
-    return { ok: true, checked, pending };
+    return { ok: true, read, updated, imported, next };
   } catch (error) {
-    console.error("Suivi des emails impossible:", error);
+    console.error("Synchronisation des emails impossible:", error);
     return { ok: false, error: "Impossible de joindre le service d'e-mails. Réessayez dans un instant." };
   }
 }
