@@ -74,10 +74,16 @@ export default async function MyQuizPage() {
                   QCM verrouillé
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {gate.kind === "course" && gate.courseTitle
-                    ? `Terminez la formation « ${gate.courseTitle} » : `
-                    : "Terminez vos formations obligatoires : "}
-                  {gate.completedCount} / {gate.totalCount} modules terminés.
+                  {gate.kind === "inperson" ? (
+                    "La formation est obligatoire. Ce QCM s'ouvre dès que le staff de votre région a validé votre présence à la formation."
+                  ) : (
+                    <>
+                      {gate.kind === "course" && gate.courseTitle
+                        ? `Terminez la formation « ${gate.courseTitle} » : `
+                        : "Terminez vos formations obligatoires : "}
+                      {gate.completedCount} / {gate.totalCount} modules terminés.
+                    </>
+                  )}
                 </p>
                 <Button
                   nativeButton={false}

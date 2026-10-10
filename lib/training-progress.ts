@@ -47,8 +47,11 @@ export type QuizGate =
   | { unlocked: true }
   | {
       unlocked: false;
-      /** « course » : la formation liée au QCM ; « required » : formations obligatoires de l'édition. */
-      kind: "course" | "required";
+      /**
+       * « course » : la formation liée au QCM ; « required » : formations obligatoires de l'édition ;
+       * « inperson » : formation à valider par le staff de la région (liste de présence).
+       */
+      kind: "course" | "required" | "inperson";
       courseTitle: string | null;
       completedCount: number;
       totalCount: number;
@@ -80,11 +83,19 @@ export async function getQuizGate(
   }
 
   if (quiz.countsForRanking) {
+    // La formation est obligatoire : validée par le staff de la région (liste de présence)
+    // ou, à défaut, par la fin de tous les modules en ligne obligatoires.
+    const application = await db.ambassadorApplication.findUnique({
+      where: { id: ambassadorApplicationId },
+      select: { inPersonTrainingAt: true },
+    });
+    if (application?.inPersonTrainingAt) return { unlocked: true };
+
     const progress = await getRequiredCoursesProgress(quiz.editionId, ambassadorApplicationId);
-    if (progress.completed) return { unlocked: true };
+    if (progress.totalCount > 0 && progress.completed) return { unlocked: true };
     return {
       unlocked: false,
-      kind: "required",
+      kind: progress.totalCount > 0 ? "required" : "inperson",
       courseTitle: null,
       completedCount: progress.completedCount,
       totalCount: progress.totalCount,
@@ -96,16 +107,10 @@ export async function getQuizGate(
 
 /** Message d'erreur explicite quand un QCM est verrouillé. */
 export function describeGate(gate: Extract<QuizGate, { unlocked: false }>): string {
+  if (gate.kind === "inperson") {
+    return "Votre formation doit d'abord être validée par le staff de votre région pour passer ce QCM";
+  }
   return gate.kind === "course" && gate.courseTitle
     ? `Terminez d'abord la formation « ${gate.courseTitle} » pour passer ce QCM`
     : "Vous devez terminer votre formation avant de passer ce QCM";
-}
-
-/**
- * Vrai si l'édition n'a aucun module de formation obligatoire : l'étape FORMATION n'a alors
- * rien à valider et l'ambassadeur doit passer directement au QCM.
- */
-export async function hasNoRequiredTraining(editionId: string): Promise<boolean> {
-  const count = await db.trainingModule.count({ where: { course: { editionId, isRequired: true } } });
-  return count === 0;
 }

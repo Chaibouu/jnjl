@@ -12,7 +12,6 @@ import {
 } from "@/schemas/payment";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
-import { hasNoRequiredTraining } from "@/lib/training-progress";
 import { createValidatedPayment } from "@/lib/payment-settlement";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
@@ -84,13 +83,10 @@ export async function recordManualPaymentAction(
     );
   }
 
-  // Sans formation obligatoire dans l'édition, l'ambassadeur passe directement au QCM.
-  const skipTraining = await hasNoRequiredTraining(application.editionId);
   await db.$transaction(transaction =>
     createValidatedPayment(transaction, {
       applicationId: ambassadorApplicationId,
       userId: application.userId,
-      skipTraining,
       amount: data.amount,
       method: "MANUAL",
       provider: "point_focal",

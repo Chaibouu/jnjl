@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { notify } from "@/lib/notify";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 /**
@@ -47,7 +48,15 @@ export async function markInPersonTrainingDoneAction(applicationId: string) {
 
   const application = await db.ambassadorApplication.findUnique({
     where: { id: applicationId },
-    select: { id: true, regionId: true, stage: true, status: true, payment: { select: { status: true } } },
+    select: {
+      id: true,
+      userId: true,
+      regionId: true,
+      stage: true,
+      status: true,
+      inPersonTrainingAt: true,
+      payment: { select: { status: true } },
+    },
   });
   if (!application) throw new Error("Candidature introuvable");
   assertRegionAccess(actor, application.regionId);
@@ -63,5 +72,14 @@ export async function markInPersonTrainingDoneAction(applicationId: string) {
       ...(application.stage === "FORMATION" ? { stage: "QCM" } : {}),
     },
   });
+
+  if (!application.inPersonTrainingAt) {
+    await notify({
+      userId: application.userId,
+      title: "Formation validée",
+      message: "Votre formation a été validée par le staff de votre région. Vous pouvez maintenant passer le QCM.",
+      link: "/ambassadeur/qcm",
+    });
+  }
   return { id: applicationId };
 }

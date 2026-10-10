@@ -298,7 +298,7 @@ une fois son engagement signé.
 | 1-2 | Candidature + région | Le jeune | `/ambassadeurs/candidature` | public | Acceptation par l'admin |
 | — | Acceptation | Admin | Ambassadeurs › Candidatures | `applications.ambassador.manage` | → PAIEMENT |
 | 3 | Paiement | Point focal | Paiements | `payments.manage` | → FORMATION |
-| 4 | Formation | Ambassadeur | Ma formation | — | Tous les modules terminés → QCM |
+| 4 | Formation | Staff région | Formation présentielle | `training.inperson.manage` | « Formation faite » (ou modules en ligne terminés) → QCM |
 | 5 | QCM | Ambassadeur | Mon QCM | — | QCM soumis → CLASSEMENT |
 | 6 | Classement | Admin | Classement & Sélection | `selection.manage` | Sélection |
 | 7 | Sélection | Admin | Classement & Sélection | `selection.manage` | → ENGAGEMENT (sélectionnés) |
@@ -359,9 +359,10 @@ un module terminé peut être relu librement. Quand tous les modules sont termin
 **Formation présentielle** — menu **Formations › Formation présentielle** (`/admin/formation/presentielle`, permission
 `training.inperson.manage`) : liste des ambassadeurs ayant **payé** et devant suivre la formation. Le **staff** ne voit que
 sa région, l'**admin** la liste nationale. Le bouton **« Formation faite »** enregistre la date et l'auteur, et fait passer
-l'ambassadeur à l'étape QCM s'il attendait à FORMATION. **Sans formation obligatoire en ligne dans l'édition**, l'ambassadeur
-passe directement à QCM dès la validation du paiement (il ne reste plus bloqué en FORMATION) ; la formation présentielle sert
-alors de suivi.
+l'ambassadeur à l'étape QCM s'il attendait à FORMATION et lui envoie une notification. **La formation est obligatoire pour
+tous** : après le paiement, l'ambassadeur reste à l'étape FORMATION et le **QCM de classement reste verrouillé** tant que le
+staff de sa région ne l'a pas marqué « Formation faite » (liste de présence) — ou, s'il existe des modules en ligne
+obligatoires, tant qu'ils ne sont pas tous terminés.
 
 Règles : on **ne peut pas supprimer** une formation déjà suivie (progression ou attestations existantes) ; supprimer une formation vierge supprime
 ses modules et transforme ses QCM en **QCM libres**. L'édition d'une formation ne peut pas être changée.

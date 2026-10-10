@@ -1,9 +1,8 @@
 import type { Prisma } from "@prisma/client";
-import { hasNoRequiredTraining } from "@/lib/training-progress";
 
 /**
  * Enregistre un paiement validé pour une candidature : paiement + reçu, puis passage à l'étape
- * suivante (FORMATION, ou QCM si l'édition n'a aucune formation obligatoire).
+ * FORMATION (obligatoire : validée par le staff de la région ou par les modules en ligne).
  * Commun au paiement en ligne et au paiement manuel exceptionnel.
  */
 export async function createValidatedPayment(
@@ -11,7 +10,6 @@ export async function createValidatedPayment(
   params: {
     applicationId: string;
     userId: string | null;
-    skipTraining: boolean;
     amount: number;
     method: "MANUAL" | "ONLINE";
     provider: string;
@@ -44,10 +42,8 @@ export async function createValidatedPayment(
 
   await transaction.ambassadorApplication.update({
     where: { id: params.applicationId },
-    data: { stage: params.skipTraining ? "QCM" : "FORMATION" },
+    data: { stage: "FORMATION" },
   });
 
   return payment;
 }
-
-export { hasNoRequiredTraining };

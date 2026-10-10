@@ -308,7 +308,11 @@ export async function getMyTrainingStatusAction() {
       };
     });
 
-  return { stage: application.stage, courses: result };
+  return {
+    stage: application.stage,
+    inPersonTrainingAt: application.inPersonTrainingAt,
+    courses: result,
+  };
 }
 
 /**

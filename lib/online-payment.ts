@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import { notify } from "@/lib/notify";
 import { getPaymentLinkState } from "@/lib/ipay";
 import { createValidatedPayment } from "@/lib/payment-settlement";
-import { hasNoRequiredTraining } from "@/lib/training-progress";
 
 export type AttemptOutcome = "succeeded" | "failed" | "expired" | "pending" | "unknown" | "mismatch";
 
@@ -61,7 +60,6 @@ export async function confirmPaymentAttempt(reference: string): Promise<AttemptO
   }
 
   const { ambassadorApplication: application } = attempt;
-  const skipTraining = await hasNoRequiredTraining(application.editionId);
 
   const settled = await db.$transaction(async transaction => {
     // Prise en charge atomique : un seul appelant peut faire passer la tentative à SUCCEEDED.
@@ -92,7 +90,6 @@ export async function confirmPaymentAttempt(reference: string): Promise<AttemptO
     await createValidatedPayment(transaction, {
       applicationId: application.id,
       userId: application.userId,
-      skipTraining,
       amount: attempt.amount,
       method: "ONLINE",
       provider: "ipay",
