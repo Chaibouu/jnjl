@@ -19,6 +19,9 @@ type Application = {
   email: string;
   phone: string;
   status: string;
+  gender: string | null;
+  stage: string;
+  payment: { status: string } | null;
   createdAt: Date;
   region: { name: string; code: string };
   edition: { name: string; year: number };
@@ -32,6 +35,55 @@ const labels: Record<string, string> = {
   LISTE_ATTENTE: "Liste d’attente",
 };
 
+const stageLabels: Record<string, string> = {
+  CANDIDATURE: "Candidature",
+  PAIEMENT: "Paiement",
+  FORMATION: "Formation",
+  QCM: "QCM",
+  CLASSEMENT: "Classement",
+  SELECTION: "Sélection",
+  REPECHAGE: "Repêchage",
+  DOCUMENTS: "Documents",
+  ENGAGEMENT: "Engagement",
+  BADGE: "Badge",
+  EMBARQUEMENT: "Embarquement",
+  PRESENCE: "Présence",
+  ATTESTATION: "Attestation",
+};
+const genderLabels: Record<string, string> = { MASCULIN: "Hommes", FEMININ: "Femmes" };
+
+const ALL = "ALL";
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <select
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="h-10 rounded-md border border-input bg-background px-3 text-sm font-normal text-foreground"
+      >
+        <option value={ALL}>Tous</option>
+        {options.map(option => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function AmbassadorApplicationManager({
   initialApplications,
 }: {
@@ -39,20 +91,52 @@ export function AmbassadorApplicationManager({
 }) {
   const [applications, setApplications] = useState(initialApplications);
   const [search, setSearch] = useState("");
+  const [regionFilter, setRegionFilter] = useState(ALL);
+  const [statusFilter, setStatusFilter] = useState(ALL);
+  const [genderFilter, setGenderFilter] = useState(ALL);
+  const [stageFilter, setStageFilter] = useState(ALL);
+  const [paymentFilter, setPaymentFilter] = useState(ALL);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
   const { confirm, prompt } = useConfirm();
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return query
-      ? applications.filter(item =>
-          `${item.firstName} ${item.lastName} ${item.email} ${item.region.name}`
-            .toLowerCase()
-            .includes(query)
-        )
-      : applications;
-  }, [applications, search]);
+    return applications.filter(item => {
+      if (regionFilter !== ALL && item.region.code !== regionFilter) return false;
+      if (statusFilter !== ALL && item.status !== statusFilter) return false;
+      if (genderFilter !== ALL && (item.gender ?? "NON_RENSEIGNE") !== genderFilter) return false;
+      if (stageFilter !== ALL && item.stage !== stageFilter) return false;
+      if (paymentFilter !== ALL) {
+        const paid = item.payment?.status === "VALIDE";
+        if ((paymentFilter === "PAID") !== paid) return false;
+      }
+      if (!query) return true;
+      return `${item.firstName} ${item.lastName} ${item.email} ${item.phone} ${item.region.name}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [applications, search, regionFilter, statusFilter, genderFilter, stageFilter, paymentFilter]);
+
+  const regionOptions = useMemo(() => {
+    const byCode = new Map<string, string>();
+    for (const item of applications) byCode.set(item.region.code, item.region.name);
+    return [...byCode.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [applications]);
+
+  const hasFilters =
+    search !== "" ||
+    [regionFilter, statusFilter, genderFilter, stageFilter, paymentFilter].some(value => value !== ALL);
+  const resetFilters = () => {
+    setSearch("");
+    setRegionFilter(ALL);
+    setStatusFilter(ALL);
+    setGenderFilter(ALL);
+    setStageFilter(ALL);
+    setPaymentFilter(ALL);
+  };
 
   const accept = async (application: Application) => {
     const confirmed = await confirm({
@@ -172,6 +256,45 @@ export function AmbassadorApplicationManager({
             />
           </div>
         </div>
+        <div className="flex flex-wrap items-end gap-3 border-b bg-muted/20 p-5">
+          <FilterSelect label="Région" value={regionFilter} onChange={setRegionFilter} options={regionOptions} />
+          <FilterSelect
+            label="Statut"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={Object.entries(labels).map(([value, label]) => ({ value, label }))}
+          />
+          <FilterSelect
+            label="Sexe"
+            value={genderFilter}
+            onChange={setGenderFilter}
+            options={[
+              ...Object.entries(genderLabels).map(([value, label]) => ({ value, label })),
+              { value: "NON_RENSEIGNE", label: "Non renseigné" },
+            ]}
+          />
+          <FilterSelect
+            label="Étape"
+            value={stageFilter}
+            onChange={setStageFilter}
+            options={Object.entries(stageLabels).map(([value, label]) => ({ value, label }))}
+          />
+          <FilterSelect
+            label="Paiement"
+            value={paymentFilter}
+            onChange={setPaymentFilter}
+            options={[
+              { value: "PAID", label: "Payé" },
+              { value: "UNPAID", label: "Non payé" },
+            ]}
+          />
+          {hasFilters && (
+            <Button type="button" variant="outline" onClick={resetFilters} className="h-10">
+              <X className="mr-1 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
         {message && (
           <p className="border-b px-5 py-3 text-sm text-green-600">{message}</p>
         )}
@@ -186,6 +309,7 @@ export function AmbassadorApplicationManager({
                 <th className="px-5 py-4">Région</th>
                 <th className="px-5 py-4">Édition</th>
                 <th className="px-5 py-4">Statut</th>
+                <th className="px-5 py-4">Étape</th>
                 <th className="px-5 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -208,6 +332,13 @@ export function AmbassadorApplicationManager({
                     <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
                       {labels[application.status] ?? application.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-4 text-xs text-muted-foreground">
+                    {application.status === "RETENU"
+                      ? `${stageLabels[application.stage] ?? application.stage}${
+                          application.payment?.status === "VALIDE" ? " · payé" : " · non payé"
+                        }`
+                      : "—"}
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-1">
@@ -269,7 +400,7 @@ export function AmbassadorApplicationManager({
               {filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-5 py-12 text-center text-muted-foreground"
                   >
                     Aucune candidature trouvée.

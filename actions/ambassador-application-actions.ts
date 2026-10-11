@@ -44,7 +44,7 @@ export async function listAmbassadorApplicationsAction() {
   const regionId = getActorRegionScope(actor);
   return db.ambassadorApplication.findMany({
     where: regionId ? { regionId } : undefined,
-    include: applicationInclude,
+    include: { ...applicationInclude, payment: { select: { status: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
