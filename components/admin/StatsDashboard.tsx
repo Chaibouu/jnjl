@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
   Award,
@@ -85,15 +86,18 @@ function Tile({
   hint,
   icon: Icon,
   color = charter.orange,
+  href,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   icon: React.ComponentType<{ className?: string }>;
   color?: string;
+  /** Page de détail ; absent = carte non cliquable. */
+  href?: string;
 }) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+  const content = (
+    <div className="group relative h-full overflow-hidden rounded-2xl border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
         <span
@@ -112,6 +116,14 @@ function Tile({
         style={{ backgroundColor: color }}
       />
     </div>
+  );
+
+  return href ? (
+    <Link href={href} className="block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2">
+      {content}
+    </Link>
+  ) : (
+    content
   );
 }
 
@@ -155,13 +167,17 @@ export function StatsDashboard({
   initialStats,
   canExportAmbassadors,
   canExportParticipants,
+  linkPermissions,
 }: {
   editions: EditionOption[];
   initialEditionId: string;
   initialStats: Stats | null;
   canExportAmbassadors: boolean;
   canExportParticipants: boolean;
+  /** Pages de détail ouvertes aux cartes : seules celles que l'utilisateur peut consulter sont cliquables. */
+  linkPermissions: Record<"applications" | "payments" | "selection" | "badges" | "boarding" | "attendance" | "participants", boolean>;
 }) {
+  const link = (key: keyof typeof linkPermissions, href: string) => (linkPermissions[key] ? href : undefined);
   const [editionId, setEditionId] = useState(initialEditionId);
   const [stats, setStats] = useState(initialStats);
   const [error, setError] = useState("");
@@ -263,19 +279,20 @@ export function StatsDashboard({
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Tile label="Candidatures ambassadeurs" value={stats.ambassadors.total} icon={Users} color={charter.orange} />
+            <Tile label="Candidatures ambassadeurs" value={stats.ambassadors.total} icon={Users} color={charter.orange} href={link("applications", "/admin/ambassadeurs/candidatures")} />
             <Tile
               label="Paiements validés"
               value={stats.ambassadors.paid}
               hint={`${stats.ambassadors.revenue.toLocaleString("fr-FR")} FCFA encaissés`}
               icon={Wallet}
               color="#16A34A"
+              href={link("payments", "/admin/paiements")}
             />
-            <Tile label="Sélectionnés" value={stats.ambassadors.selected} icon={CheckCircle2} color="#3B82F6" />
-            <Tile label="Badges émis" value={stats.badges} icon={Award} color="#8B5CF6" />
-            <Tile label="Embarqués" value={stats.ambassadors.boarded} icon={Bus} color="#0891B2" />
-            <Tile label="Ambassadeurs présents" value={stats.ambassadors.present} icon={UserCheck} color="#0D9488" />
-            <Tile label="Candidatures participants" value={stats.participants.total} icon={Users} color="#EC4899" />
+            <Tile label="Sélectionnés" value={stats.ambassadors.selected} icon={CheckCircle2} color="#3B82F6" href={link("selection", "/admin/selection")} />
+            <Tile label="Badges émis" value={stats.badges} icon={Award} color="#8B5CF6" href={link("badges", "/admin/badges")} />
+            <Tile label="Embarqués" value={stats.ambassadors.boarded} icon={Bus} color="#0891B2" href={link("boarding", "/admin/embarquement")} />
+            <Tile label="Ambassadeurs présents" value={stats.ambassadors.present} icon={UserCheck} color="#0D9488" href={link("attendance", "/admin/presence")} />
+            <Tile label="Candidatures participants" value={stats.participants.total} icon={Users} color="#EC4899" href={link("participants", "/admin/candidatures/participants")} />
             <Tile label="Candidatures Jeunes Leaders" value={stats.leaders} icon={GraduationCap} color="#6366F1" />
           </div>
 

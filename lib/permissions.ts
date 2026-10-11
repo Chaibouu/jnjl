@@ -38,3 +38,22 @@ export function hasAllPermissions(
   const granted = user.permissions ?? [];
   return codes.every((code) => granted.includes(code));
 }
+
+/** Le staff voit le même tableau de bord de pilotage que les admins, sans permission dédiée. */
+export function canViewStats(user: PermissionCheckable | null | undefined): boolean {
+  if (!user) return false;
+  return user.role === "STAFF" || hasPermission(user, "stats.view");
+}
+
+/** Pages de détail vers lesquelles les cartes du tableau de bord peuvent pointer. */
+export function getStatsLinkPermissions(user: PermissionCheckable | null | undefined) {
+  return {
+    applications: hasPermission(user, "applications.ambassador.manage"),
+    payments: hasPermission(user, "payments.manage"),
+    selection: hasPermission(user, "selection.manage"),
+    badges: hasPermission(user, "badges.manage"),
+    boarding: hasPermission(user, "boarding.manage"),
+    attendance: hasPermission(user, "attendance.manage"),
+    participants: hasPermission(user, "applications.event.manage"),
+  };
+}

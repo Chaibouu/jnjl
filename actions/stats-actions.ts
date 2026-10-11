@@ -3,6 +3,10 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { formatGender } from "@/lib/gender";
+import { getUser } from "@/actions/getUser";
+import { ForbiddenError } from "@/lib/forbidden-error";
+import { canViewStats } from "@/lib/permissions";
+import type { User } from "@/types/user";
 
 const STAGE_ORDER = [
   "CANDIDATURE",
@@ -21,7 +25,10 @@ const STAGE_ORDER = [
 
 /** Tableau de bord d'une édition : chiffres nationaux + détail par région. */
 export async function getEditionStatsAction(editionId: string) {
-  await requirePermission("stats.view");
+  const session = await getUser();
+  const actor = session?.user?.user as User | undefined;
+  if (!actor) throw new ForbiddenError("Authentification requise");
+  if (!canViewStats(actor)) throw new ForbiddenError("Permission requise : stats.view");
 
   const [ambassadors, quotas, eventApplications, leaderCount, badgeCount, attendedUsers, regions] =
     await Promise.all([
