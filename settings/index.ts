@@ -28,6 +28,7 @@ const appConfig = {
     "/intervenants",
     "/programme",
     "/editions",
+    "/affiche",
   ],
   defaultLoginRedirect: "/dashboard",
   primaryColor: "#F07321",

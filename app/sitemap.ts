@@ -14,6 +14,7 @@ const STATIC_PAGES: { path: string; priority: number; changeFrequency: "daily" |
   { path: "/intervenants", priority: 0.7, changeFrequency: "weekly" },
   { path: "/partenaires", priority: 0.6, changeFrequency: "monthly" },
   { path: "/editions", priority: 0.7, changeFrequency: "monthly" },
+  { path: "/affiche", priority: 0.6, changeFrequency: "monthly" },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

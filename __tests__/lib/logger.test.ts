@@ -39,7 +39,7 @@ describe('Logger', () => {
   })
 
   it('should log with context', () => {
-    logger.info('Test with context', { userId: '123', action: 'login' })
+    logger.info({ userId: '123', action: 'login' }, 'Test with context')
     expect(mockConsoleInfo).toHaveBeenCalledWith(
       expect.stringContaining('Test with context')
     )

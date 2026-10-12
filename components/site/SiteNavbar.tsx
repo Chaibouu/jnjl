@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronDown,
   History,
+  ImagePlus,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -65,6 +66,7 @@ const MORE_GROUPS = [
       { href: "/participer", label: "Participer à l'événement", icon: Ticket },
       { href: "/ambassadeurs/candidature", label: "Devenir Ambassadeur", icon: UserCheck },
       { href: "/auth/signup", label: "Devenir Jeune Leader", icon: UserPlus },
+      { href: "/affiche", label: "Mon affiche « J'y serai »", icon: ImagePlus },
     ],
   },
   {
