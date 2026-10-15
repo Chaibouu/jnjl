@@ -294,6 +294,13 @@ export const adminNavigation: NavigationItem[] = [
     requiredPermission: "badges.manage",
   },
   {
+    title: "Accès & badges",
+    icon: "material-symbols:id-card",
+    path: "/admin/acces",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+    requiredPermission: "badges.manage",
+  },
+  {
     title: "Embarquement",
     icon: "material-symbols:directions-bus",
     path: "/admin/embarquement",

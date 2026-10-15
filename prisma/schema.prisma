@@ -399,6 +399,7 @@ model Edition {
   ambassadorApplications AmbassadorApplication[]
   eventParticipations    EventParticipation[]
   attendances            Attendance[]
+  accessPasses           AccessPass[]
   regionalQuotas         RegionalQuota[]
   trainingCourses        TrainingCourse[]
   trainingModules        TrainingModule[]
@@ -1231,4 +1232,42 @@ model DocumentTemplate {
   updatedAt DateTime             @updatedAt
 
   @@index([editionId, type, isActive])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JNJL — Accès (badges hors ambassadeurs : médias, commissions, comité, intervenants…)
+// ═══════════════════════════════════════════════════════════════════════
+
+enum AccessPassCategory {
+  MEDIA
+  COMMISSION
+  COMITE_ORGANISATION
+  INTERVENANT
+  POINT_FOCAL
+  PERSONNEL_APPUI
+  INVITE
+  AUTRE
+}
+
+// Porteur de badge sans compte ni parcours : ajouté à la main par l'administration.
+// Le QR est créé et contrôlé par ScanHub (`qrCode` = jeton), `number` sert d'identifiant externe.
+model AccessPass {
+  id           String             @id @default(cuid())
+  editionId    String
+  edition      Edition            @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  category     AccessPassCategory
+  fullName     String
+  organization String? // média, structure, commission…
+  jobTitle     String? // fonction
+  phone        String?
+  email        String?
+  number       String             @unique
+  qrCode       String?
+  status       String             @default("ACTIF") // ACTIF | REVOQUE
+  checkedInAt  DateTime?
+  createdById  String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([editionId, category])
 }
