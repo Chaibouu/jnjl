@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
+import { recordBadgeCheckIn } from "@/lib/badge-checkin";
 
 /** Sessions du programme de l'édition, pour pointer « sur une session » ou sur l'événement en général. */
 export async function listAttendanceSessionsAction(editionId: string) {
@@ -89,56 +90,11 @@ export async function listAttendanceAction(editionId: string, sessionId?: string
  */
 export async function checkInByBadgeAction(editionId: string, badgeNumber: string, sessionId?: string | null) {
   const checker = await requirePermission("attendance.manage");
-
-  const number = badgeNumber.trim();
-  if (!number) throw new Error("Numéro de badge requis");
-
-  const userBadge = await db.userBadge.findUnique({
-    where: { number },
-    include: { user: { select: { id: true, name: true } } },
+  return recordBadgeCheckIn({
+    editionId,
+    badgeRef: badgeNumber,
+    sessionId,
+    checkedById: checker.id,
+    assertRegion: regionId => assertRegionAccess(checker, regionId),
   });
-  if (!userBadge || userBadge.editionId !== editionId) {
-    throw new Error("Badge inconnu pour cette édition");
-  }
-  if (userBadge.status !== "ACTIF") throw new Error("Ce badge n'est plus actif");
-
-  const userId = userBadge.userId;
-  const sessionFilter = sessionId ?? null;
-
-  const already = await db.attendance.findFirst({
-    where: { editionId, userId, sessionId: sessionFilter },
-  });
-  if (already) {
-    throw new Error(`${userBadge.user.name ?? "Ce participant"} est déjà pointé(e)`);
-  }
-
-  const application = await db.ambassadorApplication.findFirst({
-    where: { editionId, userId, status: "RETENU" },
-    select: { id: true, stage: true, regionId: true },
-  });
-  if (application) assertRegionAccess(checker, application.regionId);
-  if (application && application.stage === "EMBARQUEMENT") {
-    throw new Error("L'embarquement de cet ambassadeur n'a pas encore été validé par le point focal");
-  }
-
-  const participation =
-    (await db.eventParticipation.findFirst({ where: { editionId, userId } })) ??
-    (await db.eventParticipation.create({ data: { editionId, userId } }));
-
-  await db.$transaction([
-    db.attendance.create({
-      data: {
-        editionId,
-        userId,
-        participationId: participation.id,
-        sessionId: sessionFilter,
-        checkedById: checker.id,
-      },
-    }),
-    ...(application && application.stage === "PRESENCE"
-      ? [db.ambassadorApplication.update({ where: { id: application.id }, data: { stage: "ATTESTATION" } })]
-      : []),
-  ]);
-
-  return { name: userBadge.user.name ?? number };
 }

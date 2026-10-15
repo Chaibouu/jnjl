@@ -60,6 +60,8 @@ export async function generateBadgePdf(params: {
   /** Couleur de fond du badge (hex) — configurée par édition, repli sur le noir. */
   backgroundColor?: string | null;
   number: string;
+  /** Contenu du QR (jeton ScanHub) ; à défaut le numéro du badge. */
+  qrValue?: string;
   awardedAt: Date;
   /** Contenu du logo JNJL (JPEG) — le badge est généré sans logo s'il est absent. */
   logo?: Uint8Array | null;
@@ -222,7 +224,7 @@ export async function generateBadgePdf(params: {
   // QR code
   const qrSize = 88;
   const qrY = Math.max(bodyBottom + 10, cursor - 10 - qrSize);
-  const qrDataUrl = await QRCode.toDataURL(params.number, { margin: 1, width: 300 });
+  const qrDataUrl = await QRCode.toDataURL(params.qrValue ?? params.number, { margin: 1, width: 300 });
   const qr = await doc.embedPng(qrDataUrl.split(",")[1]!);
   page.drawRectangle({ x: (WIDTH - qrSize) / 2 - 5, y: qrY - 5, width: qrSize + 10, height: qrSize + 10, color: WHITE });
   page.drawImage(qr, { x: (WIDTH - qrSize) / 2, y: qrY, width: qrSize, height: qrSize });

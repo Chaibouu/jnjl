@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { syncBadgeQr } from "@/lib/badge-qr";
 import { notify } from "@/lib/notify";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
@@ -106,6 +107,15 @@ export async function setBoardingStatusAction(applicationId: string, status: Boa
       data: { stage: nextStage },
     }),
   ]);
+
+  // QR du badge : accepté à l'entrée uniquement pour un ambassadeur embarqué.
+  if (application.userId) {
+    const userBadge = await db.userBadge.findFirst({
+      where: { userId: application.userId, editionId: application.editionId, badge: { code: "AMBASSADEUR" } },
+      select: { id: true },
+    });
+    if (userBadge) await syncBadgeQr(userBadge.id, validated);
+  }
 
   if (application.userId && (status === "EMBARQUE" || status === "ANNULE")) {
     await notify({

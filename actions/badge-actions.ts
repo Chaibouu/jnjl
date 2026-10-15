@@ -9,6 +9,7 @@ import { requirePermission } from "@/actions/requirePermission";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
+import { syncBadgeQr } from "@/lib/badge-qr";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const AMBASSADOR_BADGE = {
@@ -121,6 +122,9 @@ async function awardBadge(actor: User, applicationId: string) {
     }),
   ]);
 
+  // QR contrôlé par ScanHub : actif seulement une fois l'embarquement validé.
+  await syncBadgeQr(userBadge.id, ["PRESENCE", "ATTESTATION"].includes(application.stage));
+
   await notify({
     userId: application.userId,
     title: "Votre badge est disponible",
@@ -212,6 +216,7 @@ export async function getMyBadgeAction() {
       ? {
           label: userBadge.badge.label,
           number: userBadge.number,
+          qrValue: userBadge.qrCode ?? userBadge.number,
           awardedAt: userBadge.awardedAt,
           qrDataUrl,
         }
@@ -239,6 +244,7 @@ export async function downloadMyBadgeAction() {
     eventDate: data.eventDate,
     backgroundColor: data.badgeBackgroundColor,
     number: data.badge.number,
+    qrValue: data.badge.qrValue ?? undefined,
     awardedAt: data.badge.awardedAt,
     logo: await loadPublicImage("jnjl.jpg"),
     partnerLogos: await Promise.all(PARTNER_LOGO_PATHS.map(loadPublicImage)),
