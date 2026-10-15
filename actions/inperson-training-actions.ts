@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { notify } from "@/lib/notify";
+import { ForbiddenError } from "@/lib/forbidden-error";
+import { INPERSON_TRAINING_OPEN_KEY, isInPersonTrainingOpen } from "@/lib/inperson-training";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 /**
@@ -45,6 +47,9 @@ export async function listInPersonTrainingAction(editionId: string) {
 /** Marque la formation présentielle comme faite ; débloque le QCM si l'ambassadeur attendait à FORMATION. */
 export async function markInPersonTrainingDoneAction(applicationId: string) {
   const actor = await requirePermission("training.inperson.manage");
+  if (!(await isInPersonTrainingOpen())) {
+    throw new Error("La formation présentielle n'a pas encore été autorisée par un administrateur");
+  }
 
   const application = await db.ambassadorApplication.findUnique({
     where: { id: applicationId },
@@ -82,4 +87,32 @@ export async function markInPersonTrainingDoneAction(applicationId: string) {
     });
   }
   return { id: applicationId };
+}
+
+/** État d'autorisation de la formation présentielle et droit de la modifier (admin / super admin). */
+export async function getInPersonTrainingStateAction() {
+  const actor = await requirePermission("training.inperson.manage");
+  return {
+    open: await isInPersonTrainingOpen(),
+    canAuthorize: actor.role === "SUPER_ADMIN" || actor.role === "ADMIN",
+  };
+}
+
+/** Autorise (ou suspend) le début de la formation présentielle. Réservé aux admins et super admins. */
+export async function setInPersonTrainingOpenAction(open: boolean) {
+  const actor = await requirePermission("training.inperson.manage");
+  if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") {
+    throw new ForbiddenError("Seul un administrateur peut autoriser la formation présentielle");
+  }
+
+  await db.setting.upsert({
+    where: { key: INPERSON_TRAINING_OPEN_KEY },
+    create: {
+      key: INPERSON_TRAINING_OPEN_KEY,
+      value: open ? "true" : "false",
+      description: "Formation présentielle autorisée (le staff peut marquer « Formation faite »)",
+    },
+    update: { value: open ? "true" : "false" },
+  });
+  return { open };
 }

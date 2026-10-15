@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { CheckCircle2, Search } from "lucide-react";
+import { CheckCircle2, Lock, PlayCircle, Search } from "lucide-react";
 import {
   listInPersonTrainingAction,
   markInPersonTrainingDoneAction,
+  setInPersonTrainingOpenAction,
 } from "@/actions/inperson-training-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
@@ -30,11 +31,17 @@ export function InPersonTrainingManager({
   editions,
   initialEditionId,
   initialRows,
+  initialOpen,
+  canAuthorize,
 }: {
   editions: EditionOption[];
   initialEditionId: string;
   initialRows: Rows;
+  initialOpen: boolean;
+  /** Admin et super admin uniquement : peut autoriser ou suspendre la formation. */
+  canAuthorize: boolean;
 }) {
+  const [open, setOpen] = useState(initialOpen);
   const [editionId, setEditionId] = useState(initialEditionId);
   const [rows, setRows] = useState(initialRows);
   const [search, setSearch] = useState("");
@@ -62,6 +69,29 @@ export function InPersonTrainingManager({
     startTransition(async () => {
       try {
         setRows(await listInPersonTrainingAction(value));
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
+
+  const toggleOpen = async () => {
+    const next = !open;
+    const confirmed = await confirm({
+      title: next ? "Autoriser le début de la formation ?" : "Suspendre la formation ?",
+      description: next
+        ? "Le staff des régions pourra marquer les ambassadeurs présents comme « Formation faite »."
+        : "Plus personne ne pourra marquer « Formation faite » tant que vous ne l'aurez pas de nouveau autorisée.",
+      confirmLabel: next ? "Autoriser" : "Suspendre",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await setInPersonTrainingOpenAction(next);
+        setOpen(result.open);
+        setMessage(result.open ? "Formation autorisée : le staff peut valider les présences." : "Formation suspendue.");
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
       }
@@ -135,16 +165,36 @@ export function InPersonTrainingManager({
               </Button>
             ))}
           </div>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Rechercher..."
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-            />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {canAuthorize && (
+              <Button
+                type="button"
+                loading={isPending}
+                variant={open ? "outline" : "default"}
+                onClick={toggleOpen}
+                className="gap-2 rounded-none"
+              >
+                {open ? <Lock className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+                {open ? "Suspendre la formation" : "Autoriser le début de la formation"}
+              </Button>
+            )}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Rechercher..."
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+              />
+            </div>
           </div>
         </div>
+        {!open && (
+          <p className="border-b bg-amber-50 px-5 py-3 text-sm text-amber-800">
+            La formation n&apos;a pas encore été autorisée par un administrateur : la validation des présences est
+            bloquée.
+          </p>
+        )}
         {message && <p className="border-b px-5 py-3 text-sm text-green-600">{message}</p>}
         {error && <p className="border-b px-5 py-3 text-sm text-destructive">{error}</p>}
         <div className="overflow-x-auto">
@@ -182,6 +232,7 @@ export function InPersonTrainingManager({
                         type="button"
                         size="sm"
                         loading={isPending}
+                        disabled={!open}
                         onClick={() => markDone(row)}
                         className="gap-2 rounded-none"
                       >
