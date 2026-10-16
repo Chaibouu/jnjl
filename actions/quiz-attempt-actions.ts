@@ -28,6 +28,25 @@ async function getMyAmbassadorApplication(editionId: string) {
   return application;
 }
 
+/** Correction instantanée d'une réponse : jamais les bonnes réponses non choisies, seulement le verdict de ce qui est coché. */
+export type AnswerFeedback = {
+  isCorrect: boolean;
+  /** Pour chaque option cochée : vrai si elle fait partie des bonnes réponses. */
+  optionResults: Record<string, boolean>;
+};
+
+function gradeSelection(
+  options: { id: string; isCorrect: boolean }[],
+  selectedOptionIds: string[]
+): AnswerFeedback {
+  const correctIds = new Set(options.filter(option => option.isCorrect).map(option => option.id));
+  const selected = new Set(selectedOptionIds);
+  const optionResults: Record<string, boolean> = {};
+  for (const id of selected) optionResults[id] = correctIds.has(id);
+  const isCorrect = selected.size === correctIds.size && [...selected].every(id => correctIds.has(id));
+  return { isCorrect, optionResults };
+}
+
 function shuffle<T>(items: T[]): T[] {
   const array = [...items];
   for (let i = array.length - 1; i > 0; i--) {
@@ -196,20 +215,31 @@ export async function getAttemptForPlayer(attemptId: string) {
         : [...item.question.options].sort((a, b) => a.position - b.position)
       ).map(option => ({ id: option.id, text: option.text })),
       selectedOptionIds: answersByQuestion.get(item.questionId)?.selectedOptionIds ?? [],
+      // Une question déjà répondue est verrouillée : son verdict est rejoué tel quel après un rechargement.
+      feedback: ((): AnswerFeedback | null => {
+        const selected = answersByQuestion.get(item.questionId)?.selectedOptionIds ?? [];
+        return selected.length > 0 ? gradeSelection(item.question.options, selected) : null;
+      })(),
     })),
   };
 }
 
-/** Enregistre (ou met à jour) la réponse d'une question — appelé à chaque changement, pas de validation ici. */
+/**
+ * Enregistre la réponse d'une question et renvoie aussitôt son verdict (vert / rouge dans le joueur).
+ * Une réponse validée est définitive : sans cela on pourrait essayer chaque option jusqu'au vert.
+ */
 export async function saveQuizAnswerAction(
   attemptId: string,
   questionId: string,
   selectedOptionIds: string[]
-) {
+): Promise<AnswerFeedback> {
   const user = await getCurrentUser();
   const attempt = await db.quizAttempt.findUnique({
     where: { id: attemptId },
-    include: { ambassadorApplication: { select: { userId: true } } },
+    include: {
+      ambassadorApplication: { select: { userId: true } },
+      quiz: { include: { questions: { include: { question: { include: { options: true } } } } } },
+    },
   });
   if (!attempt || attempt.ambassadorApplication.userId !== user.id) {
     throw new ForbiddenError("Tentative introuvable");
@@ -218,11 +248,31 @@ export async function saveQuizAnswerAction(
     throw new Error("Cette tentative est déjà terminée");
   }
 
+  const item = attempt.quiz.questions.find(entry => entry.questionId === questionId);
+  if (!item) throw new Error("Question introuvable dans ce QCM");
+  const options = item.question.options;
+
+  const existing = await db.quizAnswer.findUnique({
+    where: { attemptId_questionId: { attemptId, questionId } },
+    select: { selectedOptionIds: true },
+  });
+  if (existing && existing.selectedOptionIds.length > 0) {
+    return gradeSelection(options, existing.selectedOptionIds);
+  }
+
+  const validIds = new Set(options.map(option => option.id));
+  const selection = [...new Set(selectedOptionIds)].filter(id => validIds.has(id));
+  if (selection.length === 0) throw new Error("Choisissez au moins une réponse");
+  if (item.question.type !== "MULTIPLE_CHOICE" && selection.length > 1) {
+    throw new Error("Une seule réponse est attendue");
+  }
+
   await db.quizAnswer.upsert({
     where: { attemptId_questionId: { attemptId, questionId } },
-    update: { selectedOptionIds },
-    create: { attemptId, questionId, selectedOptionIds },
+    update: { selectedOptionIds: selection },
+    create: { attemptId, questionId, selectedOptionIds: selection },
   });
+  return gradeSelection(options, selection);
 }
 
 /** Corrige et clôture la tentative côté serveur — le score n'est jamais calculé côté client. */

@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Clock } from "lucide-react";
-import { saveQuizAnswerAction, submitQuizAttemptAction } from "@/actions/quiz-attempt-actions";
+import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import {
+  saveQuizAnswerAction,
+  submitQuizAttemptAction,
+  type AnswerFeedback,
+} from "@/actions/quiz-attempt-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +21,12 @@ type Question = {
   points: number;
   options: { id: string; text: string }[];
   selectedOptionIds: string[];
+  /** Verdict de la réponse déjà validée (question verrouillée), sinon null. */
+  feedback: AnswerFeedback | null;
 };
+
+/** Temps laissé pour voir le vert / rouge avant de passer à la question suivante. */
+const FEEDBACK_DELAY_MS = 2000;
 
 type Attempt = {
   attemptId: string;
@@ -41,8 +50,15 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
   const [index, setIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
+  const [validating, setValidating] = useState(false);
   const submittedRef = useRef(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { confirm } = useConfirm();
+
+  useEffect(() => () => {
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+  }, []);
 
   const deadline = initialAttempt.deadlineAt ? new Date(initialAttempt.deadlineAt) : null;
   const [remainingMs, setRemainingMs] = useState(
@@ -83,23 +99,50 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
   const current = questions[index];
   const answeredCount = questions.filter(question => question.selectedOptionIds.length > 0).length;
 
-  const setSelection = (optionIds: string[]) => {
-    setQuestions(prev =>
-      prev.map((question, i) => (i === index ? { ...question, selectedOptionIds: optionIds } : question))
-    );
-    saveQuizAnswerAction(initialAttempt.attemptId, current.questionId, optionIds).catch(() => {
+  const goTo = (target: number) => {
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    setIndex(Math.max(0, Math.min(questions.length - 1, target)));
+  };
+
+  /** Valide la réponse côté serveur, affiche le verdict puis passe à la question suivante après un court délai. */
+  const validate = async (optionIds: string[]) => {
+    if (!current || current.feedback || validating || optionIds.length === 0) return;
+    const questionIndex = index;
+    setValidating(true);
+    setError("");
+    try {
+      const feedback = await saveQuizAnswerAction(initialAttempt.attemptId, current.questionId, optionIds);
+      setQuestions(prev =>
+        prev.map((question, i) =>
+          i === questionIndex ? { ...question, selectedOptionIds: optionIds, feedback } : question
+        )
+      );
+      if (questionIndex < questions.length - 1) {
+        if (advanceTimer.current) clearTimeout(advanceTimer.current);
+        advanceTimer.current = setTimeout(() => {
+          // Ne saute pas si l'ambassadeur a déjà navigué ailleurs pendant ce délai.
+          setIndex(currentIndex => (currentIndex === questionIndex ? questionIndex + 1 : currentIndex));
+        }, FEEDBACK_DELAY_MS);
+      }
+    } catch {
       setError("Impossible d'enregistrer votre réponse — vérifiez votre connexion.");
-    });
+    } finally {
+      setValidating(false);
+    }
   };
 
   const toggleOption = (optionId: string) => {
+    if (!current || current.feedback || validating) return;
     if (current.type === "MULTIPLE_CHOICE") {
-      const selected = new Set(current.selectedOptionIds);
-      if (selected.has(optionId)) selected.delete(optionId);
-      else selected.add(optionId);
-      setSelection([...selected]);
+      setDrafts(prev => {
+        const selected = new Set(prev[current.questionId] ?? []);
+        if (selected.has(optionId)) selected.delete(optionId);
+        else selected.add(optionId);
+        return { ...prev, [current.questionId]: [...selected] };
+      });
     } else {
-      setSelection([optionId]);
+      // Choix unique : un clic valide aussitôt.
+      validate([optionId]);
     }
   };
 
@@ -154,21 +197,62 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
 
           <div className="mt-5 space-y-2.5">
             {current.options.map(option => {
-              const selected = current.selectedOptionIds.includes(option.id);
+              const locked = current.feedback !== null;
+              const draft = drafts[current.questionId] ?? [];
+              const selected = locked ? current.selectedOptionIds.includes(option.id) : draft.includes(option.id);
+              const verdict = locked && selected ? current.feedback!.optionResults[option.id] : null;
+              const style =
+                verdict === true
+                  ? { borderColor: "#16a34a", backgroundColor: "#16a34a1a" }
+                  : verdict === false
+                    ? { borderColor: "#dc2626", backgroundColor: "#dc26261a" }
+                    : selected
+                      ? { borderColor: charter.orange, backgroundColor: `${charter.orange}0d` }
+                      : undefined;
               return (
                 <label
                   key={option.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${
+                  className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
                     selected ? "border-2" : "border"
-                  }`}
-                  style={selected ? { borderColor: charter.orange, backgroundColor: `${charter.orange}0d` } : undefined}
+                  } ${locked ? "cursor-default" : "cursor-pointer"}`}
+                  style={style}
                 >
-                  <Checkbox checked={selected} onCheckedChange={() => toggleOption(option.id)} />
-                  <span className="text-sm">{option.text}</span>
+                  <Checkbox
+                    checked={selected}
+                    disabled={locked}
+                    onCheckedChange={() => toggleOption(option.id)}
+                  />
+                  <span className="flex-1 text-sm">{option.text}</span>
+                  {verdict === true && <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />}
+                  {verdict === false && <XCircle className="h-5 w-5 shrink-0 text-red-600" />}
                 </label>
               );
             })}
           </div>
+
+          {current.feedback ? (
+            <p
+              className="mt-4 text-sm font-semibold"
+              style={{ color: current.feedback.isCorrect ? "#16a34a" : "#dc2626" }}
+            >
+              {current.feedback.isCorrect ? "Bonne réponse !" : "Mauvaise réponse."}
+              {!isLast && <span className="ml-2 font-normal text-muted-foreground">Question suivante…</span>}
+            </p>
+          ) : current.type === "MULTIPLE_CHOICE" ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs text-muted-foreground">Plusieurs réponses possibles.</p>
+              <Button
+                type="button"
+                loading={validating}
+                disabled={(drafts[current.questionId] ?? []).length === 0}
+                onClick={() => validate(drafts[current.questionId] ?? [])}
+                className="rounded-none text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: charter.orange }}
+              >
+                Valider ma réponse
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -178,7 +262,7 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
           variant="outline"
           className="rounded-none"
           disabled={index === 0}
-          onClick={() => setIndex(current => Math.max(0, current - 1))}
+          onClick={() => goTo(index - 1)}
         >
           Précédente
         </Button>
@@ -188,7 +272,7 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
             <button
               key={question.quizQuestionId}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={() => goTo(i)}
               className="flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors"
               style={
                 i === index
@@ -223,7 +307,7 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
         ) : (
           <Button
             type="button"
-            onClick={() => setIndex(current => Math.min(questions.length - 1, current + 1))}
+            onClick={() => goTo(index + 1)}
             className="rounded-none text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: charter.orange }}
           >
