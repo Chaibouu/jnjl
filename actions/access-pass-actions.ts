@@ -6,7 +6,7 @@ import { generateBadgePdf, type DesignVariant } from "@/lib/generate-badge-pdf";
 import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { uploadFile } from "@/lib/upload";
 import { storagePaths } from "@/lib/storage-paths";
-import { categoryLabel, isAccessCategory } from "@/lib/access-categories";
+import { categoryLabel, isAccessCategory, organizationField } from "@/lib/access-categories";
 import { nextAccessNumber, syncAccessPassQr } from "@/lib/access-pass";
 
 const PERMISSION = "badges.manage";
@@ -44,6 +44,14 @@ const clean = (value: unknown, max: number): string | null => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
   return text || null;
 };
+
+/** La précision (média, commission, région…) est obligatoire pour les catégories qui l'affichent sur le badge. */
+function assertOrganization(category: string, organization: string | null | undefined) {
+  const field = organizationField(category);
+  if (field.required && !clean(organization, 150)) {
+    throw new Error(`${field.label} : à préciser pour la catégorie « ${categoryLabel(category)} »`);
+  }
+}
 
 function toRow(pass: {
   id: string;
@@ -100,6 +108,7 @@ async function createPass(editionId: string, editionYear: number, createdById: s
   const fullName = clean(input.fullName, 150);
   if (!fullName) throw new Error("Le nom complet est obligatoire");
   if (!isAccessCategory(input.category)) throw new Error("Catégorie invalide");
+  assertOrganization(input.category, input.organization);
 
   // Deux créations simultanées peuvent viser le même numéro : on réessaie avec le suivant.
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -188,6 +197,7 @@ export async function updateAccessPassAction(passId: string, input: PassInput) {
   const fullName = clean(input.fullName, 150);
   if (!fullName) throw new Error("Le nom complet est obligatoire");
   if (!isAccessCategory(input.category)) throw new Error("Catégorie invalide");
+  assertOrganization(input.category, input.organization);
 
   const updated = await db.accessPass.update({
     where: { id: passId },

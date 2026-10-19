@@ -12,7 +12,7 @@ import {
   uploadAccessPhotoAction,
   type AccessPassRow,
 } from "@/actions/access-pass-actions";
-import { ACCESS_CATEGORIES } from "@/lib/access-categories";
+import { ACCESS_CATEGORIES, organizationField } from "@/lib/access-categories";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
@@ -30,16 +30,6 @@ function downloadPdf(base64: string, filename: string) {
   link.click();
   URL.revokeObjectURL(url);
 }
-
-const organizationLabel = (category: string) =>
-  category === "POINT_FOCAL"
-    ? "Région (affichée sur le badge)"
-    : category === "COMMISSION"
-      ? "Nom de la commission (affiché sur le badge)"
-      : "Organisation / média";
-
-const organizationPlaceholder = (category: string) =>
-  category === "POINT_FOCAL" ? "Ex. Niamey" : category === "COMMISSION" ? "Ex. Accueil & Hébergement" : "Ex. Télé Sahel";
 
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
@@ -109,6 +99,10 @@ export function AccessPassManager({
     setEditionId(value);
     run(async () => setPasses(await listAccessPassesAction(value)));
   };
+
+  const canSubmit =
+    form.fullName.trim().length > 0 &&
+    (!organizationField(form.category).required || form.organization.trim().length > 0);
 
   const emptyForm = (category: string) => ({
     fullName: "",
@@ -293,11 +287,12 @@ export function AccessPassManager({
               </select>
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              {organizationLabel(form.category)}
+              {organizationField(form.category).label}
+              {organizationField(form.category).required ? " *" : ""}
               <Input
                 value={form.organization}
                 onChange={event => setForm({ ...form, organization: event.target.value })}
-                placeholder={organizationPlaceholder(form.category)}
+                placeholder={organizationField(form.category).placeholder}
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
@@ -368,7 +363,7 @@ export function AccessPassManager({
                   <Button
                     type="button"
                     loading={isPending}
-                    disabled={!form.fullName.trim()}
+                    disabled={!canSubmit}
                     onClick={saveEdit}
                     className="gap-2 rounded-none"
                   >
@@ -384,7 +379,7 @@ export function AccessPassManager({
                 <Button
                   type="button"
                   loading={isPending}
-                  disabled={!form.fullName.trim()}
+                  disabled={!canSubmit}
                   onClick={addOne}
                   className="gap-2 rounded-none"
                 >
@@ -407,7 +402,7 @@ export function AccessPassManager({
               </select>
             </label>
             <label className="block space-y-1 text-xs font-medium text-muted-foreground">
-              Une personne par ligne : Nom complet ; Organisation ; Fonction ; Téléphone ; E-mail
+              Une personne par ligne : Nom complet ; Précision (média, commission, service…) ; Fonction ; Téléphone ; E-mail
               <textarea
                 value={bulkText}
                 onChange={event => setBulkText(event.target.value)}
