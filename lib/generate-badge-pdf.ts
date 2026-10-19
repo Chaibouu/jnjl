@@ -68,7 +68,7 @@ function fitSize(text: string, font: PDFFont, maxWidth: number, max: number, min
 // le titre (AMBASSADEUR, POINT FOCAL, COMMISSION, SPEAKER) et le logo. Sont dessinés par-dessus :
 // le texte du bandeau (région ou nom de la commission), la photo (speaker), le QR code, puis le nom
 // complet et les autres données. Les coordonnées sont en pixels de l'image.
-export type DesignVariant = "ambassador" | "point_focal" | "commission" | "speaker";
+export type DesignVariant = "ambassador" | "point_focal" | "commission" | "speaker" | "generic";
 
 const DESIGN_W = 908;
 const DESIGN_H = 1280;
@@ -87,6 +87,8 @@ type DesignConfig = {
   /** Emplacement de la photo (speaker), avec le rayon des coins. */
   photo?: Box & { radius: number };
   qr: { x: number; y: number; size: number; caption: boolean };
+  /** Titre dynamique dessiné sur un fond sans titre (badge générique). */
+  dynamicTitle?: boolean;
   /** Ligne de base (en px) du nom ; le reste (fonction, trait, matricule, date) suit en dessous. */
   identityBaseline: number;
 };
@@ -110,6 +112,14 @@ const DESIGNS: Record<DesignVariant, DesignConfig> = {
     qr: { x: 490, y: 700, size: 340, caption: true },
     identityBaseline: 1128,
   },
+  // Modèle « Point focal » dont le titre a été retiré de l'image : médias, comité, personnel d'appui…
+  generic: {
+    image: "badge-generique.jpg",
+    pill: { x: 287, y: 548, w: 318, h: 63, color: PILL_BLUE },
+    qr: { x: 500, y: 880, size: 340, caption: true },
+    identityBaseline: 705,
+    dynamicTitle: true,
+  },
   speaker: {
     image: "badge-speaker.jpg",
     photo: { x: 52, y: 591, w: 373, h: 419, radius: 34 },
@@ -120,6 +130,8 @@ const DESIGNS: Record<DesignVariant, DesignConfig> = {
 
 type DesignParams = {
   fullName: string;
+  /** Titre en grand (badge générique) : MÉDIA, PERSONNEL D'APPUI… */
+  title?: string;
   /** Texte du bandeau : région (ambassadeur, point focal) ou nom de la commission. */
   region: string;
   /** Fonction affichée sous le nom (badges d'accès). */
@@ -164,6 +176,23 @@ async function generateDesignBadge(variant: DesignVariant, params: DesignParams)
     const width = usedFont.widthOfTextAtSize(value, size);
     page.drawText(value, { x: px(centerXpx) - width / 2, y: py(baselinePx), size, font: usedFont, color });
   };
+
+  // Titre dynamique (badge générique) : orange, centré, sur une ou deux lignes selon sa longueur.
+  if (design.dynamicTitle && params.title) {
+    const title = safe(params.title.toUpperCase(), bold);
+    const titleMaxWidth = px(640);
+    const oneLine = fitSize(title, bold, titleMaxWidth, 38, 26);
+    if (bold.widthOfTextAtSize(title, oneLine) <= titleMaxWidth) {
+      centeredAt(title, 453, 503, oneLine, bold, ORANGE);
+    } else {
+      const parts = title.split(" ");
+      const half = Math.ceil(parts.length / 2);
+      const lines = [parts.slice(0, half).join(" "), parts.slice(half).join(" ")].filter(Boolean);
+      lines.forEach((line, index) => {
+        centeredAt(line, 453, lines.length === 1 ? 503 : 462 + index * 40, fitSize(line, bold, titleMaxWidth, 30, 14), bold, ORANGE);
+      });
+    }
+  }
 
   // Bandeau : recouvre le texte d'origine (« NIAMEY »…) par la même couleur, puis écrit le nouveau texte.
   if (design.pill) {
@@ -296,6 +325,8 @@ export async function generateBadgePdf(params: {
   variant?: DesignVariant;
   /** Fonction affichée sous le nom (badges d'accès). */
   jobTitle?: string | null;
+  /** Titre en grand du badge générique. */
+  title?: string;
   /** Photo du porteur (speakers). */
   photo?: Uint8Array | null;
 }): Promise<Uint8Array> {

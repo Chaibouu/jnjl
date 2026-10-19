@@ -258,6 +258,19 @@ export async function downloadAccessPassBadgeAction(passId: string) {
     POINT_FOCAL: "point_focal",
     COMMISSION: "commission",
     INTERVENANT: "speaker",
+    MEDIA: "generic",
+    COMITE_ORGANISATION: "generic",
+    PERSONNEL_APPUI: "generic",
+    INVITE: "generic",
+    AUTRE: "generic",
+  };
+  // Titre en grand du modèle générique (le modèle « Point focal » sans titre).
+  const genericTitles: Record<string, string> = {
+    MEDIA: "Média",
+    COMITE_ORGANISATION: "Comité d'organisation",
+    PERSONNEL_APPUI: "Personnel d'appui",
+    INVITE: "Invité",
+    AUTRE: "Accès",
   };
   const photo = pass.photoUrl ? await loadPhoto(pass.photoUrl) : null;
 
@@ -265,11 +278,12 @@ export async function downloadAccessPassBadgeAction(passId: string) {
     editionId: edition.id,
     label: categoryLabel(pass.category),
     variant: variantByCategory[pass.category],
+    title: genericTitles[pass.category],
     jobTitle: pass.jobTitle,
     photo,
     fullName: pass.fullName,
     region:
-      pass.organization ?? (pass.category === "POINT_FOCAL" ? "Niger" : pass.category === "COMMISSION" ? "Commission" : pass.jobTitle ?? "Niger"),
+      pass.organization ?? (pass.category === "POINT_FOCAL" ? "Niger" : pass.category === "COMMISSION" ? "Commission" : "JNJL 2026"),
     editionName: `${edition.name} (${edition.year})`,
     editionLocation: edition.location,
     eventDate,
