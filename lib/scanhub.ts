@@ -64,7 +64,7 @@ async function request<T>(path: string, init: { method: "GET" | "POST"; body?: u
   }
 }
 
-/** Crée (ou retrouve, l'appel est idempotent sur le numéro) le QR d'un badge. Usage unique. */
+/** Crée (ou retrouve, l'appel est idempotent sur le numéro) le QR d'un badge, réutilisable à chaque passage. */
 export async function registerBadgeQr(input: {
   number: string;
   holderName: string;
@@ -77,7 +77,8 @@ export async function registerBadgeQr(input: {
     body: {
       externalId: input.number,
       type: "BADGE",
-      reusable: false,
+      // Un badge se présente plusieurs fois (entrées, sorties, plusieurs jours) : jamais à usage unique.
+      reusable: true,
       holderName: input.holderName.slice(0, 150),
       ...(input.holderEmail ? { holderEmail: input.holderEmail } : {}),
       holderRole: input.role.slice(0, 100),
