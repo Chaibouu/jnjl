@@ -19,6 +19,17 @@ const applicationSelect = {
   selection: { select: { status: true, rank: true } },
 } as const;
 
+/** Étapes qui précèdent l'engagement : seules celles-ci peuvent être déplacées par la sélection. */
+const STAGES_BEFORE_ENGAGEMENT: string[] = [
+  "CANDIDATURE",
+  "PAIEMENT",
+  "FORMATION",
+  "QCM",
+  "CLASSEMENT",
+  "SELECTION",
+  "REPECHAGE",
+];
+
 /** Vue groupée par région : classement + quota + résultat de sélection le cas échéant. */
 export async function getRankingAction(editionId: string) {
   const actor = await requirePermission("selection.manage");
@@ -132,10 +143,16 @@ export async function runSelectionAction(editionId: string) {
         update: { status, rank: application.rank },
         create: { ambassadorApplicationId: application.id, status, rank: application.rank },
       }),
-      db.ambassadorApplication.update({
-        where: { id: application.id },
-        data: { stage: nextStage },
-      }),
+      // Ne jamais faire reculer un ambassadeur déjà plus avancé (engagement signé, badge…) :
+      // relancer la sélection ne touche à l'étape que de ceux qui n'ont pas encore dépassé le choix.
+      ...(STAGES_BEFORE_ENGAGEMENT.includes(application.stage)
+        ? [
+            db.ambassadorApplication.update({
+              where: { id: application.id },
+              data: { stage: nextStage },
+            }),
+          ]
+        : []),
     ];
   });
 
