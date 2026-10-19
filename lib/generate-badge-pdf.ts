@@ -1,4 +1,18 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage } from "pdf-lib";
+import {
+  PDFDocument,
+  StandardFonts,
+  appendBezierCurve,
+  clip,
+  closePath,
+  endPath,
+  lineTo,
+  moveTo,
+  popGraphicsState,
+  pushGraphicsState,
+  rgb,
+  type PDFFont,
+  type PDFImage,
+} from "pdf-lib";
 import QRCode from "qrcode";
 import { renderActiveTemplate } from "@/lib/pdf-templates/render";
 import { loadPublicImage } from "@/lib/badge-assets";
@@ -49,27 +63,81 @@ function fitSize(text: string, font: PDFFont, maxWidth: number, max: number, min
   return size;
 }
 
-// ─── Design officiel du badge ambassadeur ─────────────────────────────────────
-// L'image de fond (public/badge-ambassadeur.jpg, 908 × 1280 px) contient l'en-tête, « AMBASSADEUR »,
-// le logo et le fond. Sont dessinés par-dessus : la région (dans le bandeau bleu), le QR code à droite
-// du logo, puis le nom complet et les autres données en bas. Les coordonnées sont en pixels de l'image.
-const DESIGN_IMAGE = "badge-ambassadeur.jpg";
+// ─── Designs officiels des badges ─────────────────────────────────────────────
+// Chaque maquette est une image de fond de 908 × 1280 px (public/badge-*.jpg) qui contient l'en-tête,
+// le titre (AMBASSADEUR, POINT FOCAL, COMMISSION, SPEAKER) et le logo. Sont dessinés par-dessus :
+// le texte du bandeau (région ou nom de la commission), la photo (speaker), le QR code, puis le nom
+// complet et les autres données. Les coordonnées sont en pixels de l'image.
+export type DesignVariant = "ambassador" | "point_focal" | "commission" | "speaker";
+
 const DESIGN_W = 908;
 const DESIGN_H = 1280;
 const DESIGN_PAGE_W = 420; // pt (≈ A5)
 const DESIGN_PAGE_H = (DESIGN_PAGE_W * DESIGN_H) / DESIGN_W;
-const REGION_PILL = { x: 287, y: 548, w: 318, h: 63 }; // bandeau « NIAMEY » de l'image
 const PILL_BLUE = rgb(18 / 255, 52 / 255, 142 / 255);
+const PILL_ORANGE = rgb(241 / 255, 115 / 255, 30 / 255);
 const NAVY = rgb(0.07, 0.12, 0.3);
+const GRAY = rgb(0.4, 0.4, 0.45);
 
-async function generateAmbassadorDesignBadge(params: {
+type Box = { x: number; y: number; w: number; h: number };
+type DesignConfig = {
+  image: string;
+  /** Bandeau dont le texte est remplacé (le texte d'origine est recouvert par la même couleur). */
+  pill?: Box & { color: ReturnType<typeof rgb> };
+  /** Emplacement de la photo (speaker), avec le rayon des coins. */
+  photo?: Box & { radius: number };
+  qr: { x: number; y: number; size: number; caption: boolean };
+  /** Ligne de base (en px) du nom ; le reste (fonction, trait, matricule, date) suit en dessous. */
+  identityBaseline: number;
+};
+
+const DESIGNS: Record<DesignVariant, DesignConfig> = {
+  ambassador: {
+    image: "badge-ambassadeur.jpg",
+    pill: { x: 287, y: 548, w: 318, h: 63, color: PILL_BLUE },
+    qr: { x: 500, y: 722, size: 340, caption: true },
+    identityBaseline: 1150,
+  },
+  point_focal: {
+    image: "badge-point-focal.jpg",
+    pill: { x: 287, y: 548, w: 318, h: 63, color: PILL_BLUE },
+    qr: { x: 500, y: 880, size: 340, caption: true },
+    identityBaseline: 705,
+  },
+  commission: {
+    image: "badge-commission.jpg",
+    pill: { x: 163, y: 547, w: 585, h: 68, color: PILL_ORANGE },
+    qr: { x: 490, y: 700, size: 340, caption: true },
+    identityBaseline: 1128,
+  },
+  speaker: {
+    image: "badge-speaker.jpg",
+    photo: { x: 52, y: 591, w: 373, h: 419, radius: 34 },
+    qr: { x: 520, y: 810, size: 290, caption: false },
+    identityBaseline: 1140,
+  },
+};
+
+type DesignParams = {
   fullName: string;
+  /** Texte du bandeau : région (ambassadeur, point focal) ou nom de la commission. */
   region: string;
+  /** Fonction affichée sous le nom (badges d'accès). */
+  jobTitle?: string | null;
+  /** Photo (JPEG ou PNG) du porteur : speakers. */
+  photo?: Uint8Array | null;
   number: string;
   qrValue?: string;
   awardedAt: Date;
-}): Promise<Uint8Array | null> {
-  const background = await loadPublicImage(DESIGN_IMAGE);
+};
+
+function isPng(bytes: Uint8Array) {
+  return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+}
+
+async function generateDesignBadge(variant: DesignVariant, params: DesignParams): Promise<Uint8Array | null> {
+  const design = DESIGNS[variant];
+  const background = await loadPublicImage(design.image);
   if (!background) return null;
 
   const doc = await PDFDocument.create();
@@ -84,30 +152,75 @@ async function generateAmbassadorDesignBadge(params: {
 
   page.drawImage(await doc.embedJpg(background), { x: 0, y: 0, width: DESIGN_PAGE_W, height: DESIGN_PAGE_H });
 
-  const centeredAt = (text: string, centerXpx: number, baselinePx: number, size: number, usedFont: PDFFont, color = NAVY) => {
+  const centeredAt = (
+    text: string,
+    centerXpx: number,
+    baselinePx: number,
+    size: number,
+    usedFont: PDFFont,
+    color = NAVY
+  ) => {
     const value = safe(text, usedFont);
     const width = usedFont.widthOfTextAtSize(value, size);
     page.drawText(value, { x: px(centerXpx) - width / 2, y: py(baselinePx), size, font: usedFont, color });
   };
 
-  // Région : recouvre « NIAMEY » (même bleu) puis écrit la région de l'ambassadeur.
-  const inset = 3;
-  const coverW = px(REGION_PILL.w - inset * 2);
-  const coverH = REGION_PILL.h * k - inset * 2 * k;
-  const r = 7 * k;
-  const coverX = px(REGION_PILL.x + inset);
-  const coverTop = py(REGION_PILL.y + inset);
-  page.drawSvgPath(
-    `M ${r} 0 H ${coverW - r} Q ${coverW} 0 ${coverW} ${r} V ${coverH - r} Q ${coverW} ${coverH} ${coverW - r} ${coverH} H ${r} Q 0 ${coverH} 0 ${coverH - r} V ${r} Q 0 0 ${r} 0 Z`,
-    { x: coverX, y: coverTop, color: PILL_BLUE }
-  );
-  const region = safe(params.region.toUpperCase(), bold);
-  const regionSize = fitSize(region, bold, px(REGION_PILL.w - 40), 21, 9);
-  centeredAt(region, REGION_PILL.x + REGION_PILL.w / 2, REGION_PILL.y + REGION_PILL.h / 2 + 8, regionSize, bold, rgb(1, 1, 1));
+  // Bandeau : recouvre le texte d'origine (« NIAMEY »…) par la même couleur, puis écrit le nouveau texte.
+  if (design.pill) {
+    const { pill } = design;
+    const inset = 3;
+    const coverW = px(pill.w - inset * 2);
+    const coverH = (pill.h - inset * 2) * k;
+    const r = 7 * k;
+    page.drawSvgPath(
+      `M ${r} 0 H ${coverW - r} Q ${coverW} 0 ${coverW} ${r} V ${coverH - r} Q ${coverW} ${coverH} ${coverW - r} ${coverH} H ${r} Q 0 ${coverH} 0 ${coverH - r} V ${r} Q 0 0 ${r} 0 Z`,
+      { x: px(pill.x + inset), y: py(pill.y + inset), color: pill.color }
+    );
+    const label = safe(params.region.toUpperCase(), bold);
+    const size = fitSize(label, bold, px(pill.w - 40), 21, 9);
+    centeredAt(label, pill.x + pill.w / 2, pill.y + pill.h / 2 + 8, size, bold, rgb(1, 1, 1));
+  }
 
-  // QR code : à droite du logo, sur une carte blanche à fin liseré.
-  const card = { x: 500, y: 722, size: 340 };
-  const quiet = 20;
+  // Photo (speaker) : remplit le cadre bleu de la maquette, recadrée au centre, coins arrondis.
+  if (design.photo && params.photo) {
+    try {
+      const image = isPng(params.photo) ? await doc.embedPng(params.photo) : await doc.embedJpg(params.photo);
+      const box = design.photo;
+      const left = px(box.x);
+      const bottom = py(box.y + box.h);
+      const width = px(box.w);
+      const height = box.h * k;
+      const rad = box.radius * k;
+      const c = rad * 0.5523; // approximation d'un quart de cercle par une courbe de Bézier
+
+      page.pushOperators(
+        pushGraphicsState(),
+        moveTo(left + rad, bottom),
+        lineTo(left + width - rad, bottom),
+        appendBezierCurve(left + width - rad + c, bottom, left + width, bottom + rad - c, left + width, bottom + rad),
+        lineTo(left + width, bottom + height - rad),
+        appendBezierCurve(left + width, bottom + height - rad + c, left + width - rad + c, bottom + height, left + width - rad, bottom + height),
+        lineTo(left + rad, bottom + height),
+        appendBezierCurve(left + rad - c, bottom + height, left, bottom + height - rad + c, left, bottom + height - rad),
+        lineTo(left, bottom + rad),
+        appendBezierCurve(left, bottom + rad - c, left + rad - c, bottom, left + rad, bottom),
+        closePath(),
+        clip(),
+        endPath()
+      );
+      const scale = Math.max(width / image.width, height / image.height);
+      const drawW = image.width * scale;
+      const drawH = image.height * scale;
+      page.drawImage(image, { x: left + (width - drawW) / 2, y: bottom + (height - drawH) / 2, width: drawW, height: drawH });
+      page.pushOperators(popGraphicsState());
+    } catch {
+      // Photo illisible : le cadre bleu de la maquette reste, le badge est quand même généré.
+    }
+  }
+
+  // QR code sur une carte blanche à fin liseré.
+  const { qr: card } = design;
+  const quiet = Math.round(card.size * 0.06);
   page.drawRectangle({
     x: px(card.x),
     y: py(card.y + card.size),
@@ -118,21 +231,23 @@ async function generateAmbassadorDesignBadge(params: {
     borderWidth: 1,
   });
   const qrDataUrl = await QRCode.toDataURL(params.qrValue ?? params.number, { margin: 0, width: 400 });
-  const qr = await doc.embedPng(qrDataUrl.split(",")[1]!);
-  page.drawImage(qr, {
+  const qrImage = await doc.embedPng(qrDataUrl.split(",")[1]!);
+  page.drawImage(qrImage, {
     x: px(card.x + quiet),
     y: py(card.y + card.size - quiet),
     width: px(card.size - quiet * 2),
     height: px(card.size - quiet * 2),
   });
-  centeredAt("Présentez ce QR code à l'entrée", card.x + card.size / 2, card.y + card.size + 34, 7.5, font, rgb(0.4, 0.4, 0.45));
+  if (card.caption) {
+    centeredAt("Présentez ce QR code à l'entrée", card.x + card.size / 2, card.y + card.size + 34, 7.5, font, GRAY);
+  }
 
-  // Bas du badge : nom complet (réduit puis sur deux lignes si besoin), matricule et date.
+  // Identité : nom complet (réduit puis sur deux lignes si besoin), fonction, matricule et date.
   const centerX = DESIGN_W / 2;
   const maxWidth = px(DESIGN_W - 120);
   const name = safe(params.fullName.toUpperCase(), bold);
   const words = name.split(" ");
-  let baseline = 1150;
+  let baseline = design.identityBaseline;
   if (bold.widthOfTextAtSize(name, 15) > maxWidth && words.length > 1) {
     const half = Math.ceil(words.length / 2);
     for (const line of [words.slice(0, half).join(" "), words.slice(half).join(" ")]) {
@@ -144,15 +259,16 @@ async function generateAmbassadorDesignBadge(params: {
     centeredAt(name, centerX, baseline, fitSize(name, bold, maxWidth, 26, 10), bold);
   }
 
-  page.drawRectangle({
-    x: px(centerX - 120),
-    y: py(baseline + 24),
-    width: px(240),
-    height: 1.2,
-    color: ORANGE,
-  });
-  centeredAt(`Matricule : ${params.number}`, centerX, baseline + 62, 10.5, mono, NAVY);
-  centeredAt(`Délivré le ${params.awardedAt.toLocaleDateString("fr-FR")}`, centerX, baseline + 90, 8, font, rgb(0.4, 0.4, 0.45));
+  let cursor = baseline;
+  const jobTitle = params.jobTitle?.trim();
+  if (jobTitle) {
+    cursor += 32;
+    const text = safe(jobTitle, font);
+    centeredAt(text, centerX, cursor, fitSize(text, font, maxWidth, 11, 7), font, GRAY);
+  }
+  page.drawRectangle({ x: px(centerX - 120), y: py(cursor + 22), width: px(240), height: 1.2, color: ORANGE });
+  centeredAt(`Matricule : ${params.number}`, centerX, cursor + 58, 10.5, mono, NAVY);
+  centeredAt(`Délivré le ${params.awardedAt.toLocaleDateString("fr-FR")}`, centerX, cursor + 84, 8, font, GRAY);
 
   return doc.save();
 }
@@ -176,11 +292,15 @@ export async function generateBadgePdf(params: {
   logo?: Uint8Array | null;
   /** Logos partenaires (PNG) affichés dans le bandeau du haut, dans l'ordre. */
   partnerLogos?: (Uint8Array | null)[];
-  /** « ambassador » : nouveau design officiel (image de fond + région, QR et nom dynamiques). */
-  variant?: "ambassador";
+  /** Design officiel (image de fond + texte du bandeau, QR, photo et nom dynamiques). */
+  variant?: DesignVariant;
+  /** Fonction affichée sous le nom (badges d'accès). */
+  jobTitle?: string | null;
+  /** Photo du porteur (speakers). */
+  photo?: Uint8Array | null;
 }): Promise<Uint8Array> {
-  if (params.variant === "ambassador") {
-    const designed = await generateAmbassadorDesignBadge(params);
+  if (params.variant) {
+    const designed = await generateDesignBadge(params.variant, params);
     if (designed) return designed;
     // Image de fond introuvable : repli sur la mise en page historique ci-dessous.
   }

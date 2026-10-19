@@ -1259,6 +1259,7 @@ model AccessPass {
   fullName     String
   organization String? // média, structure, commission…
   jobTitle     String? // fonction
+  photoUrl     String? // photo du porteur (badge speaker)
   phone        String?
   email        String?
   number       String             @unique

@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Ban, Download, ListPlus, RotateCcw, Search, UserPlus } from "lucide-react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { Ban, Download, ListPlus, Pencil, RotateCcw, Search, Upload, UserPlus, X } from "lucide-react";
 import {
   createAccessPassAction,
   createAccessPassesBulkAction,
   downloadAccessPassBadgeAction,
   listAccessPassesAction,
   setAccessPassStatusAction,
+  updateAccessPassAction,
+  uploadAccessPhotoAction,
   type AccessPassRow,
 } from "@/actions/access-pass-actions";
 import { ACCESS_CATEGORIES } from "@/lib/access-categories";
@@ -28,6 +30,16 @@ function downloadPdf(base64: string, filename: string) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+const organizationLabel = (category: string) =>
+  category === "POINT_FOCAL"
+    ? "Région (affichée sur le badge)"
+    : category === "COMMISSION"
+      ? "Nom de la commission (affiché sur le badge)"
+      : "Organisation / média";
+
+const organizationPlaceholder = (category: string) =>
+  category === "POINT_FOCAL" ? "Ex. Niamey" : category === "COMMISSION" ? "Ex. Accueil & Hébergement" : "Ex. Télé Sahel";
 
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
@@ -50,9 +62,13 @@ export function AccessPassManager({
     category: "MEDIA",
     organization: "",
     jobTitle: "",
+    photoUrl: "",
     phone: "",
     email: "",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const photoInput = useRef<HTMLInputElement>(null);
   const [bulkCategory, setBulkCategory] = useState("MEDIA");
   const [bulkText, setBulkText] = useState("");
   const [message, setMessage] = useState("");
@@ -94,11 +110,67 @@ export function AccessPassManager({
     run(async () => setPasses(await listAccessPassesAction(value)));
   };
 
+  const emptyForm = (category: string) => ({
+    fullName: "",
+    category,
+    organization: "",
+    jobTitle: "",
+    photoUrl: "",
+    phone: "",
+    email: "",
+  });
+
+  const startEdit = (pass: AccessPassRow) => {
+    setMode("single");
+    setEditingId(pass.id);
+    setForm({
+      fullName: pass.fullName,
+      category: pass.category,
+      organization: pass.organization ?? "",
+      jobTitle: pass.jobTitle ?? "",
+      photoUrl: pass.photoUrl ?? "",
+      phone: pass.phone ?? "",
+      email: pass.email ?? "",
+    });
+    setMessage("");
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm(current => emptyForm(current.category));
+  };
+
+  const saveEdit = () =>
+    run(async () => {
+      if (!editingId) return;
+      const result = await updateAccessPassAction(editingId, form);
+      setPasses(items => items.map(item => (item.id === editingId ? result.pass : item)));
+      setMessage(`Badge ${result.pass.number} mis à jour : retéléchargez-le pour obtenir la nouvelle version.`);
+      cancelEdit();
+    });
+
+  const uploadPhoto = async (file: File) => {
+    setUploading(true);
+    setError("");
+    try {
+      const data = new FormData();
+      data.set("file", file);
+      const result = await uploadAccessPhotoAction(data);
+      setForm(current => ({ ...current, photoUrl: result.url }));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Téléversement impossible");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const addOne = () =>
     run(async () => {
       const result = await createAccessPassAction(editionId, form);
       setPasses(items => [result.pass, ...items]);
-      setForm(current => ({ ...current, fullName: "", organization: "", jobTitle: "", phone: "", email: "" }));
+      setForm(current => emptyForm(current.category));
       setMessage(
         result.synced
           ? `Badge ${result.pass.number} créé pour ${result.pass.fullName}.`
@@ -221,11 +293,11 @@ export function AccessPassManager({
               </select>
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
-              Organisation / média
+              {organizationLabel(form.category)}
               <Input
                 value={form.organization}
                 onChange={event => setForm({ ...form, organization: event.target.value })}
-                placeholder="Ex. Télé Sahel"
+                placeholder={organizationPlaceholder(form.category)}
               />
             </label>
             <label className="space-y-1 text-xs font-medium text-muted-foreground">
@@ -244,17 +316,82 @@ export function AccessPassManager({
               E-mail
               <Input value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} />
             </label>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Button
-                type="button"
-                loading={isPending}
-                disabled={!form.fullName.trim()}
-                onClick={addOne}
-                className="gap-2 rounded-none"
-              >
-                <UserPlus className="h-4 w-4" />
-                Ajouter et générer le badge
-              </Button>
+            {(form.category === "INTERVENANT" || form.photoUrl) && (
+              <div className="space-y-1 text-xs font-medium text-muted-foreground sm:col-span-2 lg:col-span-3">
+                <span>Photo (affichée sur le badge Speaker, JPEG ou PNG)</span>
+                <div className="flex items-center gap-3">
+                  {form.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={form.photoUrl} alt="" className="h-20 w-16 rounded-md border object-cover" />
+                  ) : (
+                    <span className="flex h-20 w-16 items-center justify-center rounded-md border border-dashed text-[10px]">
+                      Aucune
+                    </span>
+                  )}
+                  <input
+                    ref={photoInput}
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    className="hidden"
+                    onChange={event => {
+                      const file = event.target.files?.[0];
+                      if (file) uploadPhoto(file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    loading={uploading}
+                    onClick={() => photoInput.current?.click()}
+                    className="gap-2 rounded-none"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {form.photoUrl ? "Changer la photo" : "Téléverser une photo"}
+                  </Button>
+                  {form.photoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setForm({ ...form, photoUrl: "" })}
+                      className="rounded-none"
+                    >
+                      Retirer
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-3">
+              {editingId ? (
+                <>
+                  <Button
+                    type="button"
+                    loading={isPending}
+                    disabled={!form.fullName.trim()}
+                    onClick={saveEdit}
+                    className="gap-2 rounded-none"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Enregistrer les modifications
+                  </Button>
+                  <Button type="button" variant="outline" onClick={cancelEdit} className="gap-2 rounded-none">
+                    <X className="h-4 w-4" />
+                    Annuler
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  loading={isPending}
+                  disabled={!form.fullName.trim()}
+                  onClick={addOne}
+                  className="gap-2 rounded-none"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Ajouter et générer le badge
+                </Button>
+              )}
             </div>
           </div>
         ) : (
@@ -370,6 +507,16 @@ export function AccessPassManager({
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title="Modifier"
+                        disabled={isPending}
+                        onClick={() => startEdit(pass)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         type="button"
                         size="icon"

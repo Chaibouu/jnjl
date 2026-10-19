@@ -2,12 +2,27 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
-import { generateBadgePdf } from "@/lib/generate-badge-pdf";
+import { generateBadgePdf, type DesignVariant } from "@/lib/generate-badge-pdf";
 import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
+import { uploadFile } from "@/lib/upload";
+import { storagePaths } from "@/lib/storage-paths";
 import { categoryLabel, isAccessCategory } from "@/lib/access-categories";
 import { nextAccessNumber, syncAccessPassQr } from "@/lib/access-pass";
 
 const PERMISSION = "badges.manage";
+
+/** Photo d'un porteur : lien absolu (R2) ou fichier local `/uploads/...`. Sans photo lisible, le badge reste valide. */
+async function loadPhoto(url: string): Promise<Uint8Array | null> {
+  try {
+    if (/^https?:\/\//i.test(url)) {
+      const response = await fetch(url);
+      return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+    }
+    return await loadPublicImage(url.replace(/^\/+/, ""));
+  } catch {
+    return null;
+  }
+}
 
 export type AccessPassRow = {
   id: string;
@@ -17,6 +32,7 @@ export type AccessPassRow = {
   categoryLabel: string;
   organization: string | null;
   jobTitle: string | null;
+  photoUrl: string | null;
   phone: string | null;
   email: string | null;
   status: string;
@@ -36,6 +52,7 @@ function toRow(pass: {
   category: string;
   organization: string | null;
   jobTitle: string | null;
+  photoUrl: string | null;
   phone: string | null;
   email: string | null;
   status: string;
@@ -58,6 +75,7 @@ export async function listAccessPassesAction(editionId: string): Promise<AccessP
       category: true,
       organization: true,
       jobTitle: true,
+      photoUrl: true,
       phone: true,
       email: true,
       status: true,
@@ -73,6 +91,7 @@ type PassInput = {
   category: string;
   organization?: string | null;
   jobTitle?: string | null;
+  photoUrl?: string | null;
   phone?: string | null;
   email?: string | null;
 };
@@ -93,6 +112,7 @@ async function createPass(editionId: string, editionYear: number, createdById: s
           fullName,
           organization: clean(input.organization, 150),
           jobTitle: clean(input.jobTitle, 150),
+          photoUrl: clean(input.photoUrl, 500),
           phone: clean(input.phone, 40),
           email: clean(input.email, 200)?.toLowerCase() ?? null,
           number,
@@ -159,6 +179,45 @@ export async function createAccessPassesBulkAction(editionId: string, category: 
   return { created, notSynced, errors };
 }
 
+/** Modifie les informations d'un badge d'accès (le numéro et le QR ne changent pas). */
+export async function updateAccessPassAction(passId: string, input: PassInput) {
+  await requirePermission(PERMISSION);
+  const pass = await db.accessPass.findUnique({ where: { id: passId }, select: { id: true } });
+  if (!pass) throw new Error("Badge introuvable");
+
+  const fullName = clean(input.fullName, 150);
+  if (!fullName) throw new Error("Le nom complet est obligatoire");
+  if (!isAccessCategory(input.category)) throw new Error("Catégorie invalide");
+
+  const updated = await db.accessPass.update({
+    where: { id: passId },
+    data: {
+      category: input.category,
+      fullName,
+      organization: clean(input.organization, 150),
+      jobTitle: clean(input.jobTitle, 150),
+      photoUrl: clean(input.photoUrl, 500),
+      phone: clean(input.phone, 40),
+      email: clean(input.email, 200)?.toLowerCase() ?? null,
+    },
+  });
+  return { pass: toRow(updated) };
+}
+
+/** Téléverse la photo d'un porteur de badge (JPEG ou PNG, 4 Mo max) et renvoie son adresse. */
+export async function uploadAccessPhotoAction(formData: FormData) {
+  await requirePermission(PERMISSION);
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Aucun fichier fourni");
+
+  const uploaded = await uploadFile(file, {
+    maxSize: 4 * 1024 * 1024,
+    allowedTypes: ["image/jpeg", "image/png"],
+    destination: storagePaths.speakerPhoto(),
+  });
+  return { url: uploaded.path };
+}
+
 /** Révoque (le QR est refusé à l'entrée) ou rétablit un badge d'accès. */
 export async function setAccessPassStatusAction(passId: string, active: boolean) {
   await requirePermission(PERMISSION);
@@ -194,11 +253,23 @@ export async function downloadAccessPassBadgeAction(passId: string) {
         : `${edition.startDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${edition.endDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`
       : null;
 
+  // Catégories qui ont une maquette officielle ; les autres gardent la mise en page historique.
+  const variantByCategory: Record<string, DesignVariant | undefined> = {
+    POINT_FOCAL: "point_focal",
+    COMMISSION: "commission",
+    INTERVENANT: "speaker",
+  };
+  const photo = pass.photoUrl ? await loadPhoto(pass.photoUrl) : null;
+
   const pdf = await generateBadgePdf({
     editionId: edition.id,
     label: categoryLabel(pass.category),
+    variant: variantByCategory[pass.category],
+    jobTitle: pass.jobTitle,
+    photo,
     fullName: pass.fullName,
-    region: pass.organization ?? pass.jobTitle ?? "Niger",
+    region:
+      pass.organization ?? (pass.category === "POINT_FOCAL" ? "Niger" : pass.category === "COMMISSION" ? "Commission" : pass.jobTitle ?? "Niger"),
     editionName: `${edition.name} (${edition.year})`,
     editionLocation: edition.location,
     eventDate,
