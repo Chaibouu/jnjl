@@ -14,88 +14,105 @@ export type BadgeCardData = {
   boardingStatus: string;
 };
 
-const PARTNER_LOGOS = [
-  { src: "/partenaires/armoirie.png", alt: "République du Niger" },
-  { src: "/partenaires/ANSI.png", alt: "ANSI" },
-  { src: "/partenaires/Cabinet-Leader-dAfrique.png", alt: "Leader d'Afrique" },
-];
+// Mêmes repères que le badge PDF (lib/generate-badge-pdf.ts) : image de fond de 908 × 1280 px,
+// éléments positionnés en pourcentage et textes en « cqw » (1 % de la largeur du badge) pour que
+// l'aperçu reste identique à toutes les tailles d'écran.
+const W = 908;
+const H = 1280;
+const pctX = (x: number) => `${(x / W) * 100}%`;
+const pctY = (y: number) => `${(y / H) * 100}%`;
 
-/** Badge officiel de l'ambassadeur : logos partenaires, identité, QR code et matricule. */
+/** Taille de texte (en cqw) qui tient dans `maxWidthPx` pour `length` caractères, plafonnée à `maxCqw`. */
+function fitCqw(length: number, maxWidthPx: number, maxCqw: number, widthFactor = 0.65) {
+  const fitted = ((maxWidthPx / W) * 100) / (Math.max(length, 1) * widthFactor);
+  return Math.min(maxCqw, fitted);
+}
+
+/** Badge officiel de l'ambassadeur : design officiel avec région, QR code, nom et matricule. */
 export function BadgeCard({ badge }: { badge: BadgeCardData }) {
-  const backgroundColor = badge.badgeBackgroundColor || charter.tertiary;
+  const region = badge.region.toUpperCase();
+  const name = badge.fullName.toUpperCase();
 
   return (
-    <div className="mx-auto w-full max-w-sm overflow-hidden rounded-lg shadow-lg">
-      {/* Logos partenaires */}
-      <div className="flex items-center justify-between gap-2 bg-white px-5 py-3">
-        {PARTNER_LOGOS.map(logo => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={logo.src} src={logo.src} alt={logo.alt} className="h-10 w-auto object-contain" />
-        ))}
-      </div>
+    <div className="mx-auto w-full max-w-sm">
+      <div
+        className="relative w-full overflow-hidden rounded-lg bg-white shadow-lg"
+        style={{ aspectRatio: `${W} / ${H}`, containerType: "inline-size" } as React.CSSProperties}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/badge-ambassadeur.jpg"
+          alt="Badge ambassadeur JNJL 2026"
+          className="absolute inset-0 h-full w-full"
+        />
 
-      {/* Corps */}
-      <div className="px-5 pb-5 pt-5 text-white" style={{ backgroundColor }}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-extrabold leading-tight" style={{ color: charter.orange }}>
-              Journée Nationale
-              <br />
-              du Jeune Leader
-            </h2>
-            <span className="mt-1 inline-block bg-white px-2 py-0.5 text-xs font-bold text-black">
-              {badge.editionName}
-            </span>
-            <p className="mt-3 text-sm">
-              <span className="font-bold">Matricule :</span>{" "}
-              <span className="font-mono">{badge.number}</span>
-            </p>
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/jnjl.jpg"
-            alt="Journée Nationale du Jeune Leader"
-            className="h-20 w-20 shrink-0 rounded-full border-4 border-white object-cover"
-          />
+        {/* Région : recouvre « NIAMEY » de l'image et affiche la région de l'ambassadeur */}
+        <div
+          className="absolute flex items-center justify-center rounded-md font-extrabold text-white"
+          style={{
+            left: pctX(290),
+            top: pctY(551),
+            width: pctX(312),
+            height: pctY(57),
+            backgroundColor: "#12348E",
+            fontSize: `${fitCqw(region.length, 270, 5, 0.66)}cqw`,
+            lineHeight: 1,
+          }}
+        >
+          {region}
         </div>
 
-        <p className="mt-6 text-center text-lg font-bold">{badge.fullName}</p>
-
+        {/* QR code : à droite du logo */}
         {badge.qrDataUrl && (
-          <div className="mt-4 flex justify-center">
+          <div
+            className="absolute border border-slate-200 bg-white"
+            style={{ left: pctX(500), top: pctY(722), width: pctX(340), aspectRatio: "1 / 1", padding: pctX(20) }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={badge.qrDataUrl}
               alt={`QR code du badge ${badge.number}`}
-              className="h-28 w-28 border-2 border-white bg-white p-1"
+              className="h-full w-full"
+              style={{ imageRendering: "pixelated" }}
             />
           </div>
         )}
-      </div>
-
-      {/* Bandeau Ambassadeur + région */}
-      <div className="py-2.5 text-center text-white" style={{ backgroundColor: charter.orange }}>
-        <p className="text-base font-extrabold uppercase tracking-wide">Ambassadeur</p>
-        <p className="text-sm font-medium">{badge.region}</p>
-      </div>
-
-      {/* Pied : date, lieu et statut d'embarquement */}
-      <div className="px-4 py-3 text-center" style={{ backgroundColor }}>
-        {badge.eventDate && (
-          <p className="text-base font-bold" style={{ color: charter.orange }}>
-            {badge.eventDate}
-          </p>
-        )}
-        {badge.editionLocation && <p className="text-xs text-white/80">{badge.editionLocation}</p>}
-        <p className="mt-2 text-[11px] text-white/60">
-          Délivré le {new Date(badge.awardedAt).toLocaleDateString("fr-FR")} · Embarquement :{" "}
-          {badge.boardingStatus === "EMBARQUE"
-            ? "validé"
-            : badge.boardingStatus === "ANNULE"
-              ? "annulé"
-              : "en attente de validation"}
+        <p
+          className="absolute text-center text-slate-500"
+          style={{ left: pctX(500), top: pctY(1068), width: pctX(340), fontSize: "1.7cqw" }}
+        >
+          Présentez ce QR code à l&apos;entrée
         </p>
+
+        {/* Bas du badge : nom complet, matricule, date */}
+        <div
+          className="absolute flex flex-col items-center text-center"
+          style={{ left: pctX(60), top: pctY(1104), width: pctX(788) }}
+        >
+          <p
+            className="font-extrabold leading-tight"
+            style={{ color: "#12204D", fontSize: `${fitCqw(name.length, 788, 6.2)}cqw` }}
+          >
+            {name}
+          </p>
+          <span className="mt-[1.2cqw] block h-[0.3cqw] w-[26%]" style={{ backgroundColor: charter.orange }} />
+          <p className="mt-[1.6cqw] font-mono font-bold" style={{ color: "#12204D", fontSize: "2.6cqw" }}>
+            Matricule : {badge.number}
+          </p>
+          <p className="mt-[0.6cqw] text-slate-500" style={{ fontSize: "1.9cqw" }}>
+            Délivré le {new Date(badge.awardedAt).toLocaleDateString("fr-FR")}
+          </p>
+        </div>
       </div>
+
+      <p className="mt-3 text-center text-xs text-muted-foreground">
+        Embarquement :{" "}
+        {badge.boardingStatus === "EMBARQUE"
+          ? "validé"
+          : badge.boardingStatus === "ANNULE"
+            ? "annulé"
+            : "en attente de validation"}
+      </p>
     </div>
   );
 }
