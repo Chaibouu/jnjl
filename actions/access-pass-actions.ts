@@ -7,7 +7,7 @@ import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { uploadFile } from "@/lib/upload";
 import { storagePaths } from "@/lib/storage-paths";
 import { categoryLabel, isAccessCategory, organizationField } from "@/lib/access-categories";
-import { nextAccessNumber, syncAccessPassQr } from "@/lib/access-pass";
+import { nextAccessNumber, syncAccessPassQr, syncAccessPassQrDetailed } from "@/lib/access-pass";
 
 const PERMISSION = "badges.manage";
 
@@ -38,6 +38,8 @@ export type AccessPassRow = {
   status: string;
   checkedInAt: Date | null;
   createdAt: Date;
+  /** Vrai quand le QR du badge est bien créé côté ScanHub (sinon il ne sera pas reconnu à l'entrée). */
+  qrSynced: boolean;
 };
 
 const clean = (value: unknown, max: number): string | null => {
@@ -66,8 +68,10 @@ function toRow(pass: {
   status: string;
   checkedInAt: Date | null;
   createdAt: Date;
+  qrCode: string | null;
 }): AccessPassRow {
-  return { ...pass, categoryLabel: categoryLabel(pass.category) };
+  const { qrCode, ...rest } = pass;
+  return { ...rest, categoryLabel: categoryLabel(pass.category), qrSynced: !!qrCode && qrCode !== pass.number };
 }
 
 /** Badges d'accès de l'édition, du plus récent au plus ancien. */
@@ -89,6 +93,7 @@ export async function listAccessPassesAction(editionId: string): Promise<AccessP
       status: true,
       checkedInAt: true,
       createdAt: true,
+      qrCode: true,
     },
   });
   return passes.map(toRow);
@@ -239,6 +244,29 @@ export async function setAccessPassStatusAction(passId: string, active: boolean)
   return { status: active ? "ACTIF" : "REVOQUE", synced };
 }
 
+/** Crée dans ScanHub les QR manquants des badges d'accès de l'édition et affiche la raison en cas d'échec. */
+export async function resyncAccessPassQrsAction(editionId: string) {
+  await requirePermission(PERMISSION);
+  const passes = await db.accessPass.findMany({
+    where: { editionId },
+    select: { id: true, number: true, qrCode: true, status: true },
+  });
+  const pending = passes.filter(pass => !pass.qrCode || pass.qrCode === pass.number);
+
+  let synced = 0;
+  let failed = 0;
+  let firstError: string | null = null;
+  for (const pass of pending) {
+    const result = await syncAccessPassQrDetailed(pass.id, pass.status === "ACTIF");
+    if (result.ok) synced += 1;
+    else {
+      failed += 1;
+      firstError ??= result.error ?? null;
+    }
+  }
+  return { total: pending.length, synced, failed, error: firstError };
+}
+
 /** Badge PDF (A6, imprimable) d'une personne, encodé en base64. */
 export async function downloadAccessPassBadgeAction(passId: string) {
   await requirePermission(PERMISSION);
@@ -251,8 +279,13 @@ export async function downloadAccessPassBadgeAction(passId: string) {
   // Un QR non encore créé côté ScanHub (injoignable à l'ajout) est rejoué avant l'impression.
   let qrCode = pass.qrCode;
   if (!qrCode || qrCode === pass.number) {
-    await syncAccessPassQr(pass.id, pass.status === "ACTIF");
+    const sync = await syncAccessPassQrDetailed(pass.id, pass.status === "ACTIF");
     qrCode = (await db.accessPass.findUnique({ where: { id: pass.id }, select: { qrCode: true } }))?.qrCode ?? null;
+    // Pas de PDF avec un QR que ScanHub ne reconnaîtrait pas : l'erreur est renvoyée telle quelle (en production,
+    // une exception serait masquée par Next.js).
+    if (!sync.ok || !qrCode || qrCode === pass.number) {
+      return { error: `Le QR n'a pas pu être créé dans ScanHub : ${sync.error ?? "réponse incomplète"}` };
+    }
   }
 
   const edition = pass.edition;

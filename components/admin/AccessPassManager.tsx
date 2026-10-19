@@ -7,6 +7,7 @@ import {
   createAccessPassesBulkAction,
   downloadAccessPassBadgeAction,
   listAccessPassesAction,
+  resyncAccessPassQrsAction,
   setAccessPassStatusAction,
   updateAccessPassAction,
   uploadAccessPhotoAction,
@@ -187,7 +188,22 @@ export function AccessPassManager({
   const download = (pass: AccessPassRow) =>
     run(async () => {
       const file = await downloadAccessPassBadgeAction(pass.id);
+      if (!("base64" in file)) {
+        setError(file.error ?? "Téléchargement impossible");
+        return;
+      }
       downloadPdf(file.base64, file.filename);
+      // Le téléchargement a pu créer le QR dans ScanHub : on rafraîchit l'état.
+      setPasses(await listAccessPassesAction(editionId));
+    });
+
+  const resync = () =>
+    run(async () => {
+      const result = await resyncAccessPassQrsAction(editionId);
+      setPasses(await listAccessPassesAction(editionId));
+      if (result.total === 0) setMessage("Tous les QR sont déjà synchronisés avec ScanHub.");
+      else if (result.failed === 0) setMessage(`${result.synced} QR synchronisé(s) avec ScanHub.`);
+      else setError(`${result.synced} synchronisé(s), ${result.failed} en échec : ${result.error ?? "erreur inconnue"}`);
     });
 
   const toggle = async (pass: AccessPassRow) => {
@@ -437,6 +453,11 @@ export function AccessPassManager({
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {passes.some(pass => !pass.qrSynced) && (
+              <Button type="button" variant="outline" loading={isPending} onClick={resync} className="rounded-none">
+                Resynchroniser les QR (ScanHub)
+              </Button>
+            )}
             <select
               value={categoryFilter}
               onChange={event => setCategoryFilter(event.target.value)}
@@ -485,6 +506,11 @@ export function AccessPassManager({
                   <td className="px-5 py-4">{pass.categoryLabel}</td>
                   <td className="px-5 py-4">
                     <p className="font-mono text-xs">{pass.number}</p>
+                    {!pass.qrSynced && (
+                      <span className="mt-1 mr-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        QR non synchronisé avec ScanHub
+                      </span>
+                    )}
                     {pass.status !== "ACTIF" && (
                       <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
                         Révoqué
