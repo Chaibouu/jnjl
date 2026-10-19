@@ -10,7 +10,15 @@ import { isScanHubEnabled, registerBadgeQr, setBadgeQrActive } from "@/lib/scanh
  * Retourne `false` si la synchronisation a échoué (à rejouer depuis l'écran Badges).
  */
 export async function syncBadgeQr(userBadgeId: string, active: boolean): Promise<boolean> {
-  if (!isScanHubEnabled()) return true;
+  return (await syncBadgeQrDetailed(userBadgeId, active)).ok;
+}
+
+/** Comme syncBadgeQr, mais renvoie aussi la raison de l'échec (utile pour diagnostiquer ScanHub). */
+export async function syncBadgeQrDetailed(
+  userBadgeId: string,
+  active: boolean
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isScanHubEnabled()) return { ok: false, error: "ScanHub n'est pas configuré (SCANHUB_URL / SCANHUB_API_KEY manquants)" };
 
   try {
     const userBadge = await db.userBadge.findUnique({
@@ -23,7 +31,7 @@ export async function syncBadgeQr(userBadgeId: string, active: boolean): Promise
         badge: { select: { label: true } },
       },
     });
-    if (!userBadge?.number) return false;
+    if (!userBadge?.number) return { ok: false, error: "Badge introuvable" };
 
     // Un QR déjà remplacé par un jeton ScanHub n'a plus de copie à créer.
     const alreadyRegistered = userBadge.qrCode !== null && userBadge.qrCode !== userBadge.number;
@@ -41,9 +49,9 @@ export async function syncBadgeQr(userBadgeId: string, active: boolean): Promise
     }
 
     await setBadgeQrActive(userBadge.number, active);
-    return true;
+    return { ok: true };
   } catch (error) {
     console.error("ScanHub : synchronisation du QR du badge en échec", error);
-    return false;
+    return { ok: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
   }
 }

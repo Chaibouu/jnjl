@@ -9,7 +9,7 @@ import { requirePermission } from "@/actions/requirePermission";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
-import { syncBadgeQr } from "@/lib/badge-qr";
+import { syncBadgeQr, syncBadgeQrDetailed } from "@/lib/badge-qr";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const AMBASSADOR_BADGE = {
@@ -164,6 +164,42 @@ export async function awardAllAmbassadorBadgesAction(editionId: string) {
   }
 
   return { count: pending.length };
+}
+
+/**
+ * Rejoue la synchronisation ScanHub des badges dont le QR n'a pas encore été créé côté ScanHub
+ * (le QR imprimé est encore le simple numéro). Actif seulement pour les ambassadeurs embarqués.
+ */
+export async function resyncBadgeQrsAction(editionId: string) {
+  const actor = await requirePermission("badges.manage");
+  const regionId = getActorRegionScope(actor);
+
+  const badges = await db.userBadge.findMany({
+    where: { editionId, badge: { code: "AMBASSADEUR" } },
+    select: { id: true, number: true, qrCode: true, userId: true },
+  });
+  const pending = badges.filter(item => item.number && (!item.qrCode || item.qrCode === item.number));
+
+  const applications = await db.ambassadorApplication.findMany({
+    where: { editionId, userId: { in: pending.map(item => item.userId) }, ...(regionId ? { regionId } : {}) },
+    select: { userId: true, stage: true },
+  });
+  const stageByUser = new Map(applications.map(application => [application.userId, application.stage]));
+
+  let synced = 0;
+  let failed = 0;
+  let firstError: string | null = null;
+  for (const item of pending) {
+    const stage = stageByUser.get(item.userId);
+    if (!stage) continue; // hors de la portée régionale de l'acteur
+    const result = await syncBadgeQrDetailed(item.id, ["PRESENCE", "ATTESTATION"].includes(stage));
+    if (result.ok) synced += 1;
+    else {
+      failed += 1;
+      firstError ??= result.error ?? null;
+    }
+  }
+  return { total: pending.length, synced, failed, error: firstError };
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -5,9 +5,11 @@ import { Award, BadgeCheck } from "lucide-react";
 import {
   awardAllAmbassadorBadgesAction,
   awardAmbassadorBadgeAction,
+  resyncBadgeQrsAction,
   listBadgeCandidatesAction,
 } from "@/actions/badge-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 import {
   Select,
   SelectContent,
@@ -42,6 +44,8 @@ export function BadgesManager({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { confirm } = useConfirm();
+  const pendingCount = candidates.filter(candidate => !candidate.badge).length;
 
   const refresh = (newEditionId: string, successMessage?: string) => {
     setError("");
@@ -79,7 +83,28 @@ export function BadgesManager({
     });
   };
 
-  const awardAll = () => {
+  const resync = () => {
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await resyncBadgeQrsAction(editionId);
+        if (result.total === 0) setMessage("Tous les QR sont déjà synchronisés avec ScanHub.");
+        else if (result.failed === 0) setMessage(`${result.synced} QR synchronisé(s) avec ScanHub.`);
+        else setError(`${result.synced} synchronisé(s), ${result.failed} en échec : ${result.error ?? "erreur inconnue"}`);
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
+
+  const awardAll = async () => {
+    const confirmed = await confirm({
+      title: "Attribuer le badge à tous ?",
+      description: `${pendingCount} ambassadeur(s) recevront leur badge et une notification. Pour n'en attribuer qu'un seul, utilisez « Attribuer le badge » sur sa ligne.`,
+      confirmLabel: "Attribuer à tous",
+    });
+    if (!confirmed) return;
     setMessage("");
     setError("");
     startTransition(async () => {
@@ -94,7 +119,7 @@ export function BadgesManager({
     });
   };
 
-  const pendingCount = candidates.filter(candidate => !candidate.badge).length;
+
 
   return (
     <section className="space-y-6">
@@ -139,6 +164,9 @@ export function BadgesManager({
         >
           <Award className="mr-2 h-4 w-4" />
           Attribuer à tous ({pendingCount})
+        </Button>
+        <Button type="button" variant="outline" loading={isPending} onClick={resync} className="ml-2 rounded-none">
+          Resynchroniser les QR (ScanHub)
         </Button>
       </div>
 
