@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CheckInError, recordBadgeCheckIn } from "@/lib/badge-checkin";
-import { verifyWebhookSignature } from "@/lib/scanhub";
+import { getWebhookSecret, verifyWebhookSignature } from "@/lib/scanhub";
 
 type ScanEvent = {
   event?: string;
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("scanhub-signature");
 
-  if (!verifyWebhookSignature(rawBody, signature, process.env.SCANHUB_WEBHOOK_SECRET)) {
+  if (!verifyWebhookSignature(rawBody, signature, getWebhookSecret())) {
     return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
   }
 

@@ -11,8 +11,18 @@ import crypto from "crypto";
 const TIMEOUT_MS = 8000;
 const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
+/** Valeur d'une variable d'environnement sans espaces, retours à la ligne ni guillemets collés par erreur. */
+function envValue(name: string): string {
+  return (process.env[name] ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
+/** Secret du webhook, nettoyé comme les autres variables. */
+export function getWebhookSecret(): string {
+  return envValue("SCANHUB_WEBHOOK_SECRET");
+}
+
 export function isScanHubEnabled(): boolean {
-  return Boolean(process.env.SCANHUB_URL && process.env.SCANHUB_API_KEY);
+  return Boolean(envValue("SCANHUB_URL") && envValue("SCANHUB_API_KEY"));
 }
 
 export type ScanHubQr = {
@@ -24,8 +34,8 @@ export type ScanHubQr = {
 };
 
 async function request<T>(path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<T> {
-  const baseUrl = process.env.SCANHUB_URL?.replace(/\/+$/, "");
-  const apiKey = process.env.SCANHUB_API_KEY;
+  const baseUrl = envValue("SCANHUB_URL").replace(/\/+$/, "");
+  const apiKey = envValue("SCANHUB_API_KEY");
   if (!baseUrl || !apiKey) throw new Error("ScanHub n'est pas configuré");
 
   const controller = new AbortController();
@@ -42,7 +52,10 @@ async function request<T>(path: string, init: { method: "GET" | "POST"; body?: u
       | { data?: T; message?: string; error?: string }
       | null;
     if (!response.ok) {
-      throw new Error(payload?.message ?? payload?.error ?? `ScanHub a répondu ${response.status}`);
+      const reason = payload?.message ?? payload?.error ?? `ScanHub a répondu ${response.status}`;
+      // Aide au diagnostic sans révéler la clé : serveur visé, début de la clé et sa longueur.
+      const host = baseUrl.replace(/^https?:\/\//, "");
+      throw new Error(`${reason} [serveur ${host}, clé ${apiKey.slice(0, 4)}… de ${apiKey.length} caractères]`);
     }
     // Les réponses ScanHub enveloppent le résultat dans `data` ; on accepte aussi un corps brut.
     return (payload && payload.data !== undefined ? payload.data : payload) as T;
@@ -68,7 +81,7 @@ export async function registerBadgeQr(input: {
       holderName: input.holderName.slice(0, 150),
       ...(input.holderEmail ? { holderEmail: input.holderEmail } : {}),
       holderRole: input.role.slice(0, 100),
-      ...(process.env.SCANHUB_EVENT_ID ? { eventId: process.env.SCANHUB_EVENT_ID } : {}),
+      ...(envValue("SCANHUB_EVENT_ID") ? { eventId: envValue("SCANHUB_EVENT_ID") } : {}),
       metadata: { source: "jnjl", number: input.number, ...input.metadata },
     },
   });
