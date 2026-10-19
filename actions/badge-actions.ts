@@ -245,6 +245,7 @@ export async function downloadMyBadgeAction() {
     backgroundColor: data.badgeBackgroundColor,
     number: data.badge.number,
     qrValue: data.badge.qrValue ?? undefined,
+    variant: "ambassador",
     awardedAt: data.badge.awardedAt,
     logo: await loadPublicImage("jnjl.jpg"),
     partnerLogos: await Promise.all(PARTNER_LOGO_PATHS.map(loadPublicImage)),

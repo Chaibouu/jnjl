@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage } from "pdf-lib";
 import QRCode from "qrcode";
 import { renderActiveTemplate } from "@/lib/pdf-templates/render";
+import { loadPublicImage } from "@/lib/badge-assets";
 
 // A6 portrait, en points (105 × 148 mm) : format d'un badge de conférence.
 const WIDTH = 297.64;
@@ -48,6 +49,114 @@ function fitSize(text: string, font: PDFFont, maxWidth: number, max: number, min
   return size;
 }
 
+// ─── Design officiel du badge ambassadeur ─────────────────────────────────────
+// L'image de fond (public/badge-ambassadeur.jpg, 908 × 1280 px) contient l'en-tête, « AMBASSADEUR »,
+// le logo et le fond. Sont dessinés par-dessus : la région (dans le bandeau bleu), le QR code à droite
+// du logo, puis le nom complet et les autres données en bas. Les coordonnées sont en pixels de l'image.
+const DESIGN_IMAGE = "badge-ambassadeur.jpg";
+const DESIGN_W = 908;
+const DESIGN_H = 1280;
+const DESIGN_PAGE_W = 420; // pt (≈ A5)
+const DESIGN_PAGE_H = (DESIGN_PAGE_W * DESIGN_H) / DESIGN_W;
+const REGION_PILL = { x: 287, y: 548, w: 318, h: 63 }; // bandeau « NIAMEY » de l'image
+const PILL_BLUE = rgb(18 / 255, 52 / 255, 142 / 255);
+const NAVY = rgb(0.07, 0.12, 0.3);
+
+async function generateAmbassadorDesignBadge(params: {
+  fullName: string;
+  region: string;
+  number: string;
+  qrValue?: string;
+  awardedAt: Date;
+}): Promise<Uint8Array | null> {
+  const background = await loadPublicImage(DESIGN_IMAGE);
+  if (!background) return null;
+
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const mono = await doc.embedFont(StandardFonts.CourierBold);
+  const page = doc.addPage([DESIGN_PAGE_W, DESIGN_PAGE_H]);
+
+  const k = DESIGN_PAGE_W / DESIGN_W;
+  const px = (x: number) => x * k;
+  const py = (yTop: number) => DESIGN_PAGE_H - yTop * k;
+
+  page.drawImage(await doc.embedJpg(background), { x: 0, y: 0, width: DESIGN_PAGE_W, height: DESIGN_PAGE_H });
+
+  const centeredAt = (text: string, centerXpx: number, baselinePx: number, size: number, usedFont: PDFFont, color = NAVY) => {
+    const value = safe(text, usedFont);
+    const width = usedFont.widthOfTextAtSize(value, size);
+    page.drawText(value, { x: px(centerXpx) - width / 2, y: py(baselinePx), size, font: usedFont, color });
+  };
+
+  // Région : recouvre « NIAMEY » (même bleu) puis écrit la région de l'ambassadeur.
+  const inset = 3;
+  const coverW = px(REGION_PILL.w - inset * 2);
+  const coverH = REGION_PILL.h * k - inset * 2 * k;
+  const r = 7 * k;
+  const coverX = px(REGION_PILL.x + inset);
+  const coverTop = py(REGION_PILL.y + inset);
+  page.drawSvgPath(
+    `M ${r} 0 H ${coverW - r} Q ${coverW} 0 ${coverW} ${r} V ${coverH - r} Q ${coverW} ${coverH} ${coverW - r} ${coverH} H ${r} Q 0 ${coverH} 0 ${coverH - r} V ${r} Q 0 0 ${r} 0 Z`,
+    { x: coverX, y: coverTop, color: PILL_BLUE }
+  );
+  const region = safe(params.region.toUpperCase(), bold);
+  const regionSize = fitSize(region, bold, px(REGION_PILL.w - 40), 21, 9);
+  centeredAt(region, REGION_PILL.x + REGION_PILL.w / 2, REGION_PILL.y + REGION_PILL.h / 2 + 8, regionSize, bold, rgb(1, 1, 1));
+
+  // QR code : à droite du logo, sur une carte blanche à fin liseré.
+  const card = { x: 500, y: 722, size: 340 };
+  const quiet = 20;
+  page.drawRectangle({
+    x: px(card.x),
+    y: py(card.y + card.size),
+    width: px(card.size),
+    height: px(card.size),
+    color: rgb(1, 1, 1),
+    borderColor: rgb(0.85, 0.87, 0.92),
+    borderWidth: 1,
+  });
+  const qrDataUrl = await QRCode.toDataURL(params.qrValue ?? params.number, { margin: 0, width: 400 });
+  const qr = await doc.embedPng(qrDataUrl.split(",")[1]!);
+  page.drawImage(qr, {
+    x: px(card.x + quiet),
+    y: py(card.y + card.size - quiet),
+    width: px(card.size - quiet * 2),
+    height: px(card.size - quiet * 2),
+  });
+  centeredAt("Présentez ce QR code à l'entrée", card.x + card.size / 2, card.y + card.size + 34, 7.5, font, rgb(0.4, 0.4, 0.45));
+
+  // Bas du badge : nom complet (réduit puis sur deux lignes si besoin), matricule et date.
+  const centerX = DESIGN_W / 2;
+  const maxWidth = px(DESIGN_W - 120);
+  const name = safe(params.fullName.toUpperCase(), bold);
+  const words = name.split(" ");
+  let baseline = 1150;
+  if (bold.widthOfTextAtSize(name, 15) > maxWidth && words.length > 1) {
+    const half = Math.ceil(words.length / 2);
+    for (const line of [words.slice(0, half).join(" "), words.slice(half).join(" ")]) {
+      centeredAt(line, centerX, baseline, fitSize(line, bold, maxWidth, 22, 10), bold);
+      baseline += 46;
+    }
+    baseline -= 46;
+  } else {
+    centeredAt(name, centerX, baseline, fitSize(name, bold, maxWidth, 26, 10), bold);
+  }
+
+  page.drawRectangle({
+    x: px(centerX - 120),
+    y: py(baseline + 24),
+    width: px(240),
+    height: 1.2,
+    color: ORANGE,
+  });
+  centeredAt(`Matricule : ${params.number}`, centerX, baseline + 62, 10.5, mono, NAVY);
+  centeredAt(`Délivré le ${params.awardedAt.toLocaleDateString("fr-FR")}`, centerX, baseline + 90, 8, font, rgb(0.4, 0.4, 0.45));
+
+  return doc.save();
+}
+
 export async function generateBadgePdf(params: {
   /** Si fourni, le modèle PDF actif de cette édition (éditeur admin) est utilisé en priorité. */
   editionId?: string;
@@ -67,7 +176,15 @@ export async function generateBadgePdf(params: {
   logo?: Uint8Array | null;
   /** Logos partenaires (PNG) affichés dans le bandeau du haut, dans l'ordre. */
   partnerLogos?: (Uint8Array | null)[];
+  /** « ambassador » : nouveau design officiel (image de fond + région, QR et nom dynamiques). */
+  variant?: "ambassador";
 }): Promise<Uint8Array> {
+  if (params.variant === "ambassador") {
+    const designed = await generateAmbassadorDesignBadge(params);
+    if (designed) return designed;
+    // Image de fond introuvable : repli sur la mise en page historique ci-dessous.
+  }
+
   const custom = await renderActiveTemplate("BADGE", params.editionId, {
     label: params.label,
     fullName: params.fullName,
