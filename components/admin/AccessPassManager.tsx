@@ -188,7 +188,7 @@ export function AccessPassManager({
   const download = (pass: AccessPassRow) =>
     run(async () => {
       const file = await downloadAccessPassBadgeAction(pass.id);
-      if (!("base64" in file)) {
+      if (!file.base64 || !file.filename) {
         setError(file.error ?? "Téléchargement impossible");
         return;
       }
