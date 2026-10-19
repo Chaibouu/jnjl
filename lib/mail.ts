@@ -224,6 +224,10 @@ export const sendLoginNotificationEmail = async (
     time: string;
   }
 ) => {
+  // Désactivé par défaut : chaque connexion depuis une nouvelle adresse envoyait un e-mail et épuisait
+  // le quota quotidien de Resend. Pour les réactiver, définir LOGIN_ALERT_EMAILS=true.
+  if (process.env.LOGIN_ALERT_EMAILS !== "true") return;
+
   await sendMail({
     kind: "login_alert",
     to: email,
