@@ -11,7 +11,7 @@ import {
 } from "@/actions/badge-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
-import { downloadBadgesInParts } from "@/lib/download-pdf";
+import { BADGE_LAYOUT_OPTIONS, downloadBadgesInParts, type BadgeLayout } from "@/lib/download-pdf";
 import {
   Select,
   SelectContent,
@@ -49,6 +49,7 @@ export function BadgesManager({
   const { confirm } = useConfirm();
   const pendingCount = candidates.filter(candidate => !candidate.badge).length;
   const [printRegionId, setPrintRegionId] = useState("");
+  const [layout, setLayout] = useState<BadgeLayout>("a6x4");
   const awardedCount = candidates.filter(candidate => candidate.badge).length;
   const regionOptions = Array.from(
     new Map(candidates.map(candidate => [candidate.region.id, candidate.region.name])).entries()
@@ -112,16 +113,15 @@ export function BadgesManager({
       try {
         let printed = 0;
         let notSynced = 0;
-        let regionName: string | null = null;
         const downloaded = await downloadBadgesInParts(
           async part => {
             const result = await printAmbassadorBadgesAction(editionId, printRegionId || null, part);
             printed = result.printed;
             notSynced = result.notSynced;
-            regionName = result.regionName;
             return result.part;
           },
-          `badges-ambassadeurs${regionName ? "-" + String(regionName).toLowerCase() : ""}.pdf`,
+          "badges-ambassadeurs.pdf",
+          layout,
           (done, total) => setMessage(`Préparation des badges… ${done}/${total}`)
         );
         if (!downloaded) {
@@ -230,6 +230,20 @@ export function BadgesManager({
             {regionOptions.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+          Mise en page
+          <select
+            value={layout}
+            onChange={event => setLayout(event.target.value as BadgeLayout)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-normal text-foreground"
+          >
+            {BADGE_LAYOUT_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>

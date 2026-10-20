@@ -18,7 +18,7 @@ import { ACCESS_CATEGORIES, organizationField } from "@/lib/access-categories";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
-import { downloadBadgesInParts } from "@/lib/download-pdf";
+import { BADGE_LAYOUT_OPTIONS, downloadBadgesInParts, type BadgeLayout } from "@/lib/download-pdf";
 
 type EditionOption = { id: string; name: string; year: number };
 
@@ -63,6 +63,7 @@ export function AccessPassManager({
   const [uploading, setUploading] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
   const [bulkCategory, setBulkCategory] = useState("MEDIA");
+  const [layout, setLayout] = useState<BadgeLayout>("a6x4");
   const [bulkText, setBulkText] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -210,6 +211,7 @@ export function AccessPassManager({
           return result.part;
         },
         "badges-acces.pdf",
+        layout,
         (done, total) => setMessage(`Préparation des badges… ${done}/${total}`)
       );
       if (!downloaded) {
@@ -485,6 +487,18 @@ export function AccessPassManager({
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <select
+              value={layout}
+              onChange={event => setLayout(event.target.value as BadgeLayout)}
+              className={`${selectClass} sm:w-64`}
+              title="Mise en page de l'impression"
+            >
+              {BADGE_LAYOUT_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <Button
               type="button"
               variant="outline"
