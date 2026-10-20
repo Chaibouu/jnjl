@@ -6,6 +6,8 @@ export const quizSchema = z.object({
   courseId: z.string().trim().optional().or(z.literal("")),
   // Le score de ce QCM alimente le classement régional (parcours ambassadeur).
   countsForRanking: z.boolean().default(false),
+  // Région à laquelle le QCM est réservé — vide = QCM national.
+  regionId: z.string().trim().optional().or(z.literal("")),
   title: z.string().trim().min(2, "Le titre est requis").max(200),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   durationMinutes: z.coerce.number().int().min(1).max(600).optional().or(z.literal("")),

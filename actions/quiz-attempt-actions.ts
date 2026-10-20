@@ -6,6 +6,7 @@ import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import { requirePermission } from "@/actions/requirePermission";
 import { describeGate, getQuizGate } from "@/lib/training-progress";
+import { getEffectiveRankingQuizId } from "@/lib/ranking-quiz";
 import type { User } from "@/types/user";
 import { getActorRegionScope } from "@/lib/region-scope";
 
@@ -75,8 +76,15 @@ export async function getMyQuizStatusAction() {
   if (!application) return null;
   if (await isPaymentPending(application)) return null;
 
-  const quizzes = await db.quiz.findMany({
-    where: { editionId: edition.id, status: "PUBLISHED" },
+  const effectiveRankingId = await getEffectiveRankingQuizId(edition.id, application.regionId);
+
+  const allQuizzes = await db.quiz.findMany({
+    // Un QCM réservé à une région n'est proposé qu'aux candidats de cette région.
+    where: {
+      editionId: edition.id,
+      status: "PUBLISHED",
+      OR: [{ regionId: null }, { regionId: application.regionId }],
+    },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -92,6 +100,8 @@ export async function getMyQuizStatusAction() {
       _count: { select: { questions: true } },
     },
   });
+  // Pour une région qui a son propre QCM de classement, le QCM de classement national est masqué.
+  const quizzes = allQuizzes.filter(quiz => !quiz.countsForRanking || quiz.id === effectiveRankingId);
 
   const items = await Promise.all(
     quizzes.map(async quiz => {
@@ -132,6 +142,16 @@ export async function startQuizAttemptAction(quizId: string) {
   }
 
   const application = await getMyAmbassadorApplication(quiz.editionId);
+
+  if (quiz.regionId && quiz.regionId !== application.regionId) {
+    throw new Error("Ce QCM est réservé aux candidats d'une autre région");
+  }
+  if (quiz.countsForRanking) {
+    const effectiveId = await getEffectiveRankingQuizId(quiz.editionId, application.regionId);
+    if (effectiveId && effectiveId !== quiz.id) {
+      throw new Error("Un QCM de classement propre à votre région est disponible : ce QCM ne vous concerne pas");
+    }
+  }
 
   const gate = await getQuizGate(quiz, application.id);
   if (!gate.unlocked) {
@@ -282,7 +302,7 @@ export async function submitQuizAttemptAction(attemptId: string) {
     where: { id: attemptId },
     include: {
       quiz: { include: { questions: { include: { question: { include: { options: true } } } } } },
-      ambassadorApplication: { select: { id: true, userId: true, stage: true } },
+      ambassadorApplication: { select: { id: true, userId: true, stage: true, regionId: true } },
       answers: true,
     },
   });
@@ -335,12 +355,16 @@ export async function submitQuizAttemptAction(attemptId: string) {
     });
     // Seul le QCM de classement alimente le score régional et fait avancer le parcours.
     // Un QCM de formation ou un QCM libre n'a aucun effet sur le classement.
-    if (attempt.quiz.countsForRanking) {
+    const isEffectiveRankingQuiz =
+      attempt.quiz.countsForRanking &&
+      (await getEffectiveRankingQuizId(attempt.quiz.editionId, attempt.ambassadorApplication.regionId)) === attempt.quiz.id;
+    if (isEffectiveRankingQuiz) {
       const stage = attempt.ambassadorApplication.stage;
       await transaction.ambassadorApplication.update({
         where: { id: attempt.ambassadorApplication.id },
         data: {
           quizScore: percentage,
+          quizCompletedAt: new Date(),
           // Ne jamais faire reculer un ambassadeur déjà plus avancé dans le parcours.
           ...(stage === "FORMATION" || stage === "QCM" ? { stage: "CLASSEMENT" } : {}),
         },

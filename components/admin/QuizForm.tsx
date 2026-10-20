@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { createQuizAction, updateQuizAction } from "@/actions/quiz-actions";
+import { useEffect, useState, useTransition } from "react";
+import { createQuizAction, listRegionOptionsAction, updateQuizAction } from "@/actions/quiz-actions";
 import type { QuizInput } from "@/schemas/quiz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,11 +21,13 @@ type EditionOption = { id: string; name: string; year: number };
 type CourseOption = { id: string; title: string; editionId: string };
 
 const NO_COURSE = "__none__";
+const NATIONAL = "__national__";
 
 type QuizItem = {
   id: string;
   editionId: string;
   courseId: string | null;
+  regionId?: string | null;
   countsForRanking: boolean;
   title: string;
   description: string | null;
@@ -56,6 +58,7 @@ export function QuizForm({
       ? {
           editionId: quiz.editionId,
           courseId: quiz.courseId ?? "",
+          regionId: quiz.regionId ?? "",
           countsForRanking: quiz.countsForRanking,
           title: quiz.title,
           description: quiz.description ?? "",
@@ -70,6 +73,7 @@ export function QuizForm({
       : {
           editionId: editions[0]?.id ?? "",
           courseId: "",
+          regionId: "",
           countsForRanking: false,
           title: "",
           description: "",
@@ -83,7 +87,14 @@ export function QuizForm({
         }
   );
   const [error, setError] = useState("");
+  const [regions, setRegions] = useState<{ id: string; name: string }[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    listRegionOptionsAction()
+      .then(setRegions)
+      .catch(() => setRegions([]));
+  }, []);
 
   const update = <K extends keyof QuizInput>(field: K, value: QuizInput[K]) =>
     setForm(current => ({ ...current, [field]: value }));
@@ -259,6 +270,33 @@ export function QuizForm({
             sélection. Les autres QCM n&apos;ont aucun effet sur le parcours.
           </p>
         </div>
+        <Field className="sm:col-span-2">
+          <FieldLabel>Région concernée</FieldLabel>
+          <Select
+            value={form.regionId ? form.regionId : NATIONAL}
+            onValueChange={value => update("regionId", !value || value === NATIONAL ? "" : (value as string))}
+          >
+            <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+              <SelectValue placeholder="Toutes les régions">
+                {(value: string) =>
+                  value === NATIONAL ? "Toutes les régions (national)" : (regions.find(item => item.id === value)?.name ?? "Région")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NATIONAL}>Toutes les régions (national)</SelectItem>
+              {regions.map(region => (
+                <SelectItem key={region.id} value={region.id}>
+                  {region.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Un QCM réservé à une région n&apos;est proposé qu&apos;à ses candidats et remplace le QCM de classement
+            national pour cette région. Un seul QCM de classement publié par région.
+          </p>
+        </Field>
       </div>
 
       <div className="flex gap-3 pt-2">

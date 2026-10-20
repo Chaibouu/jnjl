@@ -25,6 +25,7 @@ type Quiz = {
   status: string;
   passingScore: number;
   countsForRanking: boolean;
+  region?: { id: string; name: string } | null;
   course: { id: string; title: string } | null;
   edition: { id: string; name: string; year: number };
   _count: { questions: number; attempts: number };
@@ -107,6 +108,7 @@ export function QuizManager({
                       Seuil : {quiz.passingScore}% ·{" "}
                       {quiz.course ? `Suite de « ${quiz.course.title} »` : "QCM libre"}
                       {quiz.countsForRanking ? " · Classement" : ""}
+                      {quiz.region ? ` · Région : ${quiz.region.name}` : ""}
                     </p>
                   </td>
                   <td className="px-5 py-4 text-muted-foreground">

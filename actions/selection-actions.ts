@@ -75,7 +75,8 @@ export async function computeRankingAction(editionId: string) {
       quizScore: { not: null },
       ...(regionId ? { regionId } : {}),
     },
-    orderBy: { quizScore: "desc" },
+    // À score égal, le premier à avoir terminé le QCM passe devant (sans heure connue : en dernier).
+    orderBy: [{ quizScore: "desc" }, { quizCompletedAt: { sort: "asc", nulls: "last" } }],
   });
 
   const byRegion = new Map<string, typeof applications>();

@@ -127,7 +127,10 @@ export function QuizBuilder({
     setError("");
     startTransition(async () => {
       try {
-        if (action === "publish") await publishQuizAction(quiz.id);
+        if (action === "publish") {
+          const result = await publishQuizAction(quiz.id);
+          if (!result.ok) throw new Error(result.error);
+        }
         if (action === "unpublish") await unpublishQuizAction(quiz.id);
         if (action === "archive") await archiveQuizAction(quiz.id);
         refresh(

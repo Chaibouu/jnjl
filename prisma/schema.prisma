@@ -422,6 +422,7 @@ model Region {
   eventApplications EventApplication[]
   boardings         Boarding[]
   focalStaff        User[]                  @relation("RegionFocalStaff")
+  quizzes           Quiz[]
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -703,6 +704,7 @@ model AmbassadorApplication {
   inPersonTrainingAt   DateTime?
   inPersonTrainingById String?
   quizScore            Float?
+  quizCompletedAt      DateTime? // heure de fin du QCM de classement : départage les égalités (le premier arrivé passe devant)
   rank                 Int? // classement régional après QCM
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
@@ -940,6 +942,9 @@ model Quiz {
   course             TrainingCourse? @relation(fields: [courseId], references: [id], onDelete: SetNull)
   // Le score de ce QCM alimente le classement régional du parcours ambassadeur.
   countsForRanking   Boolean         @default(false)
+  // QCM réservé à une région (nul = national). Un seul QCM de classement publié par région.
+  regionId           String?
+  region             Region?         @relation(fields: [regionId], references: [id], onDelete: SetNull)
   questions          QuizQuestion[]
   attempts           QuizAttempt[]
   createdAt          DateTime        @default(now())
@@ -947,6 +952,7 @@ model Quiz {
 
   @@index([editionId, status])
   @@index([courseId])
+  @@index([editionId, regionId])
 }
 
 // Pivot Quiz ↔ Question : porte l'ordre d'affichage et un nombre de points

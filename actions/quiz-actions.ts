@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { quizSchema, type QuizInput } from "@/schemas/quiz";
+import { describeRankingConflict } from "@/lib/ranking-quiz";
 
 export async function listQuizzesAction() {
   await requirePermission("quiz.manage");
@@ -10,10 +11,25 @@ export async function listQuizzesAction() {
     include: {
       edition: { select: { id: true, name: true, year: true } },
       course: { select: { id: true, title: true } },
+      region: { select: { id: true, name: true } },
       _count: { select: { questions: true, attempts: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+/** Régions proposées dans le formulaire QCM pour réserver un QCM à une région. */
+export async function listRegionOptionsAction() {
+  await requirePermission("quiz.manage");
+  return db.region.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+}
+
+/** Une région choisie doit exister ; vide = QCM national. */
+async function resolveRegionId(regionId?: string) {
+  if (!regionId) return null;
+  const region = await db.region.findUnique({ where: { id: regionId }, select: { id: true } });
+  if (!region) throw new Error("Région introuvable");
+  return region.id;
 }
 
 /** Formations proposées dans le formulaire QCM pour lier un QCM à une formation. */
@@ -64,6 +80,7 @@ export async function createQuizAction(input: QuizInput) {
       editionId: data.editionId,
       courseId: await resolveCourseId(data.editionId, data.courseId),
       countsForRanking: data.countsForRanking,
+      regionId: await resolveRegionId(data.regionId),
       title: data.title,
       description: emptyToNull(data.description),
       durationMinutes: data.durationMinutes ? Number(data.durationMinutes) : null,
@@ -84,12 +101,19 @@ export async function updateQuizAction(id: string, input: QuizInput) {
   const existing = await db.quiz.findUnique({ where: { id } });
   if (!existing) throw new Error("QCM introuvable");
 
+  const regionId = await resolveRegionId(data.regionId);
+  if (existing.status === "PUBLISHED" && data.countsForRanking) {
+    const conflict = await describeRankingConflict({ editionId: data.editionId, regionId, excludeId: id });
+    if (conflict) throw new Error(conflict);
+  }
+
   const updated = await db.quiz.update({
     where: { id },
     data: {
       editionId: data.editionId,
       courseId: await resolveCourseId(data.editionId, data.courseId),
       countsForRanking: data.countsForRanking,
+      regionId,
       title: data.title,
       description: emptyToNull(data.description),
       durationMinutes: data.durationMinutes ? Number(data.durationMinutes) : null,
@@ -108,18 +132,21 @@ export async function updateQuizAction(id: string, input: QuizInput) {
     const attempts = await db.quizAttempt.findMany({
       where: { quizId: id, status: "COMPLETED", ambassadorApplication: { stage: { in: ["FORMATION", "QCM"] } } },
       orderBy: { submittedAt: "desc" },
-      select: { ambassadorApplicationId: true, percentage: true },
+      select: { ambassadorApplicationId: true, percentage: true, submittedAt: true },
     });
-    const latest = new Map<string, number>();
+    const latest = new Map<string, { percentage: number; submittedAt: Date | null }>();
     for (const attempt of attempts) {
       if (!latest.has(attempt.ambassadorApplicationId)) {
-        latest.set(attempt.ambassadorApplicationId, attempt.percentage ?? 0);
+        latest.set(attempt.ambassadorApplicationId, {
+          percentage: attempt.percentage ?? 0,
+          submittedAt: attempt.submittedAt,
+        });
       }
     }
-    for (const [applicationId, percentage] of latest) {
+    for (const [applicationId, result] of latest) {
       await db.ambassadorApplication.update({
         where: { id: applicationId },
-        data: { quizScore: percentage, stage: "CLASSEMENT" },
+        data: { quizScore: result.percentage, quizCompletedAt: result.submittedAt, stage: "CLASSEMENT" },
       });
     }
   }
@@ -136,13 +163,24 @@ export async function deleteQuizAction(id: string) {
   await db.quiz.delete({ where: { id } });
 }
 
-export async function publishQuizAction(id: string) {
+export async function publishQuizAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requirePermission("quiz.manage");
+  const quiz = await db.quiz.findUnique({
+    where: { id },
+    select: { editionId: true, regionId: true, countsForRanking: true },
+  });
+  if (!quiz) return { ok: false, error: "QCM introuvable" };
+
   const questionCount = await db.quizQuestion.count({ where: { quizId: id } });
   if (questionCount === 0) {
-    throw new Error("Ajoutez au moins une question avant de publier ce QCM");
+    return { ok: false, error: "Ajoutez au moins une question avant de publier ce QCM" };
   }
-  return db.quiz.update({ where: { id }, data: { status: "PUBLISHED" } });
+  if (quiz.countsForRanking) {
+    const conflict = await describeRankingConflict({ editionId: quiz.editionId, regionId: quiz.regionId, excludeId: id });
+    if (conflict) return { ok: false, error: conflict };
+  }
+  await db.quiz.update({ where: { id }, data: { status: "PUBLISHED" } });
+  return { ok: true };
 }
 
 export async function archiveQuizAction(id: string) {
