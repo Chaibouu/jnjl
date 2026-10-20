@@ -17,6 +17,7 @@ import {
   publishQuizAction,
   removeQuestionFromQuizAction,
   reorderQuizQuestionAction,
+  unarchiveQuizAction,
   unpublishQuizAction,
 } from "@/actions/quiz-actions";
 import { QuizAddQuestionDialog } from "@/components/admin/QuizAddQuestionDialog";
@@ -122,7 +123,7 @@ export function QuizBuilder({
     });
   };
 
-  const changeStatus = (action: "publish" | "unpublish" | "archive") => {
+  const changeStatus = (action: "publish" | "unpublish" | "archive" | "unarchive") => {
     setMessage("");
     setError("");
     startTransition(async () => {
@@ -133,12 +134,18 @@ export function QuizBuilder({
         }
         if (action === "unpublish") await unpublishQuizAction(quiz.id);
         if (action === "archive") await archiveQuizAction(quiz.id);
+        if (action === "unarchive") {
+          const result = await unarchiveQuizAction(quiz.id);
+          if (!result.ok) throw new Error(result.error);
+        }
         refresh(
           action === "publish"
             ? "QCM publié"
             : action === "unpublish"
               ? "QCM repassé en brouillon"
-              : "QCM archivé"
+              : action === "unarchive"
+                ? "QCM désarchivé : il est en brouillon, republiez-le pour le rendre visible"
+                : "QCM archivé"
         );
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
@@ -215,6 +222,17 @@ export function QuizBuilder({
               className="rounded-none"
             >
               Repasser en brouillon
+            </Button>
+          )}
+          {quiz.status === "ARCHIVED" && (
+            <Button
+              type="button"
+              variant="outline"
+              loading={isPending}
+              onClick={() => changeStatus("unarchive")}
+              className="rounded-none"
+            >
+              Désarchiver
             </Button>
           )}
           {quiz.status !== "ARCHIVED" && (

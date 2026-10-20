@@ -188,6 +188,16 @@ export async function archiveQuizAction(id: string) {
   return db.quiz.update({ where: { id }, data: { status: "ARCHIVED" } });
 }
 
+/** Rend un QCM archivé à l'état de brouillon (il ne redevient visible des candidats qu'une fois republié). */
+export async function unarchiveQuizAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requirePermission("quiz.manage");
+  const quiz = await db.quiz.findUnique({ where: { id }, select: { status: true } });
+  if (!quiz) return { ok: false, error: "QCM introuvable" };
+  if (quiz.status !== "ARCHIVED") return { ok: false, error: "Ce QCM n'est pas archivé" };
+  await db.quiz.update({ where: { id }, data: { status: "DRAFT" } });
+  return { ok: true };
+}
+
 export async function unpublishQuizAction(id: string) {
   await requirePermission("quiz.manage");
   return db.quiz.update({ where: { id }, data: { status: "DRAFT" } });

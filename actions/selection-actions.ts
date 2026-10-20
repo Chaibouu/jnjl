@@ -118,6 +118,7 @@ export async function runSelectionAction(editionId: string) {
         rank: { not: null },
         ...(regionId ? { regionId } : {}),
       },
+      include: { engagement: { select: { id: true } }, repechage: { select: { status: true } } },
     }),
     db.regionalQuota.findMany({ where: { editionId, ...(regionId ? { regionId } : {}) } }),
   ]);
@@ -130,7 +131,8 @@ export async function runSelectionAction(editionId: string) {
 
   const operations = applications.flatMap(application => {
     const quota = quotaByRegion.get(application.regionId) ?? 0;
-    const isSelected = (application.rank ?? Infinity) <= quota;
+    // Un repêché validé reste sélectionné même au-delà du quota.
+    const isSelected = application.repechage?.status === "VALIDE" || (application.rank ?? Infinity) <= quota;
     const status = isSelected ? "SELECTIONNE" : "NON_SELECTIONNE";
     // Un candidat sélectionné n'a pas besoin de repêchage : il passe directement ce
     // checkpoint. Un candidat non sélectionné reste à l'étape SELECTION, en attente
@@ -146,7 +148,8 @@ export async function runSelectionAction(editionId: string) {
       }),
       // Ne jamais faire reculer un ambassadeur déjà plus avancé (engagement signé, badge…) :
       // relancer la sélection ne touche à l'étape que de ceux qui n'ont pas encore dépassé le choix.
-      ...(STAGES_BEFORE_ENGAGEMENT.includes(application.stage)
+      ...(STAGES_BEFORE_ENGAGEMENT.includes(application.stage) ||
+      (application.stage === "ENGAGEMENT" && !application.engagement)
         ? [
             db.ambassadorApplication.update({
               where: { id: application.id },
