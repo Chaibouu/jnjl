@@ -22,6 +22,8 @@ export async function recordBadgeCheckIn(params: {
   badgeRef: string;
   sessionId?: string | null;
   checkedById: string;
+  /** Heure réelle du scan (rattrapage) ; par défaut l'instant présent. */
+  at?: Date;
   assertRegion?: (regionId: string) => void;
 }) {
   const ref = params.badgeRef.trim();
@@ -42,7 +44,7 @@ export async function recordBadgeCheckIn(params: {
     }
     if (pass.status !== "ACTIF") throw new CheckInError("Ce badge n'est plus actif", "INACTIVE");
     if (pass.checkedInAt) throw new CheckInError(`${pass.fullName} est déjà pointé(e)`, "ALREADY");
-    await db.accessPass.update({ where: { id: pass.id }, data: { checkedInAt: new Date() } });
+    await db.accessPass.update({ where: { id: pass.id }, data: { checkedInAt: params.at ?? new Date() } });
     return { name: pass.fullName };
   }
   if (!userBadge.editionId || (params.editionId && userBadge.editionId !== params.editionId)) {
@@ -76,7 +78,14 @@ export async function recordBadgeCheckIn(params: {
 
   await db.$transaction([
     db.attendance.create({
-      data: { editionId, userId, participationId: participation.id, sessionId, checkedById: params.checkedById },
+      data: {
+        editionId,
+        userId,
+        participationId: participation.id,
+        sessionId,
+        checkedById: params.checkedById,
+        ...(params.at ? { checkedAt: params.at } : {}),
+      },
     }),
     ...(application && application.stage === "PRESENCE"
       ? [db.ambassadorApplication.update({ where: { id: application.id }, data: { stage: "ATTESTATION" } })]

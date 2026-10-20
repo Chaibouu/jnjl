@@ -29,6 +29,9 @@ async function getMyAmbassadorApplication(editionId: string) {
   return application;
 }
 
+/** Marge accordée après l'échéance pour tenir compte de la latence réseau. */
+const ANSWER_GRACE_MS = 15_000;
+
 /** Correction instantanée d'une réponse : jamais les bonnes réponses non choisies, seulement le verdict de ce qui est coché. */
 export type AnswerFeedback = {
   isCorrect: boolean;
@@ -252,7 +255,7 @@ export async function saveQuizAnswerAction(
   attemptId: string,
   questionId: string,
   selectedOptionIds: string[]
-): Promise<AnswerFeedback> {
+): Promise<AnswerFeedback | { expired: true }> {
   const user = await getCurrentUser();
   const attempt = await db.quizAttempt.findUnique({
     where: { id: attemptId },
@@ -266,6 +269,13 @@ export async function saveQuizAnswerAction(
   }
   if (attempt.status !== "IN_PROGRESS") {
     throw new Error("Cette tentative est déjà terminée");
+  }
+
+  // La limite de temps est appliquée côté serveur : le chronomètre du navigateur n'est qu'un affichage.
+  // Une réponse reçue après l'échéance (marge de 15 s pour le réseau) n'est pas enregistrée.
+  if (attempt.quiz.durationMinutes) {
+    const deadline = attempt.startedAt.getTime() + attempt.quiz.durationMinutes * 60_000 + ANSWER_GRACE_MS;
+    if (Date.now() > deadline) return { expired: true };
   }
 
   const item = attempt.quiz.questions.find(entry => entry.questionId === questionId);

@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Award, BadgeCheck } from "lucide-react";
+import { Award, BadgeCheck, Printer } from "lucide-react";
 import {
   awardAllAmbassadorBadgesAction,
   awardAmbassadorBadgeAction,
+  printAmbassadorBadgesAction,
   resyncBadgeQrsAction,
   listBadgeCandidatesAction,
 } from "@/actions/badge-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
+import { downloadBadgesInParts } from "@/lib/download-pdf";
 import {
   Select,
   SelectContent,
@@ -26,7 +28,7 @@ type Candidate = {
   lastName: string;
   email: string;
   stage: string;
-  region: { name: string };
+  region: { id: string; name: string };
   badge: { number: string | null; awardedAt: Date } | null;
 };
 
@@ -46,6 +48,11 @@ export function BadgesManager({
   const [isPending, startTransition] = useTransition();
   const { confirm } = useConfirm();
   const pendingCount = candidates.filter(candidate => !candidate.badge).length;
+  const [printRegionId, setPrintRegionId] = useState("");
+  const awardedCount = candidates.filter(candidate => candidate.badge).length;
+  const regionOptions = Array.from(
+    new Map(candidates.map(candidate => [candidate.region.id, candidate.region.name])).entries()
+  ).sort((a, b) => a[1].localeCompare(b[1], "fr"));
 
   const refresh = (newEditionId: string, successMessage?: string) => {
     setError("");
@@ -93,6 +100,47 @@ export function BadgesManager({
         else if (result.failed === 0) setMessage(`${result.synced} QR synchronisé(s) avec ScanHub.`);
         else setError(`${result.synced} synchronisé(s), ${result.failed} en échec : ${result.error ?? "erreur inconnue"}`);
       } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
+
+  const printBadges = () => {
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        let printed = 0;
+        let notSynced = 0;
+        let regionName: string | null = null;
+        const downloaded = await downloadBadgesInParts(
+          async part => {
+            const result = await printAmbassadorBadgesAction(editionId, printRegionId || null, part);
+            printed = result.printed;
+            notSynced = result.notSynced;
+            regionName = result.regionName;
+            return result.part;
+          },
+          `badges-ambassadeurs${regionName ? "-" + String(regionName).toLowerCase() : ""}.pdf`,
+          (done, total) => setMessage(`Préparation des badges… ${done}/${total}`)
+        );
+        if (!downloaded) {
+          setMessage("");
+          setError(
+            notSynced > 0
+              ? `${notSynced} badge(s) n'ont pas de QR ScanHub : cliquez d'abord sur « Resynchroniser les QR (ScanHub) ».`
+              : "Aucun badge attribué à imprimer pour cette sélection."
+          );
+          return;
+        }
+        setMessage(
+          `${printed} badge(s) prêts à imprimer.` +
+            (notSynced > 0
+              ? ` ${notSynced} ignoré(s) : QR non synchronisé, cliquez sur « Resynchroniser les QR (ScanHub) ».`
+              : "")
+        );
+      } catch (actionError) {
+        setMessage("");
         setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
       }
     });
@@ -167,6 +215,34 @@ export function BadgesManager({
         </Button>
         <Button type="button" variant="outline" loading={isPending} onClick={resync} className="ml-2 rounded-none">
           Resynchroniser les QR (ScanHub)
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-end">
+        <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+          Impression en lot — région
+          <select
+            value={printRegionId}
+            onChange={event => setPrintRegionId(event.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm font-normal text-foreground"
+          >
+            <option value="">Toutes les régions</option>
+            {regionOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button
+          type="button"
+          loading={isPending}
+          disabled={awardedCount === 0}
+          onClick={printBadges}
+          className="h-10 gap-2 rounded-none"
+        >
+          <Printer className="h-4 w-4" />
+          Imprimer les badges attribués (PDF)
         </Button>
       </div>
 

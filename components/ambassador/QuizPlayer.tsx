@@ -112,6 +112,12 @@ export function QuizPlayer({ initialAttempt }: { initialAttempt: Attempt }) {
     setError("");
     try {
       const feedback = await saveQuizAnswerAction(initialAttempt.attemptId, current.questionId, optionIds);
+      if ("expired" in feedback) {
+        // Le serveur a constaté que le temps est écoulé : la réponse n'est pas prise en compte, on clôture le QCM.
+        setError("Le temps est écoulé : votre dernière réponse n'a pas été prise en compte.");
+        submit();
+        return;
+      }
       setQuestions(prev =>
         prev.map((question, i) =>
           i === questionIndex ? { ...question, selectedOptionIds: optionIds, feedback } : question

@@ -193,8 +193,20 @@ type SeedUser = {
   focalRegionCode?: string; // STAFF régional — résolu en focalRegionId via REGIONS
 };
 
-/** Mot de passe partagé pour le lot de comptes de test destinés aux utilisateurs externes. */
-const TEST_ACCOUNTS_PASSWORD = "JnjlTest#2026";
+/**
+ * Les mots de passe ne sont jamais écrits dans le dépôt : ils viennent de variables d'environnement
+ * (SEED_SUPERADMIN_PASSWORD pour le compte principal, SEED_TEST_PASSWORD pour le lot de comptes de test).
+ */
+function seedPassword(name: "SEED_SUPERADMIN_PASSWORD" | "SEED_TEST_PASSWORD"): string {
+  const value = process.env[name]?.trim();
+  if (!value || value.length < 12) {
+    throw new Error(`Définissez ${name} (12 caractères minimum) dans l'environnement avant de lancer le seed.`);
+  }
+  return value;
+}
+
+/** Mot de passe partagé pour le lot de comptes de test (évalué seulement si ces comptes sont décommentés). */
+const testAccountsPassword = () => seedPassword("SEED_TEST_PASSWORD");
 
 const STAFF_REGIONAL_PERMISSIONS = [
   "payments.manage",
@@ -208,21 +220,21 @@ const USERS: SeedUser[] = [
     name: "Chaibou",
     email: "chaibouabdoulwahab@gmail.com",
     role: UserRole.SUPER_ADMIN,
-    password: "admin@chaibou",
+    password: seedPassword("SEED_SUPERADMIN_PASSWORD"),
     permissions: PERMISSIONS.map(p => p.code), // admin historique — accès large pour continuer à tester
   },
   // {
   //   name: "Super Admin JNJL",
   //   email: "superadmin@jnjl.ne",
   //   role: UserRole.ADMIN,
-  //   password: "SuperAdmin@2026",
+  //   password: seedPassword("SEED_TEST_PASSWORD"),
   //   permissions: [],
   // },
   // {
   //   name: "Admin Éditions",
   //   email: "admin@jnjl.ne",
   //   role: UserRole.ADMIN,
-  //   password: "Admin@2026",
+  //   password: seedPassword("SEED_TEST_PASSWORD"),
   //   permissions: [
   //     "editions.manage",
   //     "editions.publish",
@@ -253,14 +265,14 @@ const USERS: SeedUser[] = [
   //   name: "Staff Accueil",
   //   email: "staff@jnjl.ne",
   //   role: UserRole.STAFF,
-  //   password: "Staff@2026",
+  //   password: seedPassword("SEED_TEST_PASSWORD"),
   //   permissions: ["attendance.manage", "applications.event.manage"],
   // },
   // {
   //   name: "Staff Point Focal",
   //   email: "pointfocal@jnjl.ne",
   //   role: UserRole.STAFF,
-  //   password: "PointFocal@2026",
+  //   password: seedPassword("SEED_TEST_PASSWORD"),
   //   permissions: ["payments.manage", "boarding.manage"],
   // },
 
@@ -269,21 +281,21 @@ const USERS: SeedUser[] = [
   //   name: "Super Admin (Test)",
   //   email: "test.superadmin@jnjl.ne",
   //   role: UserRole.SUPER_ADMIN,
-  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   password: testAccountsPassword(),
   //   permissions: [],
   // },
   // {
   //   name: "Admin Test 1",
   //   email: "test.admin1@jnjl.ne",
   //   role: UserRole.ADMIN,
-  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   password: testAccountsPassword(),
   //   permissions: PERMISSIONS.map(p => p.code),
   // },
   // {
   //   name: "Admin Test 2",
   //   email: "test.admin2@jnjl.ne",
   //   role: UserRole.ADMIN,
-  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   password: testAccountsPassword(),
   //   permissions: PERMISSIONS.map(p => p.code),
   // },
   // ...REGIONS.map(
@@ -291,7 +303,7 @@ const USERS: SeedUser[] = [
   //     name: `Staff Régional ${region.name} (Test)`,
   //     email: `test.staff.${region.code.toLowerCase()}@jnjl.ne`,
   //     role: UserRole.STAFF,
-  //     password: TEST_ACCOUNTS_PASSWORD,
+  //     password: testAccountsPassword(),
   //     permissions: STAFF_REGIONAL_PERMISSIONS,
   //     focalRegionCode: region.code,
   //   })
@@ -300,7 +312,7 @@ const USERS: SeedUser[] = [
   //   name: "Webmaster (Test)",
   //   email: "test.webmaster@jnjl.ne",
   //   role: UserRole.WEBMASTER,
-  //   password: TEST_ACCOUNTS_PASSWORD,
+  //   password: testAccountsPassword(),
   //   permissions: ["news.manage", "partners.manage", "speakers.manage", "program.manage", "media.manage", "contact.manage"],
   // },
 ];

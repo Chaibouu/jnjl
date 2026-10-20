@@ -12,7 +12,7 @@ export default async function AttendancePage() {
         listAttendanceSessionsAction(initialEdition.id),
         listAttendanceAction(initialEdition.id),
       ])
-    : [[], { total: 0, records: [], awaiting: [] }];
+    : [[], { total: 0, accessPasses: { total: 0, checkedIn: 0, records: [] }, records: [], awaiting: [] }];
 
   return (
     <AttendanceManager

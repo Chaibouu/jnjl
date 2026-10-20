@@ -7,7 +7,15 @@ import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { uploadFile } from "@/lib/upload";
 import { storagePaths } from "@/lib/storage-paths";
 import { categoryLabel, isAccessCategory, organizationField } from "@/lib/access-categories";
-import { nextAccessNumber, syncAccessPassQr, syncAccessPassQrDetailed } from "@/lib/access-pass";
+import {
+  DESIGN_VARIANT_BY_CATEGORY,
+  nextAccessNumber,
+  passDesignParams,
+  syncAccessPassQr,
+  syncAccessPassQrDetailed,
+} from "@/lib/access-pass";
+import { BADGES_PER_PART, renderBadgePart } from "@/lib/badge-batch";
+import type { DesignBadgeItem } from "@/lib/generate-badge-pdf";
 
 const PERMISSION = "badges.manage";
 
@@ -341,5 +349,59 @@ export async function downloadAccessPassBadgeAction(passId: string) {
   return {
     filename: `badge-${pass.number}.pdf`,
     base64: Buffer.from(pdf).toString("base64"),
+  };
+}
+
+/**
+ * Impression en lot des badges d'accès demandés (tous ceux de l'édition si aucun identifiant). Le serveur rend une
+ * « partie » (40 badges) par appel ; le navigateur enchaîne les parties puis assemble un seul PDF. Les badges
+ * révoqués sont exclus ; ceux dont le QR n'existe pas dans ScanHub sont ignorés et comptés, pour ne jamais
+ * imprimer un QR que l'entrée refuserait.
+ */
+export async function printAccessPassBadgesAction(editionId: string, passIds?: string[], part = 0) {
+  await requirePermission(PERMISSION);
+  const passes = await db.accessPass.findMany({
+    where: { editionId, ...(passIds && passIds.length > 0 ? { id: { in: passIds } } : {}) },
+    orderBy: [{ category: "asc" }, { fullName: "asc" }],
+  });
+
+  const active = passes.filter(pass => pass.status === "ACTIF");
+  const ready: { pass: (typeof active)[number]; qr: string }[] = [];
+  let notSynced = 0;
+  let firstError: string | null = null;
+
+  for (const pass of active) {
+    let qr = pass.qrCode;
+    if (!qr || qr === pass.number) {
+      const sync = await syncAccessPassQrDetailed(pass.id, true);
+      qr = (await db.accessPass.findUnique({ where: { id: pass.id }, select: { qrCode: true } }))?.qrCode ?? null;
+      if (!sync.ok || !qr || qr === pass.number) {
+        notSynced += 1;
+        firstError ??= sync.error ?? null;
+        continue;
+      }
+    }
+    ready.push({ pass, qr });
+  }
+
+  // Les photos (speakers) ne sont lues que pour la partie demandée.
+  const start = part * BADGES_PER_PART;
+  const items: DesignBadgeItem[] = [];
+  for (const { pass, qr } of ready) {
+    const index = items.length;
+    const inPart = index >= start && index < start + BADGES_PER_PART;
+    const photo = inPart && pass.photoUrl ? await loadPhoto(pass.photoUrl) : null;
+    items.push({
+      variant: DESIGN_VARIANT_BY_CATEGORY[pass.category] ?? "generic",
+      params: passDesignParams(pass, qr, photo),
+    });
+  }
+
+  return {
+    part: await renderBadgePart(items, part),
+    printed: items.length,
+    revokedSkipped: passes.length - active.length,
+    notSynced,
+    error: firstError,
   };
 }

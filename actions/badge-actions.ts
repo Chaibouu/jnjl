@@ -10,6 +10,8 @@ import { ForbiddenError } from "@/lib/forbidden-error";
 import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
 import { syncBadgeQr, syncBadgeQrDetailed } from "@/lib/badge-qr";
+import { renderBadgePart } from "@/lib/badge-batch";
+import type { DesignBadgeItem } from "@/lib/generate-badge-pdf";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const AMBASSADOR_BADGE = {
@@ -63,7 +65,7 @@ export async function listBadgeCandidatesAction(editionId: string) {
       email: true,
       stage: true,
       userId: true,
-      region: { select: { name: true } },
+      region: { select: { id: true, name: true } },
     },
     orderBy: [{ region: { name: "asc" } }, { lastName: "asc" }],
   });
@@ -200,6 +202,69 @@ export async function resyncBadgeQrsAction(editionId: string) {
     }
   }
   return { total: pending.length, synced, failed, error: firstError };
+}
+
+/**
+ * Impression en lot des badges ambassadeurs attribués. Le serveur rend une « partie » (40 badges) par appel ;
+ * le navigateur enchaîne les parties puis assemble un seul PDF. Tri par région puis par nom. Un staff régional
+ * n'imprime que sa région. Les badges dont le QR n'existe pas encore dans ScanHub sont ignorés et comptés
+ * (« Resynchroniser les QR » d'abord) : on n'imprime jamais un QR que l'entrée refuserait.
+ */
+export async function printAmbassadorBadgesAction(editionId: string, requestedRegionId?: string | null, part = 0) {
+  const actor = await requirePermission("badges.manage");
+  const regionId = getActorRegionScope(actor) ?? (requestedRegionId || null);
+
+  const applications = await db.ambassadorApplication.findMany({
+    where: {
+      editionId,
+      status: "RETENU",
+      userId: { not: null },
+      ...(regionId ? { regionId } : {}),
+      user: { badges: { some: { editionId, badge: { code: "AMBASSADEUR" } } } },
+    },
+    select: {
+      firstName: true,
+      lastName: true,
+      region: { select: { name: true } },
+      user: {
+        select: {
+          badges: {
+            where: { editionId, badge: { code: "AMBASSADEUR" } },
+            select: { number: true, qrCode: true, awardedAt: true },
+          },
+        },
+      },
+    },
+    orderBy: [{ region: { name: "asc" } }, { lastName: "asc" }],
+  });
+
+  const items: DesignBadgeItem[] = [];
+  let notSynced = 0;
+  for (const application of applications) {
+    const badge = application.user?.badges[0];
+    if (!badge?.number) continue;
+    if (!badge.qrCode || badge.qrCode === badge.number) {
+      notSynced += 1;
+      continue;
+    }
+    items.push({
+      variant: "ambassador",
+      params: {
+        fullName: `${application.firstName} ${application.lastName}`,
+        region: application.region.name,
+        number: badge.number,
+        qrValue: badge.qrCode,
+        awardedAt: badge.awardedAt,
+      },
+    });
+  }
+
+  return {
+    part: await renderBadgePart(items, part),
+    printed: items.length,
+    notSynced,
+    regionName: regionId ? (applications[0]?.region.name ?? null) : null,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

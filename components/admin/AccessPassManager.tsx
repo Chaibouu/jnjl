@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { Ban, Download, ListPlus, Pencil, RotateCcw, Search, Upload, UserPlus, X } from "lucide-react";
+import { Ban, Download, ListPlus, Pencil, Printer, RotateCcw, Search, Upload, UserPlus, X } from "lucide-react";
 import {
   createAccessPassAction,
   createAccessPassesBulkAction,
   downloadAccessPassBadgeAction,
   listAccessPassesAction,
+  printAccessPassBadgesAction,
   resyncAccessPassQrsAction,
   setAccessPassStatusAction,
   updateAccessPassAction,
@@ -17,6 +18,7 @@ import { ACCESS_CATEGORIES, organizationField } from "@/lib/access-categories";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
+import { downloadBadgesInParts } from "@/lib/download-pdf";
 
 type EditionOption = { id: string; name: string; year: number };
 
@@ -195,6 +197,36 @@ export function AccessPassManager({
       downloadPdf(file.base64, file.filename);
       // Le téléchargement a pu créer le QR dans ScanHub : on rafraîchit l'état.
       setPasses(await listAccessPassesAction(editionId));
+    });
+
+  const printFiltered = () =>
+    run(async () => {
+      const ids = filtered.map(pass => pass.id);
+      let summary = { printed: 0, revokedSkipped: 0, notSynced: 0, error: null as string | null };
+      const downloaded = await downloadBadgesInParts(
+        async part => {
+          const result = await printAccessPassBadgesAction(editionId, ids, part);
+          summary = result;
+          return result.part;
+        },
+        "badges-acces.pdf",
+        (done, total) => setMessage(`Préparation des badges… ${done}/${total}`)
+      );
+      if (!downloaded) {
+        setMessage("");
+        setError(
+          summary.notSynced > 0
+            ? `${summary.notSynced} badge(s) sans QR ScanHub : ${summary.error ?? "resynchronisez d'abord les QR"}`
+            : "Aucun badge actif à imprimer pour cette sélection."
+        );
+        return;
+      }
+      setPasses(await listAccessPassesAction(editionId));
+      setMessage(
+        `${summary.printed} badge(s) prêts à imprimer.` +
+          (summary.revokedSkipped > 0 ? ` ${summary.revokedSkipped} révoqué(s) exclu(s).` : "") +
+          (summary.notSynced > 0 ? ` ${summary.notSynced} ignoré(s) : QR non synchronisé (${summary.error ?? "erreur ScanHub"}).` : "")
+      );
     });
 
   const resync = () =>
@@ -453,6 +485,17 @@ export function AccessPassManager({
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              loading={isPending}
+              disabled={filtered.length === 0}
+              onClick={printFiltered}
+              className="gap-2 rounded-none"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimer la sélection ({filtered.length})
+            </Button>
             {passes.some(pass => !pass.qrSynced) && (
               <Button type="button" variant="outline" loading={isPending} onClick={resync} className="rounded-none">
                 Resynchroniser les QR (ScanHub)

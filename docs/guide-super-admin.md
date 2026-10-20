@@ -716,7 +716,7 @@ Le site public est prêt pour les moteurs de recherche :
 | `pointfocal@jnjl.ne` | STAFF | Paiements et embarquements |
 | (compte administrateur historique) | ADMIN | Toutes les permissions, pour les tests |
 
-**Lot de comptes pour testeurs externes** — mot de passe unique `JnjlTest#2026` (constante `TEST_ACCOUNTS_PASSWORD` dans `prisma/seed.ts`) :
+**Lot de comptes pour testeurs externes** — mot de passe unique défini par la variable d'environnement `SEED_TEST_PASSWORD` (jamais écrit dans le dépôt) :
 
 | Compte | Rôle | Région (STAFF) | Permissions |
 |---|---|---|---|

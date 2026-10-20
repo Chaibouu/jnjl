@@ -1,27 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { CheckInError, recordBadgeCheckIn } from "@/lib/badge-checkin";
 import { getWebhookSecret, verifyWebhookSignature } from "@/lib/scanhub";
+import { resolveScanHubCheckerId } from "@/lib/scanhub-reconcile";
 
 type ScanEvent = {
   event?: string;
-  scan?: { result?: string; qr?: { externalId?: string } | null };
+  scan?: { result?: string; scannedAt?: string; qr?: { externalId?: string } | null };
 };
-
-/** Compte qui signe les pointages venus de ScanHub (la table exige un utilisateur « pointeur »). */
-async function resolveCheckerId(): Promise<string | null> {
-  const configured = process.env.SCANHUB_CHECKER_USER_ID;
-  if (configured) {
-    const user = await db.user.findUnique({ where: { id: configured }, select: { id: true } });
-    if (user) return user.id;
-  }
-  const admin = await db.user.findFirst({
-    where: { role: "SUPER_ADMIN" },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  return admin?.id ?? null;
-}
 
 /**
  * Webhook ScanHub `scan.created` : un agent vient de scanner un badge à l'entrée, la présence est
@@ -54,12 +39,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const checkerId = await resolveCheckerId();
+    const checkerId = await resolveScanHubCheckerId();
     if (!checkerId) {
       console.error("Webhook ScanHub : aucun compte pointeur disponible");
       return NextResponse.json({ error: "Configuration incomplète" }, { status: 500 });
     }
-    const result = await recordBadgeCheckIn({ badgeRef: number, checkedById: checkerId });
+    const result = await recordBadgeCheckIn({
+      badgeRef: number,
+      checkedById: checkerId,
+      at: scan.scannedAt ? new Date(scan.scannedAt) : undefined,
+    });
     return NextResponse.json({ ok: true, outcome: "checked_in", name: result.name });
   } catch (error) {
     if (error instanceof CheckInError) {

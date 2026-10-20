@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 import { recordBadgeCheckIn } from "@/lib/badge-checkin";
+import { categoryLabel } from "@/lib/access-categories";
+import { reconcileScanHubScans } from "@/lib/scanhub-reconcile";
 
 /** Sessions du programme de l'édition, pour pointer « sur une session » ou sur l'événement en général. */
 export async function listAttendanceSessionsAction(editionId: string) {
@@ -71,8 +73,37 @@ export async function listAttendanceAction(editionId: string, sessionId?: string
     }),
   ]);
 
+  // Badges d'accès (médias, comité, intervenants…) : sans région propre, ils ne concernent que les acteurs nationaux.
+  const accessPasses = regionId
+    ? { total: 0, checkedIn: 0, records: [] as { id: string; fullName: string; category: string; organization: string | null; number: string; checkedInAt: Date }[] }
+    : await (async () => {
+        const [totalPasses, checkedIn, recent] = await Promise.all([
+          db.accessPass.count({ where: { editionId, status: "ACTIF" } }),
+          db.accessPass.count({ where: { editionId, checkedInAt: { not: null } } }),
+          db.accessPass.findMany({
+            where: { editionId, checkedInAt: { not: null } },
+            select: { id: true, fullName: true, category: true, organization: true, number: true, checkedInAt: true },
+            orderBy: { checkedInAt: "desc" },
+            take: 50,
+          }),
+        ]);
+        return {
+          total: totalPasses,
+          checkedIn,
+          records: recent.map(pass => ({
+            id: pass.id,
+            fullName: pass.fullName,
+            category: categoryLabel(pass.category),
+            organization: pass.organization,
+            number: pass.number,
+            checkedInAt: pass.checkedInAt as Date,
+          })),
+        };
+      })();
+
   return {
     total,
+    accessPasses,
     records,
     awaiting: awaiting.map(application => ({
       id: application.id,
@@ -97,4 +128,13 @@ export async function checkInByBadgeAction(editionId: string, badgeNumber: strin
     checkedById: checker.id,
     assertRegion: regionId => assertRegionAccess(checker, regionId),
   });
+}
+
+/**
+ * Rattrapage manuel des pointages ScanHub : relit les scans récents et enregistre ceux que le webhook n'a pas
+ * apportés. Sans danger à répéter : un badge déjà pointé est ignoré.
+ */
+export async function reconcileScanHubAction() {
+  await requirePermission("attendance.manage");
+  return reconcileScanHubScans();
 }

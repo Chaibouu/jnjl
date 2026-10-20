@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ScanLine, UserCheck } from "lucide-react";
+import { RefreshCw, ScanLine, UserCheck } from "lucide-react";
 import {
   checkInByBadgeAction,
   listAttendanceAction,
   listAttendanceSessionsAction,
+  reconcileScanHubAction,
 } from "@/actions/attendance-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,19 @@ export function AttendanceManager({
     run(() => reload(editionId, value));
   };
 
+  const reconcile = () =>
+    run(async () => {
+      const result = await reconcileScanHubAction();
+      await reload(editionId, sessionId);
+      if (result.error) setError(`Rattrapage ScanHub : ${result.error}`);
+      else
+        setMessage(
+          result.checkedIn > 0
+            ? `${result.checkedIn} présence(s) rattrapée(s) depuis ScanHub (${result.read} scan(s) relus).`
+            : `Rien à rattraper : les présences sont à jour (${result.read} scan(s) relus).`
+        );
+    });
+
   const checkIn = (number: string) => {
     run(async () => {
       const result = await checkInByBadgeAction(editionId, number, sessionArg(sessionId));
@@ -96,8 +110,21 @@ export function AttendanceManager({
           <h1 className="mt-1 text-3xl font-bold">Présence</h1>
           <p className="mt-2 text-muted-foreground">
             Pointez les participants en saisissant ou en scannant le numéro de leur badge.
-            {` ${data.total} pointage(s).`}
+            {` ${data.total} pointage(s) d'ambassadeurs.`}
+            {data.accessPasses.total > 0 &&
+              ` ${data.accessPasses.checkedIn}/${data.accessPasses.total} badge(s) d'accès pointé(s).`}
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            loading={isPending}
+            onClick={reconcile}
+            className="mt-3 gap-2 rounded-none"
+            title="Relit les scans de ScanHub et enregistre les présences que le webhook n'aurait pas apportées"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Rattraper les scans ScanHub
+          </Button>
         </div>
         <div className="grid w-full gap-3 sm:w-72">
           <Select value={editionId} onValueChange={changeEdition}>
@@ -167,6 +194,36 @@ export function AttendanceManager({
       )}
       {error && (
         <p className="rounded-xl border bg-card px-5 py-3 text-sm text-destructive shadow-sm">{error}</p>
+      )}
+
+      {data.accessPasses.total > 0 && (
+        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <div className="border-b p-5">
+            <h2 className="text-lg font-semibold">Badges d&apos;accès pointés</h2>
+            <p className="text-sm text-muted-foreground">
+              Médias, comités, intervenants… {data.accessPasses.checkedIn} sur {data.accessPasses.total} présent(s)
+            </p>
+          </div>
+          <div className="divide-y">
+            {data.accessPasses.records.map(pass => (
+              <div key={pass.id} className="flex items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="font-medium">{pass.fullName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {pass.category}
+                    {pass.organization ? ` · ${pass.organization}` : ""} · {pass.number}
+                  </p>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(pass.checkedInAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                </span>
+              </div>
+            ))}
+            {data.accessPasses.records.length === 0 && (
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">Aucun badge d&apos;accès pointé.</p>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">

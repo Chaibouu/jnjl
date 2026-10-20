@@ -126,3 +126,19 @@ export function verifyWebhookSignature(
   const b = Buffer.from(signature);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+
+export type ScanHubScan = {
+  id: string;
+  result: string;
+  scannedAt?: string;
+  qr?: { externalId?: string } | null;
+};
+
+/** Page de scans de l'espace, du plus ancien au plus récent, à partir du curseur `after` (lecture incrémentale). */
+export async function listScans(after?: string, limit = 200) {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (after) query.set("after", after);
+  return request<{ scans: ScanHubScan[]; hasMore: boolean; nextCursor: string | null }>(`/scans?${query}`, {
+    method: "GET",
+  });
+}

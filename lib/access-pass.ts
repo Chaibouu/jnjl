@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { isScanHubEnabled, registerBadgeQr, setBadgeQrActive } from "@/lib/scanhub";
 
 import { categoryLabel } from "@/lib/access-categories";
+import type { DesignParams, DesignVariant } from "@/lib/generate-badge-pdf";
 
 /** Numéro de badge suivant pour l'édition : ACC-2026-0001, ACC-2026-0002… */
 export async function nextAccessNumber(editionId: string, editionYear: number): Promise<string> {
@@ -47,4 +48,52 @@ export async function syncAccessPassQrDetailed(
     console.error("ScanHub : synchronisation du QR d'accès en échec", error);
     return { ok: false, error: error instanceof Error ? error.message : "Erreur inconnue" };
   }
+}
+
+/** Maquette officielle de chaque catégorie de badge d'accès. */
+export const DESIGN_VARIANT_BY_CATEGORY: Record<string, DesignVariant> = {
+  POINT_FOCAL: "point_focal",
+  COMMISSION: "commission",
+  INTERVENANT: "speaker",
+  MEDIA: "generic",
+  COMITE_ORGANISATION: "generic",
+  PERSONNEL_APPUI: "generic",
+  INVITE: "generic",
+  AUTRE: "generic",
+};
+
+/** Titre en grand du modèle générique (le modèle « Point focal » sans titre). */
+export const GENERIC_TITLES: Record<string, string> = {
+  MEDIA: "Média",
+  COMITE_ORGANISATION: "Comité d'organisation",
+  PERSONNEL_APPUI: "Personnel d'appui",
+  INVITE: "Invité",
+  AUTRE: "Accès",
+};
+
+/** Paramètres de dessin d'un badge d'accès (hors QR et photo, fournis par l'appelant). */
+export function passDesignParams(
+  pass: {
+    category: string;
+    fullName: string;
+    organization: string | null;
+    jobTitle: string | null;
+    number: string;
+    createdAt: Date;
+  },
+  qrValue: string,
+  photo: Uint8Array | null
+): DesignParams {
+  return {
+    title: GENERIC_TITLES[pass.category],
+    fullName: pass.fullName,
+    region:
+      pass.organization ??
+      (pass.category === "POINT_FOCAL" ? "Niger" : pass.category === "COMMISSION" ? "Commission" : "JNJL 2026"),
+    jobTitle: pass.jobTitle,
+    photo,
+    number: pass.number,
+    qrValue,
+    awardedAt: pass.createdAt,
+  };
 }

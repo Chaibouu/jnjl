@@ -128,7 +128,7 @@ const DESIGNS: Record<DesignVariant, DesignConfig> = {
   },
 };
 
-type DesignParams = {
+export type DesignParams = {
   fullName: string;
   /** Titre en grand (badge générique) : MÉDIA, PERSONNEL D'APPUI… */
   title?: string;
@@ -147,22 +147,45 @@ function isPng(bytes: Uint8Array) {
   return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
 }
 
-async function generateDesignBadge(variant: DesignVariant, params: DesignParams): Promise<Uint8Array | null> {
-  const design = DESIGNS[variant];
-  const background = await loadPublicImage(design.image);
-  if (!background) return null;
+/** Document en cours : polices et images de fond embarquées une seule fois, même pour des centaines de badges. */
+type DesignContext = {
+  doc: PDFDocument;
+  font: PDFFont;
+  bold: PDFFont;
+  mono: PDFFont;
+  backgrounds: Map<string, PDFImage | null>;
+};
 
+async function createDesignContext(): Promise<DesignContext> {
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const mono = await doc.embedFont(StandardFonts.CourierBold);
+  return {
+    doc,
+    font: await doc.embedFont(StandardFonts.Helvetica),
+    bold: await doc.embedFont(StandardFonts.HelveticaBold),
+    mono: await doc.embedFont(StandardFonts.CourierBold),
+    backgrounds: new Map(),
+  };
+}
+
+/** Dessine un badge sur une nouvelle page du document ; faux si l'image de fond est introuvable. */
+async function drawDesignBadgePage(ctx: DesignContext, variant: DesignVariant, params: DesignParams): Promise<boolean> {
+  const design = DESIGNS[variant];
+  const { doc, font, bold, mono } = ctx;
+
+  if (!ctx.backgrounds.has(design.image)) {
+    const bytes = await loadPublicImage(design.image);
+    ctx.backgrounds.set(design.image, bytes ? await doc.embedJpg(bytes) : null);
+  }
+  const background = ctx.backgrounds.get(design.image);
+  if (!background) return false;
+
   const page = doc.addPage([DESIGN_PAGE_W, DESIGN_PAGE_H]);
 
   const k = DESIGN_PAGE_W / DESIGN_W;
   const px = (x: number) => x * k;
   const py = (yTop: number) => DESIGN_PAGE_H - yTop * k;
 
-  page.drawImage(await doc.embedJpg(background), { x: 0, y: 0, width: DESIGN_PAGE_W, height: DESIGN_PAGE_H });
+  page.drawImage(background, { x: 0, y: 0, width: DESIGN_PAGE_W, height: DESIGN_PAGE_H });
 
   const centeredAt = (
     text: string,
@@ -299,7 +322,27 @@ async function generateDesignBadge(variant: DesignVariant, params: DesignParams)
   centeredAt(`Matricule : ${params.number}`, centerX, cursor + 58, 10.5, mono, NAVY);
   centeredAt(`Délivré le ${params.awardedAt.toLocaleDateString("fr-FR")}`, centerX, cursor + 84, 8, font, GRAY);
 
-  return doc.save();
+  return true;
+}
+
+export type DesignBadgeItem = { variant: DesignVariant; params: DesignParams };
+
+/** Un seul PDF pour plusieurs badges (une page par badge), prêt à imprimer. `null` si aucune maquette n'est lisible. */
+export async function generateDesignBadgesPdf(
+  items: DesignBadgeItem[]
+): Promise<{ pdf: Uint8Array; rendered: number } | null> {
+  const ctx = await createDesignContext();
+  let rendered = 0;
+  for (const item of items) {
+    if (await drawDesignBadgePage(ctx, item.variant, item.params)) rendered += 1;
+  }
+  if (rendered === 0) return null;
+  return { pdf: await ctx.doc.save(), rendered };
+}
+
+async function generateDesignBadge(variant: DesignVariant, params: DesignParams): Promise<Uint8Array | null> {
+  const result = await generateDesignBadgesPdf([{ variant, params }]);
+  return result?.pdf ?? null;
 }
 
 export async function generateBadgePdf(params: {
