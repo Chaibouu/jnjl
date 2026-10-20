@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Award, BadgeCheck, Printer } from "lucide-react";
+import { Award, BadgeCheck, Printer, Undo2 } from "lucide-react";
 import {
   awardAllAmbassadorBadgesAction,
   awardAmbassadorBadgeAction,
+  cancelAllAmbassadorBadgesAction,
+  cancelAmbassadorBadgeAction,
   printAmbassadorBadgesAction,
   resyncBadgeQrsAction,
   listBadgeCandidatesAction,
@@ -36,10 +38,13 @@ export function BadgesManager({
   editions,
   initialEditionId,
   initialCandidates,
+  isSuperAdmin = false,
 }: {
   editions: EditionOption[];
   initialEditionId: string;
   initialCandidates: Candidate[];
+  /** Seul le Super Admin peut annuler des badges déjà attribués. */
+  isSuperAdmin?: boolean;
 }) {
   const [editionId, setEditionId] = useState(initialEditionId);
   const [candidates, setCandidates] = useState(initialCandidates);
@@ -100,6 +105,55 @@ export function BadgesManager({
         if (result.total === 0) setMessage("Tous les QR sont déjà synchronisés avec ScanHub.");
         else if (result.failed === 0) setMessage(`${result.synced} QR synchronisé(s) avec ScanHub.`);
         else setError(`${result.synced} synchronisé(s), ${result.failed} en échec : ${result.error ?? "erreur inconnue"}`);
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
+
+  const cancelOne = async (candidate: Candidate) => {
+    const confirmed = await confirm({
+      title: "Annuler ce badge ?",
+      description: `${candidate.firstName} ${candidate.lastName} reviendra à l'étape « Badge », comme si le badge n'avait pas été attribué. Son numéro ne sera pas réutilisé et son QR sera désactivé.`,
+      confirmLabel: "Annuler le badge",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await cancelAmbassadorBadgeAction(candidate.id);
+        if (!result.ok) {
+          setError(result.reason);
+          return;
+        }
+        refresh(editionId, "Badge annulé");
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
+
+  const cancelAll = async () => {
+    const confirmed = await confirm({
+      title: `Annuler les ${awardedCount} badges attribués ?`,
+      description:
+        "Tous les ambassadeurs concernés reviennent à l'étape « Badge », comme si aucun badge n'avait été attribué. Les numéros ne seront pas réutilisés et les QR seront désactivés. Les badges dont l'embarquement est validé ou la présence pointée sont conservés.",
+      confirmLabel: "Tout annuler",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await cancelAllAmbassadorBadgesAction(editionId);
+        refresh(
+          editionId,
+          `${result.cancelled} badge(s) annulé(s).` +
+            (result.refused > 0 ? ` ${result.refused} conservé(s) : ${result.firstReason}.` : "")
+        );
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
       }
@@ -258,6 +312,19 @@ export function BadgesManager({
           <Printer className="h-4 w-4" />
           Imprimer les badges attribués (PDF)
         </Button>
+        {isSuperAdmin && (
+          <Button
+            type="button"
+            variant="outline"
+            loading={isPending}
+            disabled={awardedCount === 0}
+            onClick={cancelAll}
+            className="h-10 gap-2 rounded-none border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <Undo2 className="h-4 w-4" />
+            Annuler tous les badges
+          </Button>
+        )}
       </div>
 
       {message && (
@@ -280,10 +347,24 @@ export function BadgesManager({
                 </p>
               </div>
               {candidate.badge ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
-                  <BadgeCheck className="h-3.5 w-3.5" />
-                  {candidate.badge.number}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    {candidate.badge.number}
+                  </span>
+                  {isSuperAdmin && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      title="Annuler ce badge"
+                      disabled={isPending}
+                      onClick={() => cancelOne(candidate)}
+                    >
+                      <Undo2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <Button
                   type="button"
