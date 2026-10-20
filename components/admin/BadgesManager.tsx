@@ -54,7 +54,7 @@ export function BadgesManager({
   const { confirm } = useConfirm();
   const pendingCount = candidates.filter(candidate => !candidate.badge).length;
   const [printRegionId, setPrintRegionId] = useState("");
-  const [layout, setLayout] = useState<BadgeLayout>("a6x4");
+  const [layout, setLayout] = useState<BadgeLayout>("a9");
   const awardedCount = candidates.filter(candidate => candidate.badge).length;
   const regionOptions = Array.from(
     new Map(candidates.map(candidate => [candidate.region.id, candidate.region.name])).entries()
