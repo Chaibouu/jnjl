@@ -63,7 +63,7 @@ export function AccessPassManager({
   const [uploading, setUploading] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
   const [bulkCategory, setBulkCategory] = useState("MEDIA");
-  const [layout, setLayout] = useState<BadgeLayout>("a5x2");
+  const [layout, setLayout] = useState<BadgeLayout>("a6x4");
   const [bulkText, setBulkText] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
