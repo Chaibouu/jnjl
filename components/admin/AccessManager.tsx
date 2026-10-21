@@ -18,6 +18,7 @@ import {
   generateAccessBatchAction,
   getAccessOverviewAction,
   syncEmailStatusesAction,
+  unblockAcceptedAccountsAction,
   type AccessMailState,
   type AccessOverview,
   type AccessRow,
@@ -266,6 +267,31 @@ export function AccessManager({ initial }: { initial: AccessOverview }) {
           >
             {checking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Actualiser l&apos;état des e-mails
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending || checking}
+            title="Active les comptes des candidats acceptés qui n'avaient jamais vérifié leur e-mail"
+            onClick={() =>
+              startTransition(async () => {
+                setMessage("");
+                setError("");
+                try {
+                  const result = await unblockAcceptedAccountsAction();
+                  setMessage(
+                    result.unblocked > 0
+                      ? `${result.unblocked} compte(s) débloqué(s) : ${result.emails.join(", ")}.`
+                      : "Aucun compte bloqué : tous les candidats acceptés peuvent se connecter."
+                  );
+                } catch (actionError) {
+                  setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+                }
+              })
+            }
+            className="rounded-none"
+          >
+            Débloquer les comptes acceptés
           </Button>
           <Button
             type="button"

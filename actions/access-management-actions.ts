@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import { ApplicationStatus, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/actions/requirePermission";
-import { audit } from "@/lib/audit";
+import { audit, auditAdminAction } from "@/lib/audit";
+import { acceptedAccountActivation } from "@/lib/account-activation";
 import { getAppUrl } from "@/lib/app-url";
 import { describeMailError, sendApplicationAcceptedEmail } from "@/lib/mail";
 import { generateTemporaryPassword } from "@/lib/temp-password";
@@ -137,7 +138,7 @@ async function issueAccess(applicationId: string, sendEmail: boolean, actorId: s
 
   const user = await db.user.findUnique({
     where: { id: application.userId },
-    select: { id: true, role: true, email: true, isDeleted: true },
+    select: { id: true, role: true, email: true, isDeleted: true, isActive: true, deactivatedAt: true, emailVerified: true },
   });
   if (!user || user.isDeleted) return { ok: false, applicationId, error: "Compte introuvable" };
   // Jamais le mot de passe d'un compte administrateur ou staff qui partagerait cette adresse.
@@ -151,7 +152,10 @@ async function issueAccess(applicationId: string, sendEmail: boolean, actorId: s
 
   // Le mot de passe est remplacé dans tous les cas : le Super Admin le voit à l'écran, aucune personne
   // n'est donc jamais privée d'accès si l'e-mail échoue.
-  await db.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(password, 12) } });
+  await db.user.update({
+    where: { id: user.id },
+    data: { password: await bcrypt.hash(password, 12), ...acceptedAccountActivation(user) },
+  });
   await db.session.deleteMany({ where: { userId: user.id } });
 
   let emailResult: IssuedAccess["emailResult"] = "skipped";
@@ -344,4 +348,33 @@ export async function syncEmailStatusesAction(cursor: string | null): Promise<{ 
     console.error("Synchronisation des emails impossible:", error);
     return { ok: false, error: "Impossible de joindre le service d'e-mails. Réessayez dans un instant." };
   }
+}
+
+/**
+ * Débloque les comptes des candidats déjà acceptés qui sont restés « inactifs » ou « non vérifiés » (inscrits
+ * avant leur acceptation) : ils ne pouvaient pas se connecter avec leurs accès. Les comptes désactivés
+ * volontairement par un administrateur ne sont jamais touchés. Réservé au Super Admin.
+ */
+export async function unblockAcceptedAccountsAction(): Promise<{ unblocked: number; emails: string[] }> {
+  const actor = await requireSuperAdmin();
+  const accounts = await db.user.findMany({
+    where: {
+      role: UserRole.USER,
+      isDeleted: false,
+      deactivatedAt: null,
+      OR: [{ isActive: false }, { emailVerified: null }],
+      ambassadorApplications: { some: { status: ApplicationStatus.RETENU } },
+    },
+    select: { id: true, email: true, isActive: true, deactivatedAt: true, emailVerified: true },
+  });
+
+  for (const account of accounts) {
+    await db.user.update({ where: { id: account.id }, data: acceptedAccountActivation(account) });
+  }
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "ACCOUNTS_UNBLOCKED",
+    target: { count: accounts.length, emails: accounts.map(account => account.email) },
+  });
+  return { unblocked: accounts.length, emails: accounts.map(account => account.email ?? "") };
 }

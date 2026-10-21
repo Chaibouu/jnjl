@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { auditAdminAction } from "@/lib/audit";
 import {
   createAdminUserSchema,
   updateAdminUserSchema,
@@ -30,7 +31,7 @@ const userSelect = {
 
 export async function listAdminUsersAction() {
   await requirePermission("users.manage");
-  const [users, permissions, regions] = await Promise.all([
+  const [users, permissions, regions, deletedUsers] = await Promise.all([
     db.user.findMany({
       where: { isDeleted: false },
       select: userSelect,
@@ -44,6 +45,11 @@ export async function listAdminUsersAction() {
       select: { id: true, name: true, code: true },
       orderBy: { name: "asc" },
     }),
+    db.user.findMany({
+      where: { isDeleted: true },
+      select: { id: true, name: true, email: true, role: true, deactivatedAt: true },
+      orderBy: { deactivatedAt: "desc" },
+    }),
   ]);
 
   return {
@@ -53,6 +59,7 @@ export async function listAdminUsersAction() {
     })),
     permissions,
     regions,
+    deletedUsers,
   };
 }
 
@@ -104,6 +111,11 @@ export async function createAdminUserAction(input: CreateAdminUserInput) {
     select: userSelect,
   });
 
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "USER_CREATED",
+    target: { userId: created.id, label: email, role: data.role },
+  });
   return serializeUser(created);
 }
 
@@ -144,21 +156,75 @@ export async function updateAdminUserAction(
     });
   });
 
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "USER_UPDATED",
+    target: {
+      userId,
+      label: target.email,
+      roleBefore: target.role,
+      roleAfter: data.role,
+      activeBefore: target.isActive,
+      activeAfter: data.isActive,
+      permissionsAfter: data.permissions.length,
+      passwordChanged: Boolean(data.password),
+    },
+  });
   return serializeUser(updated);
 }
 
-export async function deleteAdminUserAction(userId: string) {
+export type UserActionResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function deleteAdminUserAction(userId: string): Promise<UserActionResult> {
   const actor = await requirePermission("users.manage");
   const target = await db.user.findUnique({ where: { id: userId } });
-  if (!target || target.isDeleted) throw new Error("Utilisateur introuvable");
+  if (!target || target.isDeleted) return { ok: false, error: "Utilisateur introuvable" };
   assertCanManageTarget(actor.id, actor.role, target.id, target.role);
+
+  // Garde-fou : un compte lié à une candidature payée ne se supprime pas (le candidat perdrait son accès alors que
+  // ses frais sont encaissés). On le désactive, ou on traite d'abord la candidature.
+  const paidApplication = await db.ambassadorApplication.findFirst({
+    where: { userId, payment: { is: { status: "VALIDE" } } },
+    select: { id: true },
+  });
+  if (paidApplication) {
+    return {
+      ok: false,
+      error:
+        "Ce compte est lié à une candidature ambassadeur dont le paiement est validé : il ne peut pas être supprimé. Désactivez-le si nécessaire.",
+    };
+  }
 
   await db.user.update({
     where: { id: userId },
     data: { isDeleted: true, isActive: false, deactivatedAt: new Date() },
   });
   await db.session.deleteMany({ where: { userId } });
-  return { id: userId };
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "USER_DELETED",
+    target: { userId, label: target.email, name: target.name, role: target.role },
+  });
+  return { ok: true, id: userId };
+}
+
+/** Restaure un compte supprimé (actif, non supprimé). Le mot de passe et les données sont inchangés. */
+export async function restoreAdminUserAction(userId: string): Promise<UserActionResult> {
+  const actor = await requirePermission("users.manage");
+  const target = await db.user.findUnique({ where: { id: userId } });
+  if (!target || !target.isDeleted) return { ok: false, error: "Ce compte n'est pas supprimé" };
+  assertCanManageTarget(actor.id, actor.role, target.id, target.role);
+
+  await db.user.update({
+    where: { id: userId },
+    data: { isDeleted: false, isActive: true, deactivatedAt: null },
+  });
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "USER_RESTORED",
+    target: { userId, label: target.email, name: target.name, role: target.role },
+  });
+  return { ok: true, id: userId };
 }
 
 export async function toggleAdminUserAction(userId: string) {
@@ -179,6 +245,11 @@ export async function toggleAdminUserAction(userId: string) {
   if (target.isActive) {
     await db.session.deleteMany({ where: { userId } });
   }
+  await auditAdminAction({
+    actorId: actor.id,
+    action: target.isActive ? "USER_DEACTIVATED" : "USER_ACTIVATED",
+    target: { userId, label: target.email, name: target.name, role: target.role },
+  });
   return serializeUser(user);
 }
 

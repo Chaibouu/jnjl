@@ -189,6 +189,13 @@ export const adminNavigation: NavigationItem[] = [
     allowedRoles: ["SUPER_ADMIN"],
   },
   {
+    title: "Journal d'audit",
+    icon: "material-symbols:history",
+    path: "/admin/audit",
+    // Qui a fait quoi (comptes, candidatures, badges, paiements…) : traçabilité réservée au Super Admin.
+    allowedRoles: ["SUPER_ADMIN"],
+  },
+  {
     title: "Paiements",
     icon: "material-symbols:payments",
     path: "/admin/paiements",

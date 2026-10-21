@@ -14,6 +14,7 @@ import { UserRole } from "@prisma/client";
 import {
   deleteAdminUserAction,
   listAdminUsersAction,
+  restoreAdminUserAction,
   toggleAdminUserAction,
 } from "@/actions/admin-user-actions";
 import { AdminUserCreateDialog } from "@/components/admin/AdminUserCreateDialog";
@@ -34,6 +35,7 @@ type UserItem = {
   permissions: string[];
   focalRegion: { id: string; name: string; code: string } | null;
 };
+type DeletedUserItem = { id: string; name: string | null; email: string | null; role: UserRole; deactivatedAt: Date | null };
 type PermissionItem = { code: string; label: string; category: string | null };
 type RegionItem = { id: string; name: string; code: string };
 
@@ -41,12 +43,15 @@ export function AdminUserManager({
   users: initialUsers,
   permissions,
   regions,
+  deletedUsers: initialDeleted = [],
 }: {
   users: UserItem[];
   permissions: PermissionItem[];
   regions: RegionItem[];
+  deletedUsers?: DeletedUserItem[];
 }) {
   const [users, setUsers] = useState(initialUsers);
+  const [deletedUsers, setDeletedUsers] = useState(initialDeleted);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -85,6 +90,32 @@ export function AdminUserManager({
     });
   };
 
+  const restore = async (user: DeletedUserItem) => {
+    const confirmed = await confirm({
+      title: "Restaurer ce compte ?",
+      description: `${user.name ?? user.email ?? "Ce compte"} redeviendra actif et pourra se reconnecter avec son mot de passe actuel.`,
+      confirmLabel: "Restaurer",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await restoreAdminUserAction(user.id);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        const refreshed = await listAdminUsersAction();
+        setUsers(refreshed.users);
+        setDeletedUsers(refreshed.deletedUsers);
+        setMessage("Compte restauré");
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
+      }
+    });
+  };
+
   const refreshAfterCreate = () => {
     setMessage("");
     setError("");
@@ -115,9 +146,17 @@ export function AdminUserManager({
     setError("");
     startTransition(async () => {
       try {
-        await deleteAdminUserAction(user.id);
+        const result = await deleteAdminUserAction(user.id);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         setUsers(current => current.filter(item => item.id !== user.id));
-        setMessage("Utilisateur supprimé");
+        setDeletedUsers(current => [
+          { id: user.id, name: user.name, email: user.email, role: user.role, deactivatedAt: new Date() },
+          ...current,
+        ]);
+        setMessage("Utilisateur supprimé (restaurable depuis « Comptes supprimés »)");
       } catch (actionError) {
         setError(
           actionError instanceof Error
@@ -287,6 +326,42 @@ export function AdminUserManager({
           </table>
         </div>
       </div>
+
+      {deletedUsers.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <div className="border-b p-5">
+            <h2 className="text-lg font-semibold">Comptes supprimés</h2>
+            <p className="text-sm text-muted-foreground">
+              {deletedUsers.length} compte{deletedUsers.length !== 1 ? "s" : ""} supprimé
+              {deletedUsers.length !== 1 ? "s" : ""} : à restaurer en cas d&apos;erreur.
+            </p>
+          </div>
+          <div className="divide-y">
+            {deletedUsers.map(user => (
+              <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="font-medium">{user.name ?? user.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.email}
+                    {user.deactivatedAt
+                      ? ` · supprimé le ${new Date(user.deactivatedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`
+                      : ""}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => restore(user)}
+                  className="rounded-none"
+                >
+                  Restaurer
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

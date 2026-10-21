@@ -1,5 +1,6 @@
 "use server";
 
+import { auditAdminAction } from "@/lib/audit";
 import QRCode from "qrcode";
 import { generateBadgePdf } from "@/lib/generate-badge-pdf";
 import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
@@ -152,6 +153,11 @@ async function awardBadge(actor: User, applicationId: string) {
 export async function awardAmbassadorBadgeAction(applicationId: string) {
   const actor = await requirePermission("badges.manage");
   const userBadge = await awardBadge(actor, applicationId);
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "BADGE_AWARDED",
+    target: { applicationId, number: userBadge.number },
+  });
   return { number: userBadge.number };
 }
 
@@ -177,6 +183,11 @@ export async function awardAllAmbassadorBadgesAction(editionId: string) {
     await awardBadge(actor, application.id);
   }
 
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "BADGE_AWARDED",
+    target: { editionId, regionId, count: pending.length, bulk: true },
+  });
   return { count: pending.length };
 }
 
@@ -249,13 +260,20 @@ async function cancelBadge(applicationId: string): Promise<CancelBadgeResult> {
 
 /** Annule le badge d'un seul ambassadeur. Réservé au Super Admin. */
 export async function cancelAmbassadorBadgeAction(applicationId: string): Promise<CancelBadgeResult> {
-  await requireSuperAdmin();
-  return cancelBadge(applicationId);
+  const actor = await requireSuperAdmin();
+  const result = await cancelBadge(applicationId);
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "BADGE_CANCELLED",
+    target: { applicationId, ok: result.ok, reason: result.ok ? undefined : result.reason },
+    status: result.ok ? "SUCCESS" : "FAILURE",
+  });
+  return result;
 }
 
 /** Annule tous les badges attribués de l'édition (ceux qui peuvent l'être). Réservé au Super Admin. */
 export async function cancelAllAmbassadorBadgesAction(editionId: string) {
-  await requireSuperAdmin();
+  const actor = await requireSuperAdmin();
   const applications = await db.ambassadorApplication.findMany({
     where: {
       editionId,
@@ -273,6 +291,11 @@ export async function cancelAllAmbassadorBadgesAction(editionId: string) {
     if (result.ok) cancelled += 1;
     else refused.push(result.reason);
   }
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "BADGE_CANCELLED",
+    target: { editionId, cancelled, refused: refused.length, bulk: true },
+  });
   return { cancelled, refused: refused.length, firstReason: refused[0] ?? null };
 }
 

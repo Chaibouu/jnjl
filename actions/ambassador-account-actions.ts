@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { auditAdminAction } from "@/lib/audit";
 import { generatePasswordResetToken } from "@/lib/tokens";
 import { describeMailError, sendPasswordResetEmail } from "@/lib/mail";
 import {
@@ -52,7 +53,7 @@ async function getManagedAmbassadorUser(userId: string) {
 }
 
 export async function toggleAmbassadorAccountAction(userId: string) {
-  await requirePermission("ambassadors.accounts.manage");
+  const actor = await requirePermission("ambassadors.accounts.manage");
   const target = await getManagedAmbassadorUser(userId);
 
   const user = await db.user.update({
@@ -71,6 +72,11 @@ export async function toggleAmbassadorAccountAction(userId: string) {
   if (target.isActive) {
     await db.session.deleteMany({ where: { userId } });
   }
+  await auditAdminAction({
+    actorId: actor.id,
+    action: target.isActive ? "USER_DEACTIVATED" : "USER_ACTIVATED",
+    target: { userId, label: target.email, name: target.name, role: target.role },
+  });
   return user;
 }
 

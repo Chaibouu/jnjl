@@ -1,5 +1,6 @@
 "use server";
 
+import { auditAdminAction } from "@/lib/audit";
 import { ApplicationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
@@ -102,6 +103,17 @@ export async function recordManualPaymentAction(
     link: "/ambassadeur/formation",
   });
 
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "PAYMENT_MANUAL_RECORDED",
+    target: {
+      applicationId: ambassadorApplicationId,
+      label: application.email,
+      name: `${application.firstName} ${application.lastName}`,
+      amount: data.amount,
+      reference: data.reference?.trim() || null,
+    },
+  });
   return { id: ambassadorApplicationId };
 }
 
@@ -149,7 +161,7 @@ export async function getAmbassadorPaymentReceiptAction(
 
 /** Un administrateur autorise (ou retire) le paiement manuel pour un candidat précis, à titre exceptionnel. */
 export async function setManualPaymentAllowedAction(ambassadorApplicationId: string, allowed: boolean) {
-  await requirePermission("payments.validate");
+  const actor = await requirePermission("payments.validate");
   const application = await db.ambassadorApplication.findUnique({
     where: { id: ambassadorApplicationId },
     select: { payment: { select: { id: true } } },
@@ -159,6 +171,11 @@ export async function setManualPaymentAllowedAction(ambassadorApplicationId: str
   await db.ambassadorApplication.update({
     where: { id: ambassadorApplicationId },
     data: { manualPaymentAllowed: allowed },
+  });
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "MANUAL_PAYMENT_ALLOWED",
+    target: { applicationId: ambassadorApplicationId, allowed },
   });
   return { id: ambassadorApplicationId, allowed };
 }

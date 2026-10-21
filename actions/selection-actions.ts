@@ -1,5 +1,6 @@
 "use server";
 
+import { auditAdminAction } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
 import { notify } from "@/lib/notify";
@@ -97,6 +98,11 @@ export async function computeRankingAction(editionId: string) {
     )
   );
 
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "RANKING_COMPUTED",
+    target: { editionId, regionId, candidates: applications.length },
+  });
   if (updates.length > 0) {
     await db.$transaction(updates);
   }
@@ -183,5 +189,10 @@ export async function runSelectionAction(editionId: string) {
     });
   }
 
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "SELECTION_RUN",
+    target: { editionId, regionId, candidates: applications.length },
+  });
   return { count: applications.length };
 }

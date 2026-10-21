@@ -1,5 +1,7 @@
 "use server";
 
+import { auditAdminAction } from "@/lib/audit";
+import { acceptedAccountActivation } from "@/lib/account-activation";
 import bcrypt from "bcryptjs";
 import { ApplicationStatus, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -124,7 +126,7 @@ export async function acceptAmbassadorApplicationAction(id: string) {
       const generated = generateTemporaryPassword();
       await transaction.user.update({
         where: { id: user.id },
-        data: { password: await bcrypt.hash(generated, 12) },
+        data: { password: await bcrypt.hash(generated, 12), ...acceptedAccountActivation(user) },
       });
       temporaryPassword = generated;
       existingAccount = true;
@@ -160,6 +162,17 @@ export async function acceptAmbassadorApplicationAction(id: string) {
     message: "Votre candidature ambassadeur est retenue. Prochaine étape : le paiement des frais d'inscription, depuis « Mon paiement ».",
   });
 
+  await auditAdminAction({
+    actorId: reviewer.id,
+    action: "APPLICATION_ACCEPTED",
+    target: {
+      applicationId: id,
+      userId: account.id,
+      label: application.email,
+      name: `${application.firstName} ${application.lastName}`,
+      regionId: application.regionId,
+    },
+  });
   return { userId: account.id, emailSent };
 }
 
@@ -186,7 +199,7 @@ export async function resendAmbassadorAccessEmailAction(
 
   const user = await db.user.findUnique({
     where: { id: application.userId },
-    select: { id: true, role: true, email: true, isDeleted: true },
+    select: { id: true, role: true, email: true, isDeleted: true, isActive: true, deactivatedAt: true, emailVerified: true },
   });
   if (!user || user.isDeleted) throw new Error("Le compte associé est introuvable");
 
@@ -213,7 +226,10 @@ export async function resendAmbassadorAccessEmailAction(
     console.error("Accès non renvoyés:", error);
     return { ok: false, error: describeMailError(error) };
   }
-  await db.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash(generated, 12) } });
+  await db.user.update({
+    where: { id: user.id },
+    data: { password: await bcrypt.hash(generated, 12), ...acceptedAccountActivation(user) },
+  });
   return { ok: true };
 }
 
@@ -246,6 +262,16 @@ export async function rejectAmbassadorApplicationAction(
     title: "Candidature ambassadeur non retenue",
     message: `Votre candidature ambassadeur n'a pas été retenue. Motif : ${reason.trim() || "non précisé"}.`,
     sendEmail: true,
+  });
+  await auditAdminAction({
+    actorId: reviewer.id,
+    action: "APPLICATION_REJECTED",
+    target: {
+      applicationId: id,
+      label: application.email,
+      name: `${application.firstName} ${application.lastName}`,
+      reason: reason.trim() || "Candidature non retenue",
+    },
   });
   return { id };
 }
