@@ -52,7 +52,7 @@ export async function syncAccessPassQrDetailed(
 
 /** Maquette officielle de chaque catégorie de badge d'accès. */
 export const DESIGN_VARIANT_BY_CATEGORY: Record<string, DesignVariant> = {
-  POINT_FOCAL: "point_focal",
+  POINT_FOCAL: "generic",
   COMMISSION: "commission",
   INTERVENANT: "speaker",
   MEDIA: "generic",
@@ -64,6 +64,7 @@ export const DESIGN_VARIANT_BY_CATEGORY: Record<string, DesignVariant> = {
 
 /** Titre en grand du modèle générique (le modèle « Point focal » sans titre). */
 export const GENERIC_TITLES: Record<string, string> = {
+  POINT_FOCAL: "Point focal",
   MEDIA: "Média",
   COMITE_ORGANISATION: "Comité d'organisation",
   PERSONNEL_APPUI: "Personnel d'appui",

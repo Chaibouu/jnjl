@@ -361,9 +361,9 @@ export function AccessPassManager({
               E-mail
               <Input value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} />
             </label>
-            {(form.category === "INTERVENANT" || form.photoUrl) && (
+            {(
               <div className="space-y-1 text-xs font-medium text-muted-foreground sm:col-span-2 lg:col-span-3">
-                <span>Photo (affichée sur le badge Speaker, JPEG ou PNG)</span>
+                <span>Photo de profil (affichée sur le badge ; JPEG, PNG ou WebP)</span>
                 <div className="flex items-center gap-3">
                   {form.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -376,7 +376,7 @@ export function AccessPassManager({
                   <input
                     ref={photoInput}
                     type="file"
-                    accept="image/jpeg,image/png"
+                    accept="image/jpeg,image/png,image/webp"
                     className="hidden"
                     onChange={event => {
                       const file = event.target.files?.[0];

@@ -9,28 +9,18 @@ import { storagePaths } from "@/lib/storage-paths";
 import { categoryLabel, isAccessCategory, organizationField } from "@/lib/access-categories";
 import {
   DESIGN_VARIANT_BY_CATEGORY,
+  GENERIC_TITLES,
   nextAccessNumber,
   passDesignParams,
   syncAccessPassQr,
   syncAccessPassQrDetailed,
 } from "@/lib/access-pass";
 import { BADGES_PER_PART, renderBadgePart } from "@/lib/badge-batch";
+import { loadBadgePhoto } from "@/lib/badge-photo";
 import type { DesignBadgeItem } from "@/lib/generate-badge-pdf";
 
 const PERMISSION = "badges.manage";
 
-/** Photo d'un porteur : lien absolu (R2) ou fichier local `/uploads/...`. Sans photo lisible, le badge reste valide. */
-async function loadPhoto(url: string): Promise<Uint8Array | null> {
-  try {
-    if (/^https?:\/\//i.test(url)) {
-      const response = await fetch(url);
-      return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
-    }
-    return await loadPublicImage(url.replace(/^\/+/, ""));
-  } catch {
-    return null;
-  }
-}
 
 export type AccessPassRow = {
   id: string;
@@ -227,7 +217,7 @@ export async function updateAccessPassAction(passId: string, input: PassInput) {
   return { pass: toRow(updated) };
 }
 
-/** Téléverse la photo d'un porteur de badge (JPEG ou PNG, 4 Mo max) et renvoie son adresse. */
+/** Téléverse la photo d'un porteur de badge (JPEG, PNG ou WebP, 4 Mo max) et renvoie son adresse. */
 export async function uploadAccessPhotoAction(formData: FormData) {
   await requirePermission(PERMISSION);
   const file = formData.get("file");
@@ -235,7 +225,7 @@ export async function uploadAccessPhotoAction(formData: FormData) {
 
   const uploaded = await uploadFile(file, {
     maxSize: 4 * 1024 * 1024,
-    allowedTypes: ["image/jpeg", "image/png"],
+    allowedTypes: ["image/jpeg", "image/png", "image/webp"],
     destination: storagePaths.speakerPhoto(),
   });
   return { url: uploaded.path };
@@ -304,32 +294,13 @@ export async function downloadAccessPassBadgeAction(passId: string) {
         : `${edition.startDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${edition.endDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`
       : null;
 
-  // Catégories qui ont une maquette officielle ; les autres gardent la mise en page historique.
-  const variantByCategory: Record<string, DesignVariant | undefined> = {
-    POINT_FOCAL: "point_focal",
-    COMMISSION: "commission",
-    INTERVENANT: "speaker",
-    MEDIA: "generic",
-    COMITE_ORGANISATION: "generic",
-    PERSONNEL_APPUI: "generic",
-    INVITE: "generic",
-    AUTRE: "generic",
-  };
-  // Titre en grand du modèle générique (le modèle « Point focal » sans titre).
-  const genericTitles: Record<string, string> = {
-    MEDIA: "Média",
-    COMITE_ORGANISATION: "Comité d'organisation",
-    PERSONNEL_APPUI: "Personnel d'appui",
-    INVITE: "Invité",
-    AUTRE: "Accès",
-  };
-  const photo = pass.photoUrl ? await loadPhoto(pass.photoUrl) : null;
+  const photo = await loadBadgePhoto(pass.photoUrl);
 
   const pdf = await generateBadgePdf({
     editionId: edition.id,
     label: categoryLabel(pass.category),
-    variant: variantByCategory[pass.category],
-    title: genericTitles[pass.category],
+    variant: DESIGN_VARIANT_BY_CATEGORY[pass.category],
+    title: GENERIC_TITLES[pass.category],
     jobTitle: pass.jobTitle,
     photo,
     fullName: pass.fullName,
@@ -390,7 +361,7 @@ export async function printAccessPassBadgesAction(editionId: string, passIds?: s
   for (const { pass, qr } of ready) {
     const index = items.length;
     const inPart = index >= start && index < start + BADGES_PER_PART;
-    const photo = inPart && pass.photoUrl ? await loadPhoto(pass.photoUrl) : null;
+    const photo = inPart ? await loadBadgePhoto(pass.photoUrl) : null;
     items.push({
       variant: DESIGN_VARIANT_BY_CATEGORY[pass.category] ?? "generic",
       params: passDesignParams(pass, qr, photo),

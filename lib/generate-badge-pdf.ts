@@ -68,7 +68,7 @@ function fitSize(text: string, font: PDFFont, maxWidth: number, max: number, min
 // le titre (AMBASSADEUR, POINT FOCAL, COMMISSION, SPEAKER) et le logo. Sont dessinés par-dessus :
 // le texte du bandeau (région ou nom de la commission), la photo (speaker), le QR code, puis le nom
 // complet et les autres données. Les coordonnées sont en pixels de l'image.
-export type DesignVariant = "ambassador" | "point_focal" | "commission" | "speaker" | "generic";
+export type DesignVariant = "ambassador" | "commission" | "speaker" | "generic";
 
 const DESIGN_W = 908;
 const DESIGN_H = 1280;
@@ -84,8 +84,12 @@ type DesignConfig = {
   image: string;
   /** Bandeau dont le texte est remplacé (le texte d'origine est recouvert par la même couleur). */
   pill?: Box & { color: ReturnType<typeof rgb> };
-  /** Emplacement de la photo (speaker), avec le rayon des coins. */
+  /** Emplacement de la photo en cadre arrondi (speaker), avec le rayon des coins. */
   photo?: Box & { radius: number };
+  /** Photo de profil ronde (centre et rayon utile, sous l'anneau de la maquette). */
+  photoCircle?: { cx: number; cy: number; r: number };
+  /** Bas du badge resserré : nom, fonction et matricule seulement (le QR et la photo occupent la place). */
+  compact?: boolean;
   qr: { x: number; y: number; size: number; caption: boolean };
   /** Titre dynamique dessiné sur un fond sans titre (badge générique). */
   dynamicTitle?: boolean;
@@ -96,28 +100,28 @@ type DesignConfig = {
 const DESIGNS: Record<DesignVariant, DesignConfig> = {
   ambassador: {
     image: "badge-ambassadeur.jpg",
-    pill: { x: 287, y: 548, w: 318, h: 63, color: PILL_BLUE },
-    qr: { x: 500, y: 722, size: 340, caption: true },
-    identityBaseline: 1150,
-  },
-  point_focal: {
-    image: "badge-point-focal.jpg",
-    pill: { x: 287, y: 548, w: 318, h: 63, color: PILL_BLUE },
-    qr: { x: 500, y: 880, size: 340, caption: true },
-    identityBaseline: 705,
+    pill: { x: 320, y: 548, w: 267, h: 63, color: PILL_BLUE },
+    photoCircle: { cx: 250, cy: 878, r: 196 },
+    qr: { x: 510, y: 885, size: 280, caption: false },
+    identityBaseline: 1195,
+    compact: true,
   },
   commission: {
     image: "badge-commission.jpg",
-    pill: { x: 163, y: 547, w: 585, h: 68, color: PILL_ORANGE },
-    qr: { x: 490, y: 700, size: 340, caption: true },
-    identityBaseline: 1128,
+    pill: { x: 250, y: 547, w: 407, h: 69, color: PILL_ORANGE },
+    photoCircle: { cx: 251, cy: 870, r: 184 },
+    qr: { x: 510, y: 885, size: 280, caption: false },
+    identityBaseline: 1195,
+    compact: true,
   },
-  // Modèle « Point focal » dont le titre a été retiré de l'image : médias, comité, personnel d'appui…
+  // Modèle « Ambassadeur » dont le titre a été retiré de l'image : point focal, médias, comité, personnel d'appui…
   generic: {
     image: "badge-generique.jpg",
-    pill: { x: 287, y: 548, w: 318, h: 63, color: PILL_BLUE },
-    qr: { x: 500, y: 880, size: 340, caption: true },
-    identityBaseline: 705,
+    pill: { x: 320, y: 548, w: 267, h: 63, color: PILL_BLUE },
+    photoCircle: { cx: 250, cy: 878, r: 196 },
+    qr: { x: 510, y: 885, size: 280, caption: false },
+    identityBaseline: 1195,
+    compact: true,
     dynamicTitle: true,
   },
   speaker: {
@@ -233,6 +237,56 @@ async function drawDesignBadgePage(ctx: DesignContext, variant: DesignVariant, p
     centeredAt(label, pill.x + pill.w / 2, pill.y + pill.h / 2 + 8, size, bold, rgb(1, 1, 1));
   }
 
+  // Photo de profil ronde : recadrée au centre sous l'anneau de la maquette ; à défaut, les initiales.
+  if (design.photoCircle) {
+    const { cx, cy, r } = design.photoCircle;
+    const centerPx = px(cx);
+    const centerPy = py(cy);
+    const rad = r * k;
+    const c = rad * 0.5523;
+    let drawn = false;
+    if (params.photo) {
+      try {
+        const image = isPng(params.photo) ? await doc.embedPng(params.photo) : await doc.embedJpg(params.photo);
+        page.pushOperators(
+          pushGraphicsState(),
+          moveTo(centerPx + rad, centerPy),
+          appendBezierCurve(centerPx + rad, centerPy + c, centerPx + c, centerPy + rad, centerPx, centerPy + rad),
+          appendBezierCurve(centerPx - c, centerPy + rad, centerPx - rad, centerPy + c, centerPx - rad, centerPy),
+          appendBezierCurve(centerPx - rad, centerPy - c, centerPx - c, centerPy - rad, centerPx, centerPy - rad),
+          appendBezierCurve(centerPx + c, centerPy - rad, centerPx + rad, centerPy - c, centerPx + rad, centerPy),
+          closePath(),
+          clip(),
+          endPath()
+        );
+        const scale = Math.max((rad * 2) / image.width, (rad * 2) / image.height);
+        page.drawImage(image, {
+          x: centerPx - (image.width * scale) / 2,
+          y: centerPy - (image.height * scale) / 2,
+          width: image.width * scale,
+          height: image.height * scale,
+        });
+        page.pushOperators(popGraphicsState());
+        drawn = true;
+      } catch {
+        // Photo illisible : on retombe sur les initiales.
+      }
+    }
+    if (!drawn) {
+      const initials = params.fullName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(word => word[0])
+        .join("")
+        .toUpperCase();
+      const text = safe(initials, bold);
+      const size = rad * 0.95;
+      const width = bold.widthOfTextAtSize(text, size);
+      page.drawText(text, { x: centerPx - width / 2, y: centerPy - size * 0.34, size, font: bold, color: rgb(0.84, 0.88, 0.95) });
+    }
+  }
+
   // Photo (speaker) : remplit le cadre bleu de la maquette, recadrée au centre, coins arrondis.
   if (design.photo && params.photo) {
     try {
@@ -300,6 +354,7 @@ async function drawDesignBadgePage(ctx: DesignContext, variant: DesignVariant, p
   const name = safe(params.fullName.toUpperCase(), bold);
   const words = name.split(" ");
   let baseline = design.identityBaseline;
+  if (design.compact && bold.widthOfTextAtSize(name, 15) > maxWidth && words.length > 1) baseline -= 24; // deux lignes
   if (bold.widthOfTextAtSize(name, 15) > maxWidth && words.length > 1) {
     const half = Math.ceil(words.length / 2);
     for (const line of [words.slice(0, half).join(" "), words.slice(half).join(" ")]) {
@@ -314,9 +369,14 @@ async function drawDesignBadgePage(ctx: DesignContext, variant: DesignVariant, p
   let cursor = baseline;
   const jobTitle = params.jobTitle?.trim();
   if (jobTitle) {
-    cursor += 32;
+    cursor += design.compact ? 26 : 32;
     const text = safe(jobTitle, font);
     centeredAt(text, centerX, cursor, fitSize(text, font, maxWidth, 11, 7), font, GRAY);
+  }
+  if (design.compact) {
+    // Mise en page resserrée : matricule seul sous le nom (pas de trait ni de date).
+    centeredAt(`Matricule : ${params.number}`, centerX, cursor + 28, 10.5, mono, NAVY);
+    return true;
   }
   page.drawRectangle({ x: px(centerX - 120), y: py(cursor + 22), width: px(240), height: 1.2, color: ORANGE });
   centeredAt(`Matricule : ${params.number}`, centerX, cursor + 58, 10.5, mono, NAVY);

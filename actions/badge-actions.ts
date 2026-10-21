@@ -12,7 +12,8 @@ import type { User } from "@/types/user";
 import { notify } from "@/lib/notify";
 import { syncBadgeQr, syncBadgeQrDetailed } from "@/lib/badge-qr";
 import { setBadgeQrActive } from "@/lib/scanhub";
-import { renderBadgePart } from "@/lib/badge-batch";
+import { BADGES_PER_PART, renderBadgePart } from "@/lib/badge-batch";
+import { loadBadgePhoto } from "@/lib/badge-photo";
 import type { DesignBadgeItem } from "@/lib/generate-badge-pdf";
 import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
@@ -359,6 +360,7 @@ export async function printAmbassadorBadgesAction(editionId: string, requestedRe
       region: { select: { name: true } },
       user: {
         select: {
+          image: true,
           badges: {
             where: { editionId, badge: { code: "AMBASSADEUR" } },
             select: { number: true, qrCode: true, awardedAt: true },
@@ -370,6 +372,7 @@ export async function printAmbassadorBadgesAction(editionId: string, requestedRe
   });
 
   const items: DesignBadgeItem[] = [];
+  const images: (string | null)[] = [];
   let notSynced = 0;
   for (const application of applications) {
     const badge = application.user?.badges[0];
@@ -388,6 +391,12 @@ export async function printAmbassadorBadgesAction(editionId: string, requestedRe
         awardedAt: badge.awardedAt,
       },
     });
+    images.push(application.user?.image ?? null);
+  }
+
+  // Les photos de profil ne sont lues que pour la partie demandée.
+  for (let index = part * BADGES_PER_PART; index < Math.min(items.length, (part + 1) * BADGES_PER_PART); index++) {
+    items[index].params.photo = await loadBadgePhoto(images[index]);
   }
 
   return {
@@ -444,6 +453,7 @@ export async function getMyBadgeAction() {
     editionLocation: edition.location,
     eventDate,
     badgeBackgroundColor: edition.badgeBackgroundColor,
+    photoUrl: (await db.user.findUnique({ where: { id: user.id }, select: { image: true } }))?.image ?? null,
     badge: userBadge
       ? {
           label: userBadge.badge.label,
@@ -478,6 +488,7 @@ export async function downloadMyBadgeAction() {
     number: data.badge.number,
     qrValue: data.badge.qrValue ?? undefined,
     variant: "ambassador",
+    photo: await loadBadgePhoto(data.photoUrl),
     awardedAt: data.badge.awardedAt,
     logo: await loadPublicImage("jnjl.jpg"),
     partnerLogos: await Promise.all(PARTNER_LOGO_PATHS.map(loadPublicImage)),

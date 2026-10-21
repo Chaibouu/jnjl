@@ -1,5 +1,3 @@
-import charter from "@/settings/charter";
-
 export type BadgeCardData = {
   label: string;
   number: string | null;
@@ -12,6 +10,8 @@ export type BadgeCardData = {
   eventDate: string | null;
   badgeBackgroundColor: string | null;
   boardingStatus: string;
+  /** Photo de profil de l'ambassadeur (affichée dans le cercle) ; à défaut, ses initiales. */
+  photoUrl?: string | null;
 };
 
 // Mêmes repères que le badge PDF (lib/generate-badge-pdf.ts) : image de fond de 908 × 1280 px,
@@ -28,7 +28,20 @@ function fitCqw(length: number, maxWidthPx: number, maxCqw: number, widthFactor 
   return Math.min(maxCqw, fitted);
 }
 
-/** Badge officiel de l'ambassadeur : design officiel avec région, QR code, nom et matricule. */
+function initialsOf(fullName: string) {
+  return fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(word => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+// Cercle photo : centre et rayon utile (sous l'anneau de la maquette).
+const CIRCLE = { cx: 250, cy: 878, r: 196 };
+
+/** Badge officiel de l'ambassadeur : design officiel avec région, photo, QR code, nom et matricule. */
 export function BadgeCard({ badge }: { badge: BadgeCardData }) {
   const region = badge.region.toUpperCase();
   const name = badge.fullName.toUpperCase();
@@ -50,23 +63,46 @@ export function BadgeCard({ badge }: { badge: BadgeCardData }) {
         <div
           className="absolute flex items-center justify-center rounded-md font-extrabold text-white"
           style={{
-            left: pctX(290),
+            left: pctX(323),
             top: pctY(551),
-            width: pctX(312),
+            width: pctX(261),
             height: pctY(57),
             backgroundColor: "#12348E",
-            fontSize: `${fitCqw(region.length, 270, 5, 0.66)}cqw`,
+            fontSize: `${fitCqw(region.length, 230, 5, 0.66)}cqw`,
             lineHeight: 1,
           }}
         >
           {region}
         </div>
 
-        {/* QR code : à droite du logo */}
+        {/* Photo de profil dans le cercle de la maquette */}
+        <div
+          className="absolute overflow-hidden rounded-full bg-white"
+          style={{
+            left: pctX(CIRCLE.cx - CIRCLE.r),
+            top: pctY(CIRCLE.cy - CIRCLE.r),
+            width: pctX(CIRCLE.r * 2),
+            aspectRatio: "1 / 1",
+          }}
+        >
+          {badge.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={badge.photoUrl} alt={`Photo de ${badge.fullName}`} className="h-full w-full object-cover" />
+          ) : (
+            <div
+              className="flex h-full w-full items-center justify-center font-extrabold"
+              style={{ color: "#d6e0f3", fontSize: "19cqw" }}
+            >
+              {initialsOf(badge.fullName)}
+            </div>
+          )}
+        </div>
+
+        {/* QR code : à droite du cercle, sous le logo */}
         {badge.qrDataUrl && (
           <div
             className="absolute border border-slate-200 bg-white"
-            style={{ left: pctX(500), top: pctY(722), width: pctX(340), aspectRatio: "1 / 1", padding: pctX(20) }}
+            style={{ left: pctX(510), top: pctY(885), width: pctX(280), aspectRatio: "1 / 1", padding: pctX(17) }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -77,17 +113,11 @@ export function BadgeCard({ badge }: { badge: BadgeCardData }) {
             />
           </div>
         )}
-        <p
-          className="absolute text-center text-slate-500"
-          style={{ left: pctX(500), top: pctY(1068), width: pctX(340), fontSize: "1.7cqw" }}
-        >
-          Présentez ce QR code à l&apos;entrée
-        </p>
 
-        {/* Bas du badge : nom complet, matricule, date */}
+        {/* Bas du badge : nom complet et matricule */}
         <div
           className="absolute flex flex-col items-center text-center"
-          style={{ left: pctX(60), top: pctY(1104), width: pctX(788) }}
+          style={{ left: pctX(60), top: pctY(1150), width: pctX(788) }}
         >
           <p
             className="font-extrabold leading-tight"
@@ -95,12 +125,8 @@ export function BadgeCard({ badge }: { badge: BadgeCardData }) {
           >
             {name}
           </p>
-          <span className="mt-[1.2cqw] block h-[0.3cqw] w-[26%]" style={{ backgroundColor: charter.orange }} />
-          <p className="mt-[1.6cqw] font-mono font-bold" style={{ color: "#12204D", fontSize: "2.6cqw" }}>
+          <p className="mt-[1.2cqw] font-mono font-bold" style={{ color: "#12204D", fontSize: "2.6cqw" }}>
             Matricule : {badge.number}
-          </p>
-          <p className="mt-[0.6cqw] text-slate-500" style={{ fontSize: "1.9cqw" }}>
-            Délivré le {new Date(badge.awardedAt).toLocaleDateString("fr-FR")}
           </p>
         </div>
       </div>

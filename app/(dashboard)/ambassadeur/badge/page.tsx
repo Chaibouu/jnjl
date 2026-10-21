@@ -47,6 +47,7 @@ export default async function MyBadgePage() {
               editionLocation: data.editionLocation,
               eventDate: data.eventDate,
               badgeBackgroundColor: data.badgeBackgroundColor,
+              photoUrl: data.photoUrl,
               boardingStatus: data.boardingStatus,
             }}
           />
