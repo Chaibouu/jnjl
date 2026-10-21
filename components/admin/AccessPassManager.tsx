@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { Ban, Download, ListPlus, Pencil, Printer, RotateCcw, Search, Upload, UserPlus, X } from "lucide-react";
+import { Ban, Camera, Download, ListPlus, Pencil, Printer, RotateCcw, Search, Upload, UserPlus, X } from "lucide-react";
 import {
   createAccessPassAction,
   createAccessPassesBulkAction,
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import { BADGE_LAYOUT_OPTIONS, downloadBadgesInParts, type BadgeLayout } from "@/lib/download-pdf";
+import { shrinkImage } from "@/lib/client-image";
 
 type EditionOption = { id: string; name: string; year: number };
 
@@ -62,6 +63,7 @@ export function AccessPassManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const [bulkCategory, setBulkCategory] = useState("MEDIA");
   const [layout, setLayout] = useState<BadgeLayout>("a9");
   const [bulkText, setBulkText] = useState("");
@@ -154,7 +156,8 @@ export function AccessPassManager({
     setError("");
     try {
       const data = new FormData();
-      data.set("file", file);
+      // Photo de téléphone : réduite avant l'envoi (le serveur refuse plus de 4 Mo).
+      data.set("file", await shrinkImage(file));
       const result = await uploadAccessPhotoAction(data);
       setForm(current => ({ ...current, photoUrl: result.url }));
     } catch (uploadError) {
@@ -384,6 +387,19 @@ export function AccessPassManager({
                       event.target.value = "";
                     }}
                   />
+                  {/* Appareil photo du téléphone (caméra frontale par défaut : l'agent photographie la personne en face de lui) */}
+                  <input
+                    ref={cameraInput}
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    className="hidden"
+                    onChange={event => {
+                      const file = event.target.files?.[0];
+                      if (file) uploadPhoto(file);
+                      event.target.value = "";
+                    }}
+                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -393,6 +409,16 @@ export function AccessPassManager({
                   >
                     <Upload className="h-4 w-4" />
                     {form.photoUrl ? "Changer la photo" : "Téléverser une photo"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    loading={uploading}
+                    onClick={() => cameraInput.current?.click()}
+                    className="gap-2 rounded-none md:hidden"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Prendre une photo
                   </Button>
                   {form.photoUrl && (
                     <Button
