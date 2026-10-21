@@ -102,7 +102,7 @@ export function BadgeCard({ badge }: { badge: BadgeCardData }) {
         {badge.qrDataUrl && (
           <div
             className="absolute border border-slate-200 bg-white"
-            style={{ left: pctX(510), top: pctY(885), width: pctX(280), aspectRatio: "1 / 1", padding: pctX(17) }}
+            style={{ left: pctX(558), top: pctY(848), width: pctX(230), aspectRatio: "1 / 1", padding: pctX(14) }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
