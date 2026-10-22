@@ -53,6 +53,8 @@ export type AuditAction =
   | "APPLICATION_REJECTED"
   | "BADGE_AWARDED"
   | "BADGE_CANCELLED"
+  | "PAYMENT_CANCELLED"
+  | "APPLICATION_WITHDRAWN"
   | "PAYMENT_MANUAL_RECORDED"
   | "MANUAL_PAYMENT_ALLOWED"
   | "RANKING_COMPUTED"
@@ -107,6 +109,8 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   BADGE_AWARDED: "Badge attribué",
   BADGE_CANCELLED: "Badge annulé",
   PAYMENT_MANUAL_RECORDED: "Paiement manuel enregistré",
+  PAYMENT_CANCELLED: "Paiement annulé",
+  APPLICATION_WITHDRAWN: "Désistement enregistré",
   MANUAL_PAYMENT_ALLOWED: "Paiement manuel autorisé / retiré",
   RANKING_COMPUTED: "Classement calculé",
   SELECTION_RUN: "Sélection lancée",

@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { getAmbassadorApplicationAction } from "@/actions/ambassador-application-actions";
 import { getPaymentStatusAction } from "@/actions/payment-actions";
+import { getUser } from "@/actions/getUser";
+import { PaymentCancellationPanel } from "@/components/admin/PaymentCancellationPanel";
 import { formatGender } from "@/lib/gender";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -61,6 +63,9 @@ export default async function AmbassadorApplicationDetailsPage({
     application.status === "RETENU"
       ? await getPaymentStatusAction(applicationId)
       : null;
+
+  const session = await getUser();
+  const isSuperAdmin = session?.user?.user?.role === "SUPER_ADMIN";
 
   const initials = `${application.firstName[0] ?? ""}${application.lastName[0] ?? ""}`.toUpperCase();
 
@@ -238,6 +243,13 @@ export default async function AmbassadorApplicationDetailsPage({
                     Enregistrer un paiement →
                   </Link>
                 </div>
+              )}
+              {isSuperAdmin && (
+                <PaymentCancellationPanel
+                  applicationId={application.id}
+                  candidateName={`${application.firstName} ${application.lastName}`}
+                  hasPayment={Boolean(payment)}
+                />
               )}
             </div>
           )}
