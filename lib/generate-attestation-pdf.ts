@@ -57,23 +57,23 @@ export async function generateAttestationPdf(params: {
     page.drawText(text, { x: contentX + (contentWidth - w) / 2, y, size, font: usedFont, color: INK });
   };
 
-  centered("Cette attestation est décernée à", 399.79, 16, italic);
+  centered("Cette attestation est décernée à", 399.79, 18, italic);
   centered(
     params.ambassadorName.toUpperCase(),
     358,
-    fitSizeFor(params.ambassadorName.toUpperCase(), boldItalic, contentWidth - 20, 20),
+    fitSizeFor(params.ambassadorName.toUpperCase(), boldItalic, contentWidth - 20, 23),
     boldItalic
   );
-  centered("Pour avoir suivi avec attention la formation sur le thème :", 322, 14, font);
+  centered("Pour avoir suivi avec attention la formation sur le thème :", 322, 16, font);
   const themeLine = `« ${params.theme} »`;
-  centered(themeLine, 297, fitSizeFor(themeLine, bold, contentWidth - 20, 14), bold);
-  centered(`tenue à ${params.location} le ${params.eventDate}`, 272, 13, font);
+  centered(themeLine, 297, fitSizeFor(themeLine, bold, contentWidth - 20, 16), bold);
+  centered(`tenue à ${params.location} le ${params.eventDate}`, 272, 15, font);
   const line4 = params.contextLine ?? `dans le cadre de la sélection des participants à la ${params.editionName}.`;
-  centered(line4, 247, fitSizeFor(line4, font, contentWidth - 20, 13), font);
+  centered(line4, 247, fitSizeFor(line4, font, contentWidth - 20, 15), font);
   centered(
     "En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.",
     216.17,
-    11,
+    12.5,
     italic
   );
 
@@ -82,7 +82,7 @@ export async function generateAttestationPdf(params: {
   const dateBoxX = 460;
   const dateBoxWidth = 270;
   page.drawRectangle({ x: dateBoxX, y: 138, width: dateBoxWidth, height: 25, color: WHITE });
-  const dateSize = fitSizeFor(dateText, italic, dateBoxWidth - 10, 13);
+  const dateSize = fitSizeFor(dateText, italic, dateBoxWidth - 10, 14);
   const dateWidth = italic.widthOfTextAtSize(dateText, dateSize);
   page.drawText(dateText, {
     x: dateBoxX + (dateBoxWidth - dateWidth) / 2,
