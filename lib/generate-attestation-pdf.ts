@@ -23,8 +23,17 @@ export async function generateAttestationPdf(params: {
   location: string;
   eventDate: string;
   editionName: string;
+  /** Quatrième ligne du texte ; par défaut « dans le cadre de la sélection des participants à la <édition>. » */
+  contextLine?: string;
+  /** Modèle de fond : « formation » = attestation de formation (fond mis à jour), sinon attestation de fin de parcours. */
+  base?: "formation";
 }): Promise<Uint8Array> {
-  const baseBytes = await readFile(join(process.cwd(), "lib", "document-templates", "attestation-base.pdf"));
+  // Chemins écrits en toutes lettres : Next.js ne joint au déploiement que les fichiers qu'il voit nommés.
+  const baseBytes = await readFile(
+    params.base === "formation"
+      ? join(process.cwd(), "lib", "document-templates", "attestation-formation-base.pdf")
+      : join(process.cwd(), "lib", "document-templates", "attestation-base.pdf")
+  );
 
   const doc = await PDFDocument.create();
   const embedded = await doc.embedPdf(baseBytes);
@@ -39,8 +48,8 @@ export async function generateAttestationPdf(params: {
   const boldItalic = await doc.embedFont(StandardFonts.TimesRomanBoldItalic);
 
   // Zone blanche d'origine (mesurée dans le flux PDF source) : x:[102.16, 736.75] y:[101.62, 491.9].
-  const contentX = 105;
-  const contentWidth = 632;
+  const contentX = 101.5;
+  const contentWidth = 635;
   page.drawRectangle({ x: contentX, y: 200, width: contentWidth, height: 218, color: WHITE });
 
   const centered = (text: string, y: number, size: number, usedFont: PDFFont) => {
@@ -59,7 +68,7 @@ export async function generateAttestationPdf(params: {
   const themeLine = `« ${params.theme} »`;
   centered(themeLine, 297, fitSizeFor(themeLine, bold, contentWidth - 20, 14), bold);
   centered(`tenue à ${params.location} le ${params.eventDate}`, 272, 13, font);
-  const line4 = `dans le cadre de la sélection des participants à la ${params.editionName}.`;
+  const line4 = params.contextLine ?? `dans le cadre de la sélection des participants à la ${params.editionName}.`;
   centered(line4, 247, fitSizeFor(line4, font, contentWidth - 20, 13), font);
   centered(
     "En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.",
@@ -69,7 +78,7 @@ export async function generateAttestationPdf(params: {
   );
 
   // Date en bas (à droite du sceau « Félicitations ») — « Lieu et Date » reste inchangé.
-  const dateText = `${params.location} le ${params.eventDate}`;
+  const dateText = `${params.location}, le ${params.eventDate}`;
   const dateBoxX = 460;
   const dateBoxWidth = 270;
   page.drawRectangle({ x: dateBoxX, y: 138, width: dateBoxWidth, height: 25, color: WHITE });

@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
-import { generateInPersonTrainingCertificatePdf } from "@/lib/generate-certificate-pdf";
+import { generateAttestationPdf } from "@/lib/generate-attestation-pdf";
 import type { User } from "@/types/user";
 
 /**
@@ -11,6 +11,9 @@ import type { User } from "@/types/user";
  * à la formation (liste de présence) peut la télécharger depuis « Mes documents ». Générée à la demande, avec une
  * référence stable (la même à chaque téléchargement).
  */
+
+/** Thème de la formation affiché sur l'attestation. */
+const TRAINING_THEME = "Leadership et Entrepreneuriat";
 
 async function loadEligibleApplication() {
   const result = await getUser();
@@ -64,14 +67,17 @@ export async function downloadMyTrainingAttestationAction(): Promise<
   }
 
   const reference = `FORM-${edition.year}-${application.id.slice(-8).toUpperCase()}`;
-  const pdf = await generateInPersonTrainingCertificatePdf({
-    editionId: edition.id,
+  const editionLabel = edition.attestationEditionLabel?.trim() || edition.name;
+  // Même modèle officiel que l'attestation de fin de parcours ; seul le texte change : thème de la formation, lieu
+  // (la région de l'ambassadeur) et date (celle de la validation de sa présence par le staff).
+  const pdf = await generateAttestationPdf({
     ambassadorName: `${application.firstName} ${application.lastName}`,
-    region: application.region.name,
-    editionName: `${edition.name} (${edition.year})`,
-    trainingDate: application.inPersonTrainingAt,
-    reference,
-    issuedAt: new Date(),
+    theme: TRAINING_THEME,
+    location: application.region.name,
+    eventDate: application.inPersonTrainingAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }),
+    editionName: editionLabel,
+    base: "formation",
+    contextLine: `dans le cadre de la caravane de l’entrepreneuriat agricole et numérique de la ${editionLabel} de la JNJL.`,
   });
 
   return { ok: true, filename: `attestation-formation-${reference}.pdf`, base64: Buffer.from(pdf).toString("base64") };
