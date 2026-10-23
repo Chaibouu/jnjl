@@ -82,7 +82,8 @@ export async function markInPersonTrainingDoneAction(applicationId: string) {
     await notify({
       userId: application.userId,
       title: "Formation validée",
-      message: "Votre formation a été validée par le staff de votre région. Vous pouvez maintenant passer le QCM.",
+      message:
+        "Votre présence à la formation a été validée par le staff de votre région. Vous pouvez passer le QCM, et télécharger votre attestation de formation dans « Mes documents ».",
       link: "/ambassadeur/qcm",
     });
   }

@@ -90,6 +90,12 @@ export const adminNavigation: NavigationItem[] = [
         allowedRoles: ["USER"],
         requiresAmbassadorAccount: true,
       },
+      {
+        title: "Attestation de formation",
+        path: "/ambassadeur/documents/formation",
+        allowedRoles: ["USER"],
+        requiresAmbassadorAccount: true,
+      },
     ],
   },
   {

@@ -141,3 +141,46 @@ export async function generateTrainingCertificatePdf(params: {
     qrValue: params.reference,
   });
 }
+
+/**
+ * Attestation de formation en présentiel : délivrée à l'ambassadeur dont le staff de sa région a validé la présence
+ * à la formation (liste de présence). Le modèle PDF « Attestation de formation » de l'édition, s'il existe, est utilisé.
+ */
+export async function generateInPersonTrainingCertificatePdf(params: {
+  editionId?: string;
+  ambassadorName: string;
+  region: string;
+  editionName: string;
+  /** Date à laquelle le staff a validé la présence de l'ambassadeur. */
+  trainingDate: Date;
+  reference: string;
+  issuedAt: Date;
+}): Promise<Uint8Array> {
+  const courseTitle = "Formation des ambassadeurs de la JNJL";
+  const trainingDate = params.trainingDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+  const custom = await renderActiveTemplate("TRAINING_CERTIFICATE", params.editionId, {
+    ambassadorName: params.ambassadorName,
+    region: params.region,
+    editionName: params.editionName,
+    courseTitle,
+    result: `et participé à l'ensemble de la formation en présentiel (présence validée le ${trainingDate}).`,
+    scorePercent: "",
+    reference: params.reference,
+    issuedAt: params.issuedAt.toLocaleDateString("fr-FR"),
+  });
+  if (custom) return custom;
+
+  return renderCertificate({
+    title: "ATTESTATION DE FORMATION",
+    intro: "Il est certifié que",
+    name: params.ambassadorName,
+    lines: [
+      `Ambassadeur de la région de ${params.region} (${params.editionName}),`,
+      `a participé à la « ${courseTitle} »,`,
+      `dont la présence a été validée par le staff de sa région le ${trainingDate}.`,
+    ],
+    issuedAt: params.issuedAt,
+    qrValue: params.reference,
+  });
+}
