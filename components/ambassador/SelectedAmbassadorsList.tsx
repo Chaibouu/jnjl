@@ -54,7 +54,7 @@ function StatCard({ label, value, hint, accent }: { label: string; value: number
   );
 }
 
-/** Liste finale des ambassadeurs sélectionnés (retenus et ayant payé), filtrable et exportable. */
+/** Liste finale des ambassadeurs sélectionnés (issus de la sélection), filtrable et exportable. */
 export function SelectedAmbassadorsList({
   isAdmin,
   regions,

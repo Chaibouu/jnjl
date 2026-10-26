@@ -8,10 +8,10 @@ import { getActorRegionScope } from "@/lib/region-scope";
 import type { User } from "@/types/user";
 
 /**
- * Liste finale des ambassadeurs sélectionnés (statut RETENU) de l'édition active.
+ * Liste finale des ambassadeurs sélectionnés (résultat de la sélection par classement, repêchés inclus) de l'édition active.
  * - Un staff rattaché à une région voit uniquement sa région ;
  * - un admin / super admin voit tout et peut filtrer par région.
- * Filtre sur le mode de paiement : en ligne (plateforme), via le point focal, ou pas encore payé.
+ * Filtre sur le mode de paiement : en ligne (plateforme) ou via le point focal.
  */
 
 export type PaymentChannelFilter = "ALL" | "ONLINE" | "POINT_FOCAL";
@@ -61,7 +61,7 @@ async function loadRows(channel: PaymentChannelFilter, requestedRegionId?: strin
   const regionId = scope.regionId ?? (scope.isAdmin && requestedRegionId ? requestedRegionId : null);
 
   const applications = await db.ambassadorApplication.findMany({
-    where: { editionId: edition.id, status: "RETENU", payment: { is: { status: "VALIDE" } }, ...(regionId ? { regionId } : {}) },
+    where: { editionId: edition.id, status: "RETENU", selection: { is: { status: "SELECTIONNE" } }, payment: { is: { status: "VALIDE" } }, ...(regionId ? { regionId } : {}) },
     select: {
       id: true,
       firstName: true,
