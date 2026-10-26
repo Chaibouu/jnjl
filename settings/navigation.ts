@@ -99,12 +99,6 @@ export const adminNavigation: NavigationItem[] = [
     ],
   },
   {
-    title: "Liste des ambassadeurs",
-    icon: "material-symbols:groups",
-    path: "/ambassadeur/liste",
-    allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
-  },
-  {
     title: "Mon badge",
     icon: "material-symbols:badge",
     path: "/ambassadeur/badge",
@@ -176,6 +170,12 @@ export const adminNavigation: NavigationItem[] = [
       {
         title: "Suivi du parcours",
         path: "/admin/ambassadeurs/suivi",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+        requiredPermission: "applications.ambassador.manage",
+      },
+      {
+        title: "Liste des ambassadeurs",
+        path: "/ambassadeur/liste",
         allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
         requiredPermission: "applications.ambassador.manage",
       },
