@@ -99,6 +99,12 @@ export const adminNavigation: NavigationItem[] = [
     ],
   },
   {
+    title: "Liste des ambassadeurs",
+    icon: "material-symbols:groups",
+    path: "/ambassadeur/liste",
+    allowedRoles: ["USER", "SUPER_ADMIN", "ADMIN", "STAFF"],
+  },
+  {
     title: "Mon badge",
     icon: "material-symbols:badge",
     path: "/ambassadeur/badge",
