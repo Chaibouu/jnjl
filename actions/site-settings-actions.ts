@@ -70,6 +70,8 @@ export async function setRegistrationSettingsAction(input: RegistrationState): P
     [REGISTRATION_KEYS.participantsOpen, input.participantsOpen ? "true" : "false"],
     [REGISTRATION_KEYS.ambassadorsNote, note(input.ambassadorsNote)],
     [REGISTRATION_KEYS.participantsNote, note(input.participantsNote)],
+    [REGISTRATION_KEYS.posterOpen, input.posterOpen ? "true" : "false"],
+    [REGISTRATION_KEYS.posterNote, note(input.posterNote)],
   ];
 
   for (const [key, value] of entries) {

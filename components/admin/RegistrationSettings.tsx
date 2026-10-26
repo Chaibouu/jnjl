@@ -13,6 +13,8 @@ type State = {
   participantsOpen: boolean;
   ambassadorsNote: string;
   participantsNote: string;
+  posterOpen: boolean;
+  posterNote: string;
 };
 
 const inputClass =
@@ -71,6 +73,16 @@ export function RegistrationSettings({ initial }: { initial: State }) {
         onNoteChange={value => update("participantsNote", value)}
         notePlaceholder="Ex. Ouverture des inscriptions prévue en novembre 2026."
       />
+      <Block
+        title="Page « Mon affiche J'y serai »"
+        open={state.posterOpen}
+        onOpenChange={value => update("posterOpen", value)}
+        note={state.posterNote}
+        onNoteChange={value => update("posterNote", value)}
+        notePlaceholder="Ex. La campagne « J'y serai » reviendra bientôt."
+        openText="Ouverte : le public peut créer et partager son affiche."
+        closedText="Fermée : la page indique que la campagne est terminée ou pas encore ouverte."
+      />
 
       {message && <p className="text-sm text-green-600">{message}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -94,6 +106,8 @@ function Block({
   note,
   onNoteChange,
   notePlaceholder,
+  openText = "Ouvertes : le formulaire est accessible au public.",
+  closedText = "Fermées : la page indique que c'est fermé.",
 }: {
   title: string;
   open: boolean;
@@ -101,6 +115,8 @@ function Block({
   note: string;
   onNoteChange: (value: string) => void;
   notePlaceholder: string;
+  openText?: string;
+  closedText?: string;
 }) {
   return (
     <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
@@ -108,7 +124,7 @@ function Block({
         <div>
           <p className="text-sm font-semibold">{title}</p>
           <p className="text-xs text-muted-foreground">
-            {open ? "Ouvertes : le formulaire est accessible au public." : "Fermées : la page indique que c'est fermé."}
+            {open ? openText : closedText}
           </p>
         </div>
         <Switch checked={open} onCheckedChange={onOpenChange} />

@@ -3,6 +3,8 @@ import { PageHero } from "@/components/site/PageHero";
 import { PosterGenerator } from "@/components/site/PosterGenerator";
 import charter from "@/settings/charter";
 import { buildMetadata } from "@/lib/seo";
+import { ClosedNotice } from "@/components/site/ClosedNotice";
+import { getRegistrationState } from "@/lib/site-settings";
 
 export const metadata = buildMetadata({
   title: "Mon affiche « J'y serai »",
@@ -12,7 +14,22 @@ export const metadata = buildMetadata({
   image: "/affiche-jy-serai-2026.jpg",
 });
 
-export default function PosterPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PosterPage() {
+  const registration = await getRegistrationState();
+  if (!registration.posterOpen) {
+    return (
+      <ClosedNotice
+        eyebrow="Campagne « J'y serai »"
+        title="La page de l'affiche est fermée"
+        description="La création d'affiches « J'y serai » n'est pas disponible pour le moment."
+        note={registration.posterNote || "Revenez bientôt."}
+        image="/entetes/galerie-3.jpg"
+      />
+    );
+  }
+
   return (
     <div style={{ backgroundColor: charter.bg }}>
       <PageHero

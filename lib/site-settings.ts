@@ -6,6 +6,8 @@ export const REGISTRATION_KEYS = {
   ambassadorsNote: "site.ambassador_applications_note",
   participantsOpen: "site.participant_registration_open",
   participantsNote: "site.participant_registration_note",
+  posterOpen: "site.poster_open",
+  posterNote: "site.poster_note",
 } as const;
 
 export type RegistrationState = {
@@ -16,6 +18,9 @@ export type RegistrationState = {
   /** Message libre affiché quand c'est fermé (ex. « Ouverture prévue en novembre »). */
   ambassadorsNote: string;
   participantsNote: string;
+  /** Page « Mon affiche J'y serai » accessible au public (par défaut : oui). */
+  posterOpen: boolean;
+  posterNote: string;
 };
 
 const DEFAULTS: RegistrationState = {
@@ -23,6 +28,8 @@ const DEFAULTS: RegistrationState = {
   participantsOpen: false,
   ambassadorsNote: "",
   participantsNote: "",
+  posterOpen: true,
+  posterNote: "",
 };
 
 /** État des ouvertures de candidatures. Lecture publique : sert au menu, aux pages et aux API d'envoi. */
@@ -40,6 +47,8 @@ export async function getRegistrationState(): Promise<RegistrationState> {
       participantsOpen: flag(REGISTRATION_KEYS.participantsOpen, DEFAULTS.participantsOpen),
       ambassadorsNote: values.get(REGISTRATION_KEYS.ambassadorsNote) ?? "",
       participantsNote: values.get(REGISTRATION_KEYS.participantsNote) ?? "",
+      posterOpen: flag(REGISTRATION_KEYS.posterOpen, DEFAULTS.posterOpen),
+      posterNote: values.get(REGISTRATION_KEYS.posterNote) ?? "",
     };
   } catch {
     // Base momentanément indisponible : on garde les valeurs par défaut plutôt que de faire planter le site.

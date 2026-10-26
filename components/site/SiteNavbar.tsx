@@ -86,11 +86,13 @@ function getInitials(name?: string | null, email?: string | null) {
 export function SiteNavbar({
   ambassadorsOpen = true,
   participantsOpen = true,
+  posterOpen = true,
 }: {
   /** Candidatures ambassadeurs ouvertes : sinon le lien et le bouton disparaissent. */
   ambassadorsOpen?: boolean;
   /** Inscriptions des participants ouvertes : sinon le lien disparaît du menu. */
   participantsOpen?: boolean;
+  posterOpen?: boolean;
 }) {
   const pathname = usePathname();
   const { user } = useSession();
@@ -116,6 +118,7 @@ export function SiteNavbar({
     items: group.items.filter(
       item =>
         !(item.href === "/participer" && !participantsOpen) &&
+        !(item.href === "/affiche" && !posterOpen) &&
         !(item.href === "/ambassadeurs/candidature" && !ambassadorsOpen)
     ),
   })).filter(group => group.items.length > 0);

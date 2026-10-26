@@ -9,7 +9,9 @@ export default async function PublicLayout({ children }: { children: React.React
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <SiteNavbar ambassadorsOpen={registration.ambassadorsOpen} participantsOpen={registration.participantsOpen} />
+      <SiteNavbar ambassadorsOpen={registration.ambassadorsOpen} participantsOpen={registration.participantsOpen}
+        posterOpen={registration.posterOpen}
+      />
       <main className="flex-1">{children}</main>
       <SiteFooter />
       {whatsappUrl && <WhatsAppButton href={whatsappUrl} />}
