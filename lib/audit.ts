@@ -58,7 +58,8 @@ export type AuditAction =
   | "PAYMENT_MANUAL_RECORDED"
   | "MANUAL_PAYMENT_ALLOWED"
   | "RANKING_COMPUTED"
-  | "SELECTION_RUN";
+  | "SELECTION_RUN"
+  | "NOTIFICATION_BROADCAST";
 
 interface AuditParams {
   userId?: string;
@@ -106,6 +107,7 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   ACCOUNTS_UNBLOCKED: "Comptes de candidats débloqués",
   APPLICATION_ACCEPTED: "Candidature acceptée",
   APPLICATION_REJECTED: "Candidature rejetée",
+  NOTIFICATION_BROADCAST: "Message envoyé aux ambassadeurs",
   BADGE_AWARDED: "Badge attribué",
   BADGE_CANCELLED: "Badge annulé",
   PAYMENT_MANUAL_RECORDED: "Paiement manuel enregistré",
