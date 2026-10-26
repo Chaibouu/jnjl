@@ -31,8 +31,8 @@ export default async function SelectedAmbassadorsPage() {
         <h1 className="mt-1 text-2xl font-bold">Liste des ambassadeurs sélectionnés</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {context.isAdmin
-            ? "Liste finale des ambassadeurs retenus. Filtrez par région et par mode de paiement, puis téléchargez en PDF ou Excel."
-            : "Liste finale des ambassadeurs retenus de votre région. Filtrez par mode de paiement, puis téléchargez en PDF ou Excel."}
+            ? "Liste finale des ambassadeurs sélectionnés (retenus et ayant payé). Filtrez par région et par mode de paiement, puis téléchargez en PDF ou Excel."
+            : "Liste finale des ambassadeurs sélectionnés de votre région (retenus et ayant payé). Filtrez par mode de paiement, puis téléchargez en PDF ou Excel."}
         </p>
       </div>
       <SelectedAmbassadorsList isAdmin={context.isAdmin} regions={context.regions} />

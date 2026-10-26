@@ -14,7 +14,7 @@ import type { User } from "@/types/user";
  * Filtre sur le mode de paiement : en ligne (plateforme), via le point focal, ou pas encore payé.
  */
 
-export type PaymentChannelFilter = "ALL" | "ONLINE" | "POINT_FOCAL" | "UNPAID";
+export type PaymentChannelFilter = "ALL" | "ONLINE" | "POINT_FOCAL";
 
 export interface SelectedAmbassadorRow {
   id: string;
@@ -23,13 +23,12 @@ export interface SelectedAmbassadorRow {
   phone: string;
   email: string;
   region: string;
-  channel: "ONLINE" | "POINT_FOCAL" | "UNPAID";
+  channel: "ONLINE" | "POINT_FOCAL";
 }
 
 const CHANNEL_LABEL: Record<SelectedAmbassadorRow["channel"], string> = {
   ONLINE: "En ligne (plateforme)",
   POINT_FOCAL: "Via le point focal",
-  UNPAID: "Non payé",
 };
 
 interface Scope {
@@ -50,17 +49,19 @@ async function resolveScope(): Promise<Scope | null> {
   return null;
 }
 
+const EMPTY_COUNTS = { total: 0, online: 0, pointFocal: 0, women: 0, men: 0 };
+
 async function loadRows(channel: PaymentChannelFilter, requestedRegionId?: string) {
   const scope = await resolveScope();
   if (!scope) return null;
 
   const edition = await db.edition.findFirst({ where: { status: "ACTIVE", isDeleted: false }, select: { id: true } });
-  if (!edition) return { scope, rows: [] as SelectedAmbassadorRow[], regionLabel: "" };
+  if (!edition) return { scope, rows: [] as SelectedAmbassadorRow[], counts: EMPTY_COUNTS, regionLabel: "" };
 
   const regionId = scope.regionId ?? (scope.isAdmin && requestedRegionId ? requestedRegionId : null);
 
   const applications = await db.ambassadorApplication.findMany({
-    where: { editionId: edition.id, status: "RETENU", ...(regionId ? { regionId } : {}) },
+    where: { editionId: edition.id, status: "RETENU", payment: { is: { status: "VALIDE" } }, ...(regionId ? { regionId } : {}) },
     select: {
       id: true,
       firstName: true,
@@ -75,28 +76,34 @@ async function loadRows(channel: PaymentChannelFilter, requestedRegionId?: strin
   });
 
   const rows: SelectedAmbassadorRow[] = applications.map(application => {
-    const paid = application.payment?.status === "VALIDE";
     return {
       id: application.id,
       fullName: `${application.firstName} ${application.lastName}`,
-      gender: application.gender ?? "",
+      gender: application.gender === "FEMININ" ? "Féminin" : application.gender === "MASCULIN" ? "Masculin" : "",
       phone: application.phone,
       email: application.email,
       region: application.region.name,
-      channel: !paid ? "UNPAID" : application.payment?.method === "ONLINE" ? "ONLINE" : "POINT_FOCAL",
+      channel: application.payment?.method === "ONLINE" ? "ONLINE" : "POINT_FOCAL",
     };
   });
 
   const filtered = channel === "ALL" ? rows : rows.filter(row => row.channel === channel);
   const regionLabel = regionId ? (filtered[0]?.region ?? rows[0]?.region ?? "") : "Toutes les régions";
-  return { scope, rows: filtered, regionLabel };
+  const counts = {
+    total: rows.length,
+    online: rows.filter(row => row.channel === "ONLINE").length,
+    pointFocal: rows.filter(row => row.channel === "POINT_FOCAL").length,
+    women: rows.filter(row => row.gender === "Féminin").length,
+    men: rows.filter(row => row.gender === "Masculin").length,
+  };
+  return { scope, rows: filtered, counts, regionLabel };
 }
 
 /** Données de la page (liste + régions disponibles pour le filtre admin). */
 export async function listSelectedAmbassadorsAction(channel: PaymentChannelFilter, regionId?: string) {
   const data = await loadRows(channel, regionId);
   if (!data) return { ok: false as const, error: "Liste indisponible : vous devez être un ambassadeur sélectionné." };
-  return { ok: true as const, rows: data.rows, regionLabel: data.regionLabel };
+  return { ok: true as const, rows: data.rows, counts: data.counts, regionLabel: data.regionLabel };
 }
 
 /** Régions pour le filtre (admin uniquement). */
@@ -110,7 +117,7 @@ export async function getSelectedAmbassadorsContextAction() {
 }
 
 function filenameBase(channel: PaymentChannelFilter) {
-  const suffix = { ALL: "", ONLINE: "-en-ligne", POINT_FOCAL: "-point-focal", UNPAID: "-non-payes" }[channel];
+  const suffix = { ALL: "", ONLINE: "-en-ligne", POINT_FOCAL: "-point-focal" }[channel];
   return `ambassadeurs-selectionnes${suffix}`;
 }
 
@@ -232,5 +239,4 @@ const CHANNEL_FILTER_TEXT: Record<PaymentChannelFilter, string> = {
   ALL: "Tous les paiements",
   ONLINE: "Payés en ligne",
   POINT_FOCAL: "Payés via le point focal",
-  UNPAID: "Non payés",
 };
