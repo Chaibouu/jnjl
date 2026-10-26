@@ -8,11 +8,13 @@ import {
   type UserEmailRow,
 } from "@/actions/user-email-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 const fieldClass = "h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring";
 
 /** Recherche un compte puis remplace son adresse e-mail (Super Admin). */
 export function ChangeUserEmail() {
+  const { confirm } = useConfirm();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserEmailRow[]>([]);
   const [searched, setSearched] = useState(false);
@@ -35,9 +37,19 @@ export function ChangeUserEmail() {
     });
   };
 
-  const save = () => {
+  const save = async () => {
     if (!selected) return;
-    if (!window.confirm(`Remplacer ${selected.email || "l'adresse"} par ${newEmail.trim().toLowerCase()} ?`)) return;
+    const confirmed = await confirm({
+      title: "Changer l'adresse e-mail ?",
+      description: (
+        <>
+          Remplacer <strong>{selected.email || "l'adresse actuelle"}</strong> par{" "}
+          <strong>{newEmail.trim().toLowerCase()}</strong> ?
+        </>
+      ),
+      confirmLabel: "Remplacer",
+    });
+    if (!confirmed) return;
     setFeedback(null);
     startSave(async () => {
       const result = await changeUserEmailAction(selected.id, newEmail, markVerified);
