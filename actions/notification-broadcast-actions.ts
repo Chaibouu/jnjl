@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getUser } from "@/actions/getUser";
 import { auditAdminAction } from "@/lib/audit";
-import { BROADCAST_LINK_OPTIONS } from "@/lib/broadcast-links";
+import { BROADCAST_LINK_OPTIONS, BROADCAST_STAGE_OPTIONS } from "@/lib/broadcast-links";
 import type { User } from "@/types/user";
 
 /**
@@ -29,6 +29,7 @@ export async function sendAmbassadorBroadcastAction(input: {
   message: string;
   link: string;
   regionId: string;
+  stage: string;
   paidOnly: boolean;
 }): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   const admin = await requireAdmin();
@@ -40,6 +41,8 @@ export async function sendAmbassadorBroadcastAction(input: {
   if (title.length > 120 || message.length > 1000) return { ok: false, error: "Titre (120) ou message (1000) trop long" };
   const link = BROADCAST_LINK_OPTIONS.some(option => option.value === input.link) ? input.link : "";
 
+  const stage = BROADCAST_STAGE_OPTIONS.find(option => option.value && option.value === input.stage)?.value;
+
   const edition = await db.edition.findFirst({ where: { status: "ACTIVE", isDeleted: false }, select: { id: true } });
   if (!edition) return { ok: false, error: "Aucune édition active" };
 
@@ -49,6 +52,7 @@ export async function sendAmbassadorBroadcastAction(input: {
       status: "RETENU",
       userId: { not: null },
       ...(input.regionId ? { regionId: input.regionId } : {}),
+      ...(stage ? { stage } : {}),
       ...(input.paidOnly ? { payment: { is: { status: "VALIDE" } } } : {}),
     },
     select: { userId: true },
@@ -63,7 +67,7 @@ export async function sendAmbassadorBroadcastAction(input: {
   await auditAdminAction({
     actorId: admin.id,
     action: "NOTIFICATION_BROADCAST",
-    target: { label: title, recipients: userIds.length, regionId: input.regionId || null, paidOnly: input.paidOnly },
+    target: { label: title, recipients: userIds.length, regionId: input.regionId || null, stage: stage ?? null, paidOnly: input.paidOnly },
   });
   revalidatePath("/dashboard/notifications");
   return { ok: true, count: userIds.length };

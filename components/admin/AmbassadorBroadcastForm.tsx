@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Send } from "lucide-react";
 import { sendAmbassadorBroadcastAction } from "@/actions/notification-broadcast-actions";
 import { Button } from "@/components/ui/button";
-import { BROADCAST_LINK_OPTIONS } from "@/lib/broadcast-links";
+import { BROADCAST_LINK_OPTIONS, BROADCAST_STAGE_OPTIONS } from "@/lib/broadcast-links";
 
 const fieldClass = "w-full rounded-md border bg-background px-3 py-2 text-sm";
 
@@ -14,6 +14,7 @@ export function AmbassadorBroadcastForm({ regions }: { regions: { id: string; na
   const [message, setMessage] = useState("");
   const [link, setLink] = useState("");
   const [regionId, setRegionId] = useState("");
+  const [stage, setStage] = useState("");
   const [paidOnly, setPaidOnly] = useState(true);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -21,7 +22,7 @@ export function AmbassadorBroadcastForm({ regions }: { regions: { id: string; na
   const send = () => {
     setFeedback(null);
     startTransition(async () => {
-      const result = await sendAmbassadorBroadcastAction({ title, message, link, regionId, paidOnly });
+      const result = await sendAmbassadorBroadcastAction({ title, message, link, regionId, stage, paidOnly: paidOnly && stage !== "PAIEMENT" });
       if (result.ok) {
         setFeedback({ ok: true, text: `Message envoyé à ${result.count} ambassadeur${result.count > 1 ? "s" : ""}.` });
         setTitle("");
@@ -74,8 +75,18 @@ export function AmbassadorBroadcastForm({ regions }: { regions: { id: string; na
             </select>
           </label>
         </div>
+        <label className="block space-y-1 text-xs font-medium text-muted-foreground">
+          Étape du parcours
+          <select className={fieldClass} value={stage} onChange={event => setStage(event.target.value)}>
+            {BROADCAST_STAGE_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={paidOnly} onChange={event => setPaidOnly(event.target.checked)} />
+          <input type="checkbox" checked={paidOnly && stage !== "PAIEMENT"} disabled={stage === "PAIEMENT"} onChange={event => setPaidOnly(event.target.checked)} />
           Seulement les ambassadeurs retenus ayant payé
         </label>
         <div className="flex items-center gap-3">
