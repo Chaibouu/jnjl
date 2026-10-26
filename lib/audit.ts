@@ -97,6 +97,7 @@ export async function audit(params: AuditParams): Promise<void> {
 
 /** Libellés français des actions de gestion, pour la page « Journal d'audit ». */
 export const ADMIN_ACTION_LABELS: Record<string, string> = {
+  EMAIL_CHANGED: "E-mail du compte modifié",
   USER_CREATED: "Compte créé",
   USER_UPDATED: "Compte modifié",
   USER_DELETED: "Compte supprimé",

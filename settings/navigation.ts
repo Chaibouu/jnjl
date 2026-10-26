@@ -222,6 +222,13 @@ export const adminNavigation: NavigationItem[] = [
     requiredPermission: "users.manage",
   },
   {
+    title: "Changer un e-mail",
+    icon: "material-symbols:alternate-email",
+    path: "/admin/users/email",
+    // Réservé au Super Admin : corrige l'adresse d'un compte, y compris celle de ses candidatures.
+    allowedRoles: ["SUPER_ADMIN"],
+  },
+  {
     title: "Actualités",
     icon: "material-symbols:newsmode",
     path: "/admin/actualites",
