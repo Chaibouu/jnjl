@@ -15,7 +15,7 @@ export default async function SelectedAmbassadorsPage() {
           <Users className="mx-auto h-10 w-10 text-muted-foreground" />
           <h1 className="mt-4 text-xl font-bold">Liste indisponible</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            La liste des ambassadeurs sélectionnés est réservée aux ambassadeurs retenus et à l&apos;équipe.
+            La liste des ambassadeurs sélectionnés est réservée au staff des régions et aux administrateurs.
           </p>
         </div>
       </section>

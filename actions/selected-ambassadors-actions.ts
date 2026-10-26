@@ -9,8 +9,7 @@ import type { User } from "@/types/user";
 
 /**
  * Liste finale des ambassadeurs sélectionnés (statut RETENU) de l'édition active.
- * - Un ambassadeur voit sa propre région ;
- * - un staff rattaché à une région voit sa région ;
+ * - Un staff rattaché à une région voit uniquement sa région ;
  * - un admin / super admin voit tout et peut filtrer par région.
  * Filtre sur le mode de paiement : en ligne (plateforme), via le point focal, ou pas encore payé.
  */
@@ -35,7 +34,7 @@ const CHANNEL_LABEL: Record<SelectedAmbassadorRow["channel"], string> = {
 
 interface Scope {
   isAdmin: boolean;
-  /** Région imposée (ambassadeur ou staff rattaché) ; null = accès national. */
+  /** Région imposée (staff rattaché) ; null = accès national. */
   regionId: string | null;
 }
 
@@ -47,14 +46,8 @@ async function resolveScope(): Promise<Scope | null> {
   if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") return { isAdmin: true, regionId: null };
   if (user.role === "STAFF") return { isAdmin: false, regionId: getActorRegionScope(user) };
 
-  // Ambassadeur : sa région, uniquement s'il est lui-même sélectionné.
-  const edition = await db.edition.findFirst({ where: { status: "ACTIVE", isDeleted: false }, select: { id: true } });
-  if (!edition) return null;
-  const own = await db.ambassadorApplication.findFirst({
-    where: { userId: user.id, editionId: edition.id, status: "RETENU" },
-    select: { regionId: true },
-  });
-  return own ? { isAdmin: false, regionId: own.regionId } : null;
+  // Les ambassadeurs (et tout autre rôle) n'ont pas accès à cette liste.
+  return null;
 }
 
 async function loadRows(channel: PaymentChannelFilter, requestedRegionId?: string) {
