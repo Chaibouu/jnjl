@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { ListOrdered, Trophy, Users } from "lucide-react";
 import {
+  removeFromSelectionAction,
+  restoreToSelectionAction,
+} from "@/actions/selection-withdrawal-actions";
+import {
   computeRankingAction,
   getRankingAction,
   runSelectionAction,
@@ -30,7 +34,7 @@ type Application = {
   rank: number | null;
   stage: string;
   status: string;
-  selection: { status: string; rank: number | null } | null;
+  selection: { status: string; rank: number | null; withdrawnAt: Date | null; withdrawnReason: string | null } | null;
 };
 type RegionGroup = {
   region: { id: string; name: string; code: string };
@@ -47,17 +51,20 @@ export function SelectionManager({
   editions,
   initialEditionId,
   initialGroups,
+  canManage = false,
 }: {
   editions: EditionOption[];
   initialEditionId: string;
   initialGroups: RegionGroup[];
+  /** Admin / super admin : peut retirer un ambassadeur de la sélection ou l'y remettre. */
+  canManage?: boolean;
 }) {
   const [editionId, setEditionId] = useState(initialEditionId);
   const [groups, setGroups] = useState(initialGroups);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-  const { confirm } = useConfirm();
+  const { confirm, prompt } = useConfirm();
 
   const refresh = (newEditionId: string, successMessage?: string) => {
     setError("");
@@ -133,6 +140,52 @@ export function SelectionManager({
           actionError instanceof Error ? actionError.message : "Une erreur est survenue"
         );
       }
+    });
+  };
+
+  const removeFromSelection = async (application: Application) => {
+    const reason = await prompt({
+      title: `Retirer ${application.firstName} ${application.lastName} de la sélection ?`,
+      description:
+        "Son engagement et son badge seront annulés. Sa place ira automatiquement au suivant du classement de la région. Impossible si son embarquement est déjà validé.",
+      label: "Motif du retrait (obligatoire)",
+      confirmLabel: "Retirer de la sélection",
+      variant: "destructive",
+    });
+    if (!reason) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      const result = await removeFromSelectionAction(application.id, reason);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      refresh(
+        editionId,
+        result.replacement
+          ? `Retiré de la sélection. ${result.replacement} prend sa place.`
+          : "Retiré de la sélection. Aucun candidat suivant disponible dans le classement."
+      );
+    });
+  };
+
+  const restoreToSelection = async (application: Application) => {
+    const confirmed = await confirm({
+      title: `Remettre ${application.firstName} ${application.lastName} dans la sélection ?`,
+      description: "Il reviendra hors quota, sans déloger la personne qui a pris sa place.",
+      confirmLabel: "Remettre dans la sélection",
+    });
+    if (!confirmed) return;
+    setMessage("");
+    setError("");
+    startTransition(async () => {
+      const result = await restoreToSelectionAction(application.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      refresh(editionId, "Remis dans la sélection.");
     });
   };
 
@@ -242,6 +295,7 @@ export function SelectionManager({
                   <th className="px-5 py-3">Score QCM</th>
                   <th className="px-5 py-3">Étape</th>
                   <th className="px-5 py-3">Résultat</th>
+                  {canManage && <th className="px-5 py-3 text-right">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -272,7 +326,38 @@ export function SelectionManager({
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
+                      {application.selection?.withdrawnAt && (
+                        <p className="mt-1 text-xs text-destructive" title={application.selection.withdrawnReason ?? undefined}>
+                          Retiré : {application.selection.withdrawnReason ?? "sans motif"}
+                        </p>
+                      )}
                     </td>
+                    {canManage && (
+                      <td className="px-5 py-3 text-right">
+                        {application.selection?.status === "SELECTIONNE" && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isPending}
+                            onClick={() => removeFromSelection(application)}
+                          >
+                            Retirer / remplacer
+                          </Button>
+                        )}
+                        {application.selection?.withdrawnAt && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isPending}
+                            onClick={() => restoreToSelection(application)}
+                          >
+                            Remettre
+                          </Button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

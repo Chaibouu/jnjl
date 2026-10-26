@@ -59,7 +59,9 @@ export type AuditAction =
   | "MANUAL_PAYMENT_ALLOWED"
   | "RANKING_COMPUTED"
   | "SELECTION_RUN"
-  | "NOTIFICATION_BROADCAST";
+  | "NOTIFICATION_BROADCAST"
+  | "SELECTION_REMOVED"
+  | "SELECTION_RESTORED";
 
 interface AuditParams {
   userId?: string;
@@ -108,6 +110,8 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   ACCOUNTS_UNBLOCKED: "Comptes de candidats débloqués",
   APPLICATION_ACCEPTED: "Candidature acceptée",
   APPLICATION_REJECTED: "Candidature rejetée",
+  SELECTION_REMOVED: "Ambassadeur retiré de la sélection",
+  SELECTION_RESTORED: "Ambassadeur remis dans la sélection",
   NOTIFICATION_BROADCAST: "Message envoyé aux ambassadeurs",
   BADGE_AWARDED: "Badge attribué",
   BADGE_CANCELLED: "Badge annulé",

@@ -190,7 +190,7 @@ export async function decideRepechageAction(
     if (decision === "VALIDE") {
       await transaction.selection.update({
         where: { ambassadorApplicationId: applicationId },
-        data: { status: "SELECTIONNE" },
+        data: { status: "SELECTIONNE", withdrawnAt: null, withdrawnById: null, withdrawnReason: null },
       });
       // Repêché : passe à l'étape ENGAGEMENT
       await transaction.ambassadorApplication.update({

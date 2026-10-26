@@ -17,7 +17,7 @@ const applicationSelect = {
   status: true,
   regionId: true,
   region: { select: { id: true, name: true, code: true } },
-  selection: { select: { status: true, rank: true } },
+  selection: { select: { status: true, rank: true, withdrawnAt: true, withdrawnReason: true } },
 } as const;
 
 /** Étapes qui précèdent l'engagement : seules celles-ci peuvent être déplacées par la sélection. */
@@ -124,7 +124,11 @@ export async function runSelectionAction(editionId: string) {
         rank: { not: null },
         ...(regionId ? { regionId } : {}),
       },
-      include: { engagement: { select: { id: true } }, repechage: { select: { status: true } } },
+      include: {
+        engagement: { select: { id: true } },
+        repechage: { select: { status: true } },
+        selection: { select: { withdrawnAt: true } },
+      },
     }),
     db.regionalQuota.findMany({ where: { editionId, ...(regionId ? { regionId } : {}) } }),
   ]);
@@ -135,10 +139,28 @@ export async function runSelectionAction(editionId: string) {
 
   const quotaByRegion = new Map(quotas.map(quota => [quota.regionId, quota.quota]));
 
+  // Un ambassadeur retiré à la main de la sélection ne compte plus : sa place revient au suivant du classement.
+  const positionById = new Map<string, number>();
+  const seenByRegion = new Map<string, number>();
+  for (const application of [...applications].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))) {
+    if (application.selection?.withdrawnAt) continue;
+    const position = (seenByRegion.get(application.regionId) ?? 0) + 1;
+    seenByRegion.set(application.regionId, position);
+    positionById.set(application.id, position);
+  }
+  const isSelectedById = new Map(
+    applications.map(application => {
+      const quota = quotaByRegion.get(application.regionId) ?? 0;
+      const withdrawn = !!application.selection?.withdrawnAt;
+      // Un repêché validé reste sélectionné même au-delà du quota.
+      const selected =
+        !withdrawn && (application.repechage?.status === "VALIDE" || (positionById.get(application.id) ?? Infinity) <= quota);
+      return [application.id, selected] as const;
+    })
+  );
+
   const operations = applications.flatMap(application => {
-    const quota = quotaByRegion.get(application.regionId) ?? 0;
-    // Un repêché validé reste sélectionné même au-delà du quota.
-    const isSelected = application.repechage?.status === "VALIDE" || (application.rank ?? Infinity) <= quota;
+    const isSelected = isSelectedById.get(application.id) ?? false;
     const status = isSelected ? "SELECTIONNE" : "NON_SELECTIONNE";
     // Un candidat sélectionné n'a pas besoin de repêchage : il passe directement ce
     // checkpoint. Un candidat non sélectionné reste à l'étape SELECTION, en attente
@@ -176,7 +198,7 @@ export async function runSelectionAction(editionId: string) {
   await db.$transaction(operations);
 
   for (const application of applications) {
-    const isSelected = (application.rank ?? Infinity) <= (quotaByRegion.get(application.regionId) ?? 0);
+    const isSelected = isSelectedById.get(application.id) ?? false;
     if (previousStatus.get(application.id) === (isSelected ? "SELECTIONNE" : "NON_SELECTIONNE")) continue;
     await notify({
       userId: application.userId,

@@ -1020,6 +1020,10 @@ model Selection {
   status                  SelectionStatus
   rank                    Int?
   decidedAt               DateTime              @default(now())
+  // Retrait manuel de la sélection (admin) : la relance de la sélection ne remet pas la personne dans la liste.
+  withdrawnAt             DateTime?
+  withdrawnById           String?
+  withdrawnReason         String?               @db.Text
 }
 
 enum RepechageStatus {
