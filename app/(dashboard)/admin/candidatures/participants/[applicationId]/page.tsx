@@ -67,6 +67,7 @@ export default async function EventApplicationDetailsPage({
                 applicationId={application.id}
                 cancelled={!!application.cancelledAt}
                 cancelledReason={application.cancelledReason}
+                photoUrl={application.photoUrl}
               />
             </div>
           </div>

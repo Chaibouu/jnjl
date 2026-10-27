@@ -8,6 +8,7 @@ import {
   restoreParticipantAction,
   resendParticipantEmailAction,
 } from "@/actions/participant-admin-actions";
+import { removeParticipantPhotoAdminAction } from "@/actions/participant-photo-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 
@@ -16,7 +17,9 @@ export function ParticipantAdminActions({
   applicationId,
   cancelled,
   cancelledReason,
+  photoUrl,
 }: {
+  photoUrl: string | null;
   applicationId: string;
   cancelled: boolean;
   cancelledReason: string | null;
@@ -61,6 +64,23 @@ export function ParticipantAdminActions({
     });
   };
 
+  const removePhoto = async () => {
+    const confirmed = await confirm({
+      title: "Retirer la photo ?",
+      description: "Le badge reprendra le logo de la JNJL. Les autres informations du participant sont conservées.",
+      confirmLabel: "Retirer la photo",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    setMessage(null);
+    startTransition(async () => {
+      const result = await removeParticipantPhotoAdminAction(applicationId);
+      if (!result.ok) return setMessage({ ok: false, text: result.error });
+      setMessage({ ok: true, text: "Photo retirée." });
+      router.refresh();
+    });
+  };
+
   const resend = () => {
     setMessage(null);
     startTransition(async () => {
@@ -71,6 +91,15 @@ export function ParticipantAdminActions({
 
   return (
     <div className="mt-4 space-y-2">
+      {photoUrl && (
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photoUrl} alt="Photo du participant" className="h-16 w-16 rounded-full border object-cover" />
+          <Button type="button" variant="outline" size="sm" disabled={isPending} onClick={removePhoto}>
+            Retirer la photo
+          </Button>
+        </div>
+      )}
       {cancelled && (
         <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
           Inscription annulée{cancelledReason ? ` : ${cancelledReason}` : ""}.

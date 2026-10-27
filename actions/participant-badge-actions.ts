@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { generateBadgePdf } from "@/lib/generate-badge-pdf";
 import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { headers } from "next/headers";
+import { loadBadgePhoto } from "@/lib/badge-photo";
 import { nameKey, phoneKey } from "@/lib/phone";
 import { rateLimitRedis } from "@/lib/rateLimit-redis";
 
@@ -41,6 +42,7 @@ export async function getParticipantBadgeAction(applicationId: string) {
     editionLocation: edition.location,
     eventDate,
     badgeBackgroundColor: edition.badgeBackgroundColor,
+    photoUrl: application.photoUrl,
     number: application.participation.badgeNumber,
     qrValue: application.participation.qrCode ?? application.participation.badgeNumber,
     awardedAt: application.participation.createdAt,
@@ -85,8 +87,11 @@ export async function findParticipantBadgeByPhoneAction(phone: string, lastName:
 export async function downloadParticipantBadgeAction(applicationId: string) {
   const data = await getParticipantBadgeAction(applicationId);
 
+  // Avec photo : modèle officiel à photo ronde. Sans photo : le badge historique, qui garde le logo de la JNJL.
+  const photo = await loadBadgePhoto(data.photoUrl);
   const pdf = await generateBadgePdf({
     editionId: data.editionId,
+    ...(photo ? { variant: "generic" as const, title: "PARTICIPANT", photo } : {}),
     label: "Participant JNJL",
     fullName: data.fullName,
     region: data.region,

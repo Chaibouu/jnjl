@@ -632,6 +632,8 @@ model EventApplication {
 
   // Date du consentement donné au formulaire (exigé à l'envoi).
   consentAt DateTime?
+  // Photo facultative du participant pour son badge (sans photo : logo de la JNJL).
+  photoUrl String?
   // Annulation par l'administration (fausse inscription, doublon…) : la fiche est conservée, jamais supprimée.
   cancelledAt     DateTime?
   cancelledById   String?

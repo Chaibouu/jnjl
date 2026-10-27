@@ -10,6 +10,7 @@
  *   content/partners/logos/…           logos des partenaires
  *   content/news/{année}/…             images de couverture des actualités
  *   content/speakers/photos/…          photos des intervenants
+ *   participants/photos/…              photos facultatives des participants (badge)
  *   content/gallery/{année}/…          photos de la galerie d'une édition
  *   misc/…                             autres fichiers
  *
@@ -26,6 +27,7 @@ export const storagePaths = {
   partnerLogo: () => "content/partners/logos",
   newsCover: () => `content/news/${new Date().getFullYear()}`,
   speakerPhoto: () => "content/speakers/photos",
+  participantPhoto: () => "participants/photos",
   gallery: (editionYear: number) => `content/gallery/${editionYear}`,
   misc: () => "misc",
 } as const;

@@ -1,6 +1,7 @@
 import { IdCard } from "lucide-react";
 import { db } from "@/lib/db";
 import { PageHero } from "@/components/site/PageHero";
+import { ParticipantPhotoUpload } from "@/components/participants/ParticipantPhotoUpload";
 import { ParticipantBadgeDownloadButton } from "@/components/participants/ParticipantBadgeDownloadButton";
 import charter from "@/settings/charter";
 
@@ -13,7 +14,7 @@ export default async function ParticipantBadgePage({ params }: { params: Promise
   const application = await db.eventApplication
     .findUnique({
       where: { id: applicationId },
-      select: { firstName: true, lastName: true, participation: { select: { badgeNumber: true } } },
+      select: { firstName: true, lastName: true, photoUrl: true, cancelledAt: true, participation: { select: { badgeNumber: true } } },
     })
     .catch(() => null);
 
@@ -33,7 +34,7 @@ export default async function ParticipantBadgePage({ params }: { params: Promise
           style={{ borderColor: charter.border }}
         >
           <IdCard className="h-10 w-10" style={{ color: charter.orange }} />
-          {application?.participation?.badgeNumber ? (
+          {application?.participation?.badgeNumber && !application.cancelledAt ? (
             <>
               <h2 className="text-lg font-bold" style={{ color: charter.ink }}>
                 {application.firstName} {application.lastName}
@@ -41,6 +42,7 @@ export default async function ParticipantBadgePage({ params }: { params: Promise
               <p className="text-sm" style={{ color: charter.inkSoft }}>
                 Numéro de badge : <strong>{application.participation.badgeNumber}</strong>
               </p>
+              <ParticipantPhotoUpload applicationId={applicationId} initialPhotoUrl={application.photoUrl} />
               <ParticipantBadgeDownloadButton applicationId={applicationId} />
             </>
           ) : (

@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/select";
 import { GENDER_OPTIONS, formatGender, type Gender } from "@/lib/gender";
 import { ParticipantBadgeDownloadButton } from "@/components/participants/ParticipantBadgeDownloadButton";
+import { ParticipantPhotoUpload } from "@/components/participants/ParticipantPhotoUpload";
+import { uploadParticipantPhotoAction } from "@/actions/participant-photo-actions";
+import { shrinkImage } from "@/lib/client-image";
 import charter from "@/settings/charter";
 
 const inputClass =
@@ -55,6 +58,8 @@ export function ParticipantApplicationForm({
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [trap, setTrap] = useState("");
   const startedAt = useRef(Date.now());
   const [isPending, startTransition] = useTransition();
@@ -109,6 +114,18 @@ export function ParticipantApplicationForm({
         }
         setForm(emptyForm);
         setApplicationId(result.applicationId ?? null);
+        // Photo facultative : envoyée après l'inscription, un échec ne la remet jamais en cause (on peut la rajouter ensuite).
+        if (photoFile && result.applicationId) {
+          try {
+            const formData = new FormData();
+            formData.set("file", await shrinkImage(photoFile));
+            const uploaded = await uploadParticipantPhotoAction(result.applicationId, formData);
+            if (uploaded.ok) setPhotoUrl(uploaded.photoUrl);
+          } catch {
+            // Sans effet : la confirmation propose d'ajouter la photo.
+          }
+        }
+        setPhotoFile(null);
         setSent(true);
       } catch (actionError) {
         setError(
@@ -144,7 +161,8 @@ export function ParticipantApplicationForm({
           votre badge de participant : présentez-le à l&apos;accueil de l&apos;événement.
         </p>
         {applicationId && (
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-6">
+            <ParticipantPhotoUpload applicationId={applicationId} initialPhotoUrl={photoUrl} />
             <ParticipantBadgeDownloadButton applicationId={applicationId} />
           </div>
         )}
@@ -287,13 +305,26 @@ export function ParticipantApplicationForm({
           />
         </Field>
 
+        <Field>
+          <FieldLabel>Photo pour votre badge (facultatif)</FieldLabel>
+          <Input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={event => setPhotoFile(event.target.files?.[0] ?? null)}
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs" style={{ color: charter.inkSoft }}>
+            Sans photo, votre badge garde le logo de la JNJL. Vous pourrez aussi l&apos;ajouter après l&apos;inscription.
+          </p>
+        </Field>
+
         <label className="flex items-start gap-2.5 text-sm" style={{ color: charter.inkSoft }}>
           <Checkbox
             className="mt-0.5"
             checked={form.consent}
             onCheckedChange={checked => update("consent", Boolean(checked))}
           />
-          J&apos;accepte que mes informations soient utilisées pour traiter ma candidature à la JNJL.
+          J&apos;accepte que mes informations (et ma photo, si je l&apos;ajoute) soient utilisées pour traiter ma candidature et éditer mon badge de la JNJL.
         </label>
 
         <Button
