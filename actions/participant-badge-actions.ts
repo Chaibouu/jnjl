@@ -3,7 +3,9 @@
 import { db } from "@/lib/db";
 import { generateBadgePdf } from "@/lib/generate-badge-pdf";
 import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
+import { headers } from "next/headers";
 import { nameKey, phoneKey } from "@/lib/phone";
+import { rateLimitRedis } from "@/lib/rateLimit-redis";
 
 /**
  * Résumé public du badge d'un participant. Aucune authentification requise : accessible
@@ -19,7 +21,7 @@ export async function getParticipantBadgeAction(applicationId: string) {
       participation: true,
     },
   });
-  if (!application || !application.participation?.badgeNumber) {
+  if (!application || !application.participation?.badgeNumber || application.cancelledAt) {
     throw new Error("Badge introuvable");
   }
 
@@ -52,6 +54,13 @@ export async function getParticipantBadgeAction(applicationId: string) {
  * Le message d'échec est volontairement identique dans tous les cas.
  */
 export async function findParticipantBadgeByPhoneAction(phone: string, lastName: string) {
+  // Au plus 10 essais par quart d'heure et par adresse IP : empêche de deviner un couple téléphone / nom.
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "inconnue";
+  if (await rateLimitRedis(`badge-recover:${ip}`, { windowMs: 15 * 60 * 1000, max: 10 })) {
+    throw new Error("Trop d'essais : réessayez dans quelques minutes");
+  }
+
   const key = phoneKey(phone);
   const name = nameKey(lastName);
   if (!key || !name) {
@@ -60,7 +69,7 @@ export async function findParticipantBadgeByPhoneAction(phone: string, lastName:
 
   const notFound = new Error("Aucun badge trouvé : vérifiez le numéro et le nom saisis lors de votre inscription");
   const application = await db.eventApplication.findFirst({
-    where: { phoneKey: key, participation: { badgeNumber: { not: null } } },
+    where: { phoneKey: key, cancelledAt: null, participation: { badgeNumber: { not: null } } },
     orderBy: { createdAt: "desc" },
     select: { id: true, firstName: true, lastName: true },
   });

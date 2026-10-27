@@ -114,7 +114,7 @@ async function checkInParticipant(
       id: true,
       editionId: true,
       userId: true,
-      eventApplication: { select: { firstName: true, lastName: true, regionId: true } },
+      eventApplication: { select: { firstName: true, lastName: true, regionId: true, cancelledAt: true } },
     },
   });
   if (!participation) return null;
@@ -125,6 +125,9 @@ async function checkInParticipant(
   const name = participation.eventApplication
     ? `${participation.eventApplication.firstName} ${participation.eventApplication.lastName}`
     : ref;
+  if (participation.eventApplication?.cancelledAt) {
+    throw new CheckInError("Ce badge a été annulé par l'organisation", "INACTIVE");
+  }
   if (participation.eventApplication?.regionId) params.assertRegion?.(participation.eventApplication.regionId);
 
   const sessionId = params.sessionId ?? null;

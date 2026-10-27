@@ -1,3 +1,4 @@
+import { ParticipantAdminActions } from "@/components/admin/ParticipantAdminActions";
 import Link from "next/link";
 import { Briefcase, Calendar, History, IdCard, Mail, MapPin, MessageSquare, Phone, User, UserCheck } from "lucide-react";
 import { getEventApplicationAction } from "@/actions/event-application-actions";
@@ -7,7 +8,7 @@ const STATUS_LABEL: Record<string, string> = {
   SOUMIS: "Soumise",
   EN_COURS_ANALYSE: "En analyse",
   RETENU: "Acceptée",
-  NON_RETENU: "Rejetée",
+  NON_RETENU: "Annulée",
   LISTE_ATTENTE: "Liste d'attente",
 };
 
@@ -62,6 +63,11 @@ export default async function EventApplicationDetailsPage({
               >
                 {STATUS_LABEL[application.status] ?? application.status}
               </span>
+              <ParticipantAdminActions
+                applicationId={application.id}
+                cancelled={!!application.cancelledAt}
+                cancelledReason={application.cancelledReason}
+              />
             </div>
           </div>
 

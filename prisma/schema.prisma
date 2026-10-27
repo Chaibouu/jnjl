@@ -632,6 +632,10 @@ model EventApplication {
 
   // Date du consentement donné au formulaire (exigé à l'envoi).
   consentAt DateTime?
+  // Annulation par l'administration (fausse inscription, doublon…) : la fiche est conservée, jamais supprimée.
+  cancelledAt     DateTime?
+  cancelledById   String?
+  cancelledReason String?   @db.Text
   // Téléphone normalisé (8 derniers chiffres) : un numéro ne sert qu'à une inscription par édition.
   phoneKey  String?
 

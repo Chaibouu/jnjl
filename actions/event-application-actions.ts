@@ -64,6 +64,7 @@ async function loadParticipantsForExport(filters: ParticipantExportFilters) {
       region: item.region?.name ?? "",
       profession: item.profession ?? "",
       badge: item.participation?.badgeNumber ?? "",
+      status: item.cancelledAt ? "Annulée" : "Confirmée",
       date: item.createdAt.toLocaleDateString("fr-FR"),
     }));
 }
@@ -81,6 +82,7 @@ export async function exportEventApplicationsExcelAction(filters: ParticipantExp
     { header: "Région", key: "region", width: 16 },
     { header: "Profession", key: "profession", width: 24 },
     { header: "N° badge", key: "badge", width: 24 },
+    { header: "Statut", key: "status", width: 12 },
     { header: "Inscrit le", key: "date", width: 12 },
   ];
   sheet.getRow(1).font = { bold: true };
@@ -104,8 +106,9 @@ export async function exportEventApplicationsPdfAction(filters: ParticipantExpor
     { title: "Sexe", x: margin + 218, width: 50, key: "gender" },
     { title: "Téléphone", x: margin + 268, width: 90, key: "phone" },
     { title: "Région", x: margin + 358, width: 90, key: "region" },
-    { title: "Profession", x: margin + 448, width: 130, key: "profession" },
-    { title: "N° badge", x: margin + 578, width: 150, key: "badge" },
+    { title: "Profession", x: margin + 448, width: 100, key: "profession" },
+    { title: "Statut", x: margin + 548, width: 55, key: "status" },
+    { title: "N° badge", x: margin + 603, width: 130, key: "badge" },
   ] as const;
   // Helvetica standard (WinAnsi) : les caractères hors plage sont remplacés pour ne pas faire échouer le PDF.
   const safe = (text: string) => text.replace(/[^\x20-\x7E -ÿ]/g, "?");

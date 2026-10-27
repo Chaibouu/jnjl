@@ -30,7 +30,7 @@ export async function getEditionStatsAction(editionId: string) {
   if (!actor) throw new ForbiddenError("Authentification requise");
   if (!canViewStats(actor)) throw new ForbiddenError("Permission requise : stats.view");
 
-  const [ambassadors, quotas, eventApplications, leaderCount, badgeCount, attendedUsers, regions] =
+  const [ambassadors, quotas, eventApplications, leaderCount, badgeCount, attendedUsers, attendedGuests, regions] =
     await Promise.all([
       db.ambassadorApplication.findMany({
         where: { editionId },
@@ -55,6 +55,12 @@ export async function getEditionStatsAction(editionId: string) {
         where: { editionId, userId: { not: null } },
         distinct: ["userId"],
         select: { userId: true },
+      }),
+      // Participants inscrits sans compte : une personne = une participation pointée.
+      db.attendance.findMany({
+        where: { editionId, userId: null, participationId: { not: null } },
+        distinct: ["participationId"],
+        select: { participationId: true },
       }),
       db.region.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ]);
@@ -153,7 +159,7 @@ export async function getEditionStatsAction(editionId: string) {
     },
     leaders: leaderCount,
     badges: badgeCount,
-    attendedPeople: attendedUsers.length,
+    attendedPeople: attendedUsers.length + attendedGuests.length,
     regions: regionRows,
   };
 }

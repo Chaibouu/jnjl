@@ -62,6 +62,8 @@ export type AuditAction =
   | "NOTIFICATION_BROADCAST"
   | "SELECTION_REMOVED"
   | "SELECTION_RESTORED"
+  | "PARTICIPANT_CANCELLED"
+  | "PARTICIPANT_RESTORED"
   | "NAME_CHANGE_APPROVED"
   | "NAME_CHANGE_REJECTED";
 
@@ -112,6 +114,8 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   ACCOUNTS_UNBLOCKED: "Comptes de candidats débloqués",
   APPLICATION_ACCEPTED: "Candidature acceptée",
   APPLICATION_REJECTED: "Candidature rejetée",
+  PARTICIPANT_CANCELLED: "Inscription participant annulée",
+  PARTICIPANT_RESTORED: "Inscription participant rétablie",
   NAME_CHANGE_APPROVED: "Correction de nom acceptée",
   NAME_CHANGE_REJECTED: "Correction de nom refusée",
   SELECTION_REMOVED: "Ambassadeur retiré de la sélection",

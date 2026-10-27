@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,8 @@ export function ParticipantApplicationForm({
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [trap, setTrap] = useState("");
+  const startedAt = useRef(Date.now());
   const [isPending, startTransition] = useTransition();
 
   const update = <K extends keyof typeof form>(field: K, value: (typeof form)[K]) =>
@@ -88,11 +90,22 @@ export function ParticipantApplicationForm({
           body: JSON.stringify({
             ...form,
             hasParticipatedBefore: form.hasParticipatedBefore === "OUI",
+            // Anti-robot : champ piège (vide pour un humain) et durée de remplissage.
+            website: trap,
+            elapsedMs: Date.now() - startedAt.current,
           }),
         });
         const result = await response.json();
         if (!response.ok) {
-          throw new Error(result.error || "Impossible d'enregistrer la candidature");
+          // Détail champ par champ renvoyé par le serveur (ex. « Le numéro de téléphone n'est pas valide »).
+          const details = result.errors
+            ? Object.values(result.errors as Record<string, string[]>)
+                .flat()
+                .join(" · ")
+            : "";
+          throw new Error(
+            details ? `${result.error} : ${details}` : result.error || "Impossible d'enregistrer la candidature"
+          );
         }
         setForm(emptyForm);
         setApplicationId(result.applicationId ?? null);
@@ -144,6 +157,13 @@ export function ParticipantApplicationForm({
         {error && (
           <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
         )}
+        {/* Champ piège invisible : seuls les robots le remplissent. */}
+        <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+          <label>
+            Site web
+            <input tabIndex={-1} autoComplete="off" value={trap} onChange={event => setTrap(event.target.value)} />
+          </label>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>

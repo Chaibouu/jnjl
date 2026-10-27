@@ -28,7 +28,18 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = await rateLimitRedis(`event-application:${getClientIP(request)}`, EVENT_APPLICATION_LIMIT);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const parsed = eventApplicationSchema.safeParse(await request.json());
+    const body = (await request.json()) as Record<string, unknown>;
+
+    // Anti-robot : le champ piège doit rester vide et le formulaire ne se remplit pas en moins de 3 secondes.
+    // Piège rempli : on feint un succès (le robot ne sait pas qu'il est repéré) sans rien enregistrer.
+    if (typeof body.website === "string" && body.website.trim() !== "") {
+      return NextResponse.json({ success: true, applicationId: null, badgeNumber: null }, { status: 201 });
+    }
+    if (typeof body.elapsedMs === "number" && body.elapsedMs < 3000) {
+      return NextResponse.json({ error: "Envoi trop rapide : relisez le formulaire puis réessayez." }, { status: 429 });
+    }
+
+    const parsed = eventApplicationSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -76,7 +87,8 @@ export async function POST(request: NextRequest) {
 
     // Places limitées par l'administrateur (0 = illimité).
     if (registration.participantsCapacity > 0) {
-      const registered = await db.eventApplication.count({ where: { editionId: edition.id } });
+      // Les inscriptions annulées libèrent leur place.
+      const registered = await db.eventApplication.count({ where: { editionId: edition.id, cancelledAt: null } });
       if (registered >= registration.participantsCapacity) {
         return NextResponse.json({ error: "Les inscriptions sont closes : toutes les places sont prises." }, { status: 403 });
       }

@@ -4,6 +4,10 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Eye, FileSpreadsheet, FileText, Search } from "lucide-react";
 import {
+  resendFailedParticipantEmailsAction,
+  syncParticipantQrsAction,
+} from "@/actions/participant-admin-actions";
+import {
   exportEventApplicationsExcelAction,
   exportEventApplicationsPdfAction,
 } from "@/actions/event-application-actions";
@@ -37,7 +41,7 @@ const labels: Record<string, string> = {
   SOUMIS: "Soumise",
   EN_COURS_ANALYSE: "En analyse",
   RETENU: "Confirmée",
-  NON_RETENU: "Rejetée",
+  NON_RETENU: "Annulée",
   LISTE_ATTENTE: "Liste d'attente",
 };
 
@@ -52,6 +56,42 @@ export function EventApplicationManager({
   const [regionFilter, setRegionFilter] = useState(ALL);
   const [genderFilter, setGenderFilter] = useState(ALL);
   const [exportError, setExportError] = useState("");
+  const [toolMessage, setToolMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [isTooling, startTool] = useTransition();
+
+  const syncQrs = () =>
+    startTool(async () => {
+      setToolMessage(null);
+      const result = await syncParticipantQrsAction();
+      setToolMessage(
+        result.ok
+          ? {
+              ok: true,
+              text:
+                result.synced === 0 && result.remaining === 0
+                  ? "Tous les badges ont déjà leur QR ScanHub."
+                  : `${result.synced} QR synchronisé(s), ${result.remaining} restant(s)${result.remaining ? " (relancez pour continuer)" : ""}.`,
+            }
+          : { ok: false, text: result.error }
+      );
+    });
+
+  const resendFailed = () =>
+    startTool(async () => {
+      setToolMessage(null);
+      const result = await resendFailedParticipantEmailsAction();
+      setToolMessage(
+        result.ok
+          ? {
+              ok: true,
+              text:
+                result.sent + result.failed === 0
+                  ? "Aucun e-mail en échec à renvoyer."
+                  : `${result.sent} e-mail(s) renvoyé(s), ${result.failed} échec(s), ${result.remaining} restant(s).`,
+            }
+          : { ok: false, text: result.error }
+      );
+    });
   const [isExporting, startExport] = useTransition();
 
   const exportAs = (kind: "pdf" | "excel") =>
@@ -169,6 +209,17 @@ export function EventApplicationManager({
           </div>
         </div>
         {exportError && <p className="px-5 pb-3 text-sm text-destructive">{exportError}</p>}
+        <div className="flex flex-wrap items-center gap-2 border-b px-5 pb-4">
+          <Button type="button" variant="outline" size="sm" disabled={isTooling} onClick={syncQrs}>
+            Resynchroniser les QR ScanHub
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={isTooling} onClick={resendFailed}>
+            Renvoyer les e-mails en échec
+          </Button>
+          {toolMessage && (
+            <span className={`text-sm ${toolMessage.ok ? "text-green-600" : "text-destructive"}`}>{toolMessage.text}</span>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
