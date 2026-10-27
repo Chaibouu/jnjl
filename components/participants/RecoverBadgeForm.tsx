@@ -13,6 +13,7 @@ import charter from "@/settings/charter";
 export function RecoverBadgeForm() {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
+  const [lastName, setLastName] = useState("");
   const [error, setError] = useState("");
   const [found, setFound] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -23,7 +24,7 @@ export function RecoverBadgeForm() {
     setFound(null);
     startTransition(async () => {
       try {
-        setFound(await findParticipantBadgeByPhoneAction(phone));
+        setFound(await findParticipantBadgeByPhoneAction(phone, lastName));
       } catch (actionError) {
         setError(
           actionError instanceof Error ? actionError.message : "Une erreur est survenue"
@@ -55,7 +56,7 @@ export function RecoverBadgeForm() {
         Retrouver mon badge
       </h3>
       <p className="mt-1 text-sm" style={{ color: charter.inkSoft }}>
-        Saisissez le numéro de téléphone utilisé lors de votre inscription.
+        Saisissez le numéro de téléphone et le nom utilisés lors de votre inscription.
       </p>
       <form onSubmit={submit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <Field className="flex-1">
@@ -66,6 +67,16 @@ export function RecoverBadgeForm() {
             onChange={event => setPhone(event.target.value)}
             required
             placeholder="+227 00 00 00 00"
+            className="h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
+          />
+        </Field>
+        <Field className="flex-1">
+          <FieldLabel>Nom</FieldLabel>
+          <Input
+            value={lastName}
+            onChange={event => setLastName(event.target.value)}
+            required
+            placeholder="Votre nom de famille"
             className="h-11 rounded-none border border-border bg-muted/40 px-3.5 transition-colors focus-visible:border-ring focus-visible:bg-white"
           />
         </Field>

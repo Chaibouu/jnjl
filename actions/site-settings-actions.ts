@@ -70,6 +70,7 @@ export async function setRegistrationSettingsAction(input: RegistrationState): P
     [REGISTRATION_KEYS.participantsOpen, input.participantsOpen ? "true" : "false"],
     [REGISTRATION_KEYS.ambassadorsNote, note(input.ambassadorsNote)],
     [REGISTRATION_KEYS.participantsNote, note(input.participantsNote)],
+    [REGISTRATION_KEYS.participantsCapacity, String(Math.min(1000000, Math.max(0, Math.floor(Number(input.participantsCapacity) || 0))))],
     [REGISTRATION_KEYS.posterOpen, input.posterOpen ? "true" : "false"],
     [REGISTRATION_KEYS.posterNote, note(input.posterNote)],
   ];

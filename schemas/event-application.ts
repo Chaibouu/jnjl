@@ -5,7 +5,13 @@ export const eventApplicationSchema = z.object({
   firstName: z.string().trim().min(2, "Le prénom est requis").max(100),
   lastName: z.string().trim().min(2, "Le nom est requis").max(100),
   email: z.string().trim().email("L'adresse email n'est pas valide"),
-  phone: z.string().trim().min(8, "Le téléphone est requis").max(30),
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .refine(value => /^[+\d\s().-]+$/.test(value) && value.replace(/\D/g, "").length >= 8 && value.replace(/\D/g, "").length <= 15, {
+      message: "Le numéro de téléphone n'est pas valide (8 chiffres minimum)",
+    }),
   gender: z.enum(GENDER_VALUES, {
     errorMap: () => ({ message: "Le sexe est requis (Masculin ou Féminin)" }),
   }),

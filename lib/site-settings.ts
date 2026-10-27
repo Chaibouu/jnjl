@@ -6,6 +6,7 @@ export const REGISTRATION_KEYS = {
   ambassadorsNote: "site.ambassador_applications_note",
   participantsOpen: "site.participant_registration_open",
   participantsNote: "site.participant_registration_note",
+  participantsCapacity: "site.participant_capacity",
   posterOpen: "site.poster_open",
   posterNote: "site.poster_note",
 } as const;
@@ -18,6 +19,8 @@ export type RegistrationState = {
   /** Message libre affiché quand c'est fermé (ex. « Ouverture prévue en novembre »). */
   ambassadorsNote: string;
   participantsNote: string;
+  /** Nombre maximum de participants à l'événement (0 = illimité). */
+  participantsCapacity: number;
   /** Page « Mon affiche J'y serai » accessible au public (par défaut : oui). */
   posterOpen: boolean;
   posterNote: string;
@@ -28,6 +31,7 @@ const DEFAULTS: RegistrationState = {
   participantsOpen: false,
   ambassadorsNote: "",
   participantsNote: "",
+  participantsCapacity: 0,
   posterOpen: true,
   posterNote: "",
 };
@@ -47,6 +51,7 @@ export async function getRegistrationState(): Promise<RegistrationState> {
       participantsOpen: flag(REGISTRATION_KEYS.participantsOpen, DEFAULTS.participantsOpen),
       ambassadorsNote: values.get(REGISTRATION_KEYS.ambassadorsNote) ?? "",
       participantsNote: values.get(REGISTRATION_KEYS.participantsNote) ?? "",
+      participantsCapacity: Math.max(0, Math.floor(Number(values.get(REGISTRATION_KEYS.participantsCapacity)) || 0)),
       posterOpen: flag(REGISTRATION_KEYS.posterOpen, DEFAULTS.posterOpen),
       posterNote: values.get(REGISTRATION_KEYS.posterNote) ?? "",
     };

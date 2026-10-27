@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Eye, Search } from "lucide-react";
+import { Eye, FileSpreadsheet, FileText, Search } from "lucide-react";
+import {
+  exportEventApplicationsExcelAction,
+  exportEventApplicationsPdfAction,
+} from "@/actions/event-application-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,6 +51,32 @@ export function EventApplicationManager({
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState(ALL);
   const [genderFilter, setGenderFilter] = useState(ALL);
+  const [exportError, setExportError] = useState("");
+  const [isExporting, startExport] = useTransition();
+
+  const exportAs = (kind: "pdf" | "excel") =>
+    startExport(async () => {
+      setExportError("");
+      const filters = {
+        regionName: regionFilter === ALL ? undefined : regionFilter,
+        gender: genderFilter === ALL ? undefined : genderFilter,
+        search,
+      };
+      const result =
+        kind === "pdf" ? await exportEventApplicationsPdfAction(filters) : await exportEventApplicationsExcelAction(filters);
+      if (!result.ok) {
+        setExportError(result.error);
+        return;
+      }
+      const bytes = Uint8Array.from(atob(result.base64), char => char.charCodeAt(0));
+      const mime = kind === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mime }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = result.filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
 
   const regions = useMemo(() => {
     const map = new Map<string, string>();
@@ -119,6 +149,14 @@ export function EventApplicationManager({
                 ))}
               </SelectContent>
             </Select>
+            <Button type="button" variant="outline" className="h-10" disabled={isExporting || filtered.length === 0} onClick={() => exportAs("pdf")}>
+              <FileText className="mr-2 h-4 w-4" />
+              PDF
+            </Button>
+            <Button type="button" variant="outline" className="h-10" disabled={isExporting || filtered.length === 0} onClick={() => exportAs("excel")}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Excel
+            </Button>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -130,6 +168,7 @@ export function EventApplicationManager({
             </div>
           </div>
         </div>
+        {exportError && <p className="px-5 pb-3 text-sm text-destructive">{exportError}</p>}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">

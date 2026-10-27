@@ -13,6 +13,7 @@ type State = {
   participantsOpen: boolean;
   ambassadorsNote: string;
   participantsNote: string;
+  participantsCapacity: number;
   posterOpen: boolean;
   posterNote: string;
 };
@@ -73,6 +74,19 @@ export function RegistrationSettings({ initial }: { initial: State }) {
         onNoteChange={value => update("participantsNote", value)}
         notePlaceholder="Ex. Ouverture des inscriptions prévue en novembre 2026."
       />
+      <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
+        <p className="text-sm font-semibold">Nombre maximum de participants</p>
+        <p className="text-xs text-muted-foreground">
+          Une fois ce nombre atteint, les inscriptions sont refusées automatiquement. 0 = pas de limite.
+        </p>
+        <Input
+          type="number"
+          min={0}
+          value={state.participantsCapacity}
+          onChange={event => update("participantsCapacity", Math.max(0, Number(event.target.value) || 0))}
+          className={`${inputClass} w-40`}
+        />
+      </div>
       <Block
         title="Page « Mon affiche J'y serai »"
         open={state.posterOpen}

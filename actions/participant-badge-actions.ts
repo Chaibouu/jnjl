@@ -3,37 +3,7 @@
 import { db } from "@/lib/db";
 import { generateBadgePdf } from "@/lib/generate-badge-pdf";
 import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
-
-/** Numérotation séquentielle des badges participants, par édition. */
-async function nextParticipantBadgeNumber(editionYear: number, editionId: string) {
-  const count = await db.eventParticipation.count({
-    where: { editionId, badgeNumber: { not: null } },
-  });
-  return `JNJL-${editionYear}-PART-${String(count + 1).padStart(4, "0")}`;
-}
-
-/**
- * Crée la participation et le badge d'un participant à l'événement, immédiatement après
- * son inscription (§8 du guide admin) : aucune validation admin n'est requise, le badge
- * est disponible dès l'inscription, comme pour le badge ambassadeur mais sans compte requis.
- */
-export async function createParticipantBadge(params: {
-  eventApplicationId: string;
-  editionId: string;
-  editionYear: number;
-  userId?: string | null;
-}) {
-  const number = await nextParticipantBadgeNumber(params.editionYear, params.editionId);
-  return db.eventParticipation.create({
-    data: {
-      editionId: params.editionId,
-      userId: params.userId ?? null,
-      eventApplicationId: params.eventApplicationId,
-      badgeNumber: number,
-      qrCode: number,
-    },
-  });
-}
+import { nameKey, phoneKey } from "@/lib/phone";
 
 /**
  * Résumé public du badge d'un participant. Aucune authentification requise : accessible
@@ -70,29 +40,34 @@ export async function getParticipantBadgeAction(applicationId: string) {
     eventDate,
     badgeBackgroundColor: edition.badgeBackgroundColor,
     number: application.participation.badgeNumber,
+    qrValue: application.participation.qrCode ?? application.participation.badgeNumber,
     awardedAt: application.participation.createdAt,
   };
 }
 
 /**
- * Retrouve la candidature (et son badge) d'un participant à partir de son numéro de
- * téléphone d'inscription — pour les personnes ayant perdu leur badge après l'inscription
- * (aucun compte n'étant requis, l'email seul ne suffit pas toujours à s'authentifier).
- * En cas d'inscriptions multiples avec le même numéro, la plus récente est retenue.
+ * Retrouve la candidature (et son badge) d'un participant qui a perdu son badge : numéro de téléphone d'inscription
+ * ET nom de famille (deuxième vérification, pour qu'un tiers qui connaît un numéro ne récupère pas le badge d'un
+ * autre). Le numéro est comparé sur ses 8 derniers chiffres : avec ou sans indicatif ni espaces, c'est le même.
+ * Le message d'échec est volontairement identique dans tous les cas.
  */
-export async function findParticipantBadgeByPhoneAction(phone: string) {
-  const normalized = phone.trim();
-  if (!normalized) {
-    throw new Error("Merci de renseigner votre numéro de téléphone");
+export async function findParticipantBadgeByPhoneAction(phone: string, lastName: string) {
+  const key = phoneKey(phone);
+  const name = nameKey(lastName);
+  if (!key || !name) {
+    throw new Error("Merci de renseigner votre numéro de téléphone et votre nom");
   }
 
+  const notFound = new Error("Aucun badge trouvé : vérifiez le numéro et le nom saisis lors de votre inscription");
   const application = await db.eventApplication.findFirst({
-    where: { phone: normalized, participation: { badgeNumber: { not: null } } },
+    where: { phoneKey: key, participation: { badgeNumber: { not: null } } },
     orderBy: { createdAt: "desc" },
     select: { id: true, firstName: true, lastName: true },
   });
-  if (!application) {
-    throw new Error("Aucun badge trouvé pour ce numéro de téléphone");
+  // Tous les mots du nom saisi doivent figurer dans le nom de l'inscrit (certains inversent prénom et nom).
+  const registeredWords = application ? nameKey(`${application.lastName} ${application.firstName}`).split(" ") : [];
+  if (!application || !name.split(" ").every(word => registeredWords.includes(word))) {
+    throw notFound;
   }
   return application;
 }
@@ -112,6 +87,7 @@ export async function downloadParticipantBadgeAction(applicationId: string) {
     backgroundColor: data.badgeBackgroundColor,
     number: data.number,
     awardedAt: data.awardedAt,
+    qrValue: data.qrValue,
     logo: await loadPublicImage("jnjl.jpg"),
     partnerLogos: await Promise.all(PARTNER_LOGO_PATHS.map(loadPublicImage)),
   });

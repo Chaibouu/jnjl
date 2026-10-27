@@ -38,7 +38,15 @@ export async function listAttendanceAction(editionId: string, sessionId?: string
   const where = {
     editionId,
     ...(sessionId ? { sessionId } : {}),
-    ...(regionUserIds ? { userId: { in: regionUserIds } } : {}),
+    // Point focal : ses ambassadeurs (via leur compte) et les participants inscrits dans sa région.
+    ...(regionUserIds && regionId
+      ? {
+          OR: [
+            { userId: { in: regionUserIds } },
+            { participation: { eventApplication: { regionId } } },
+          ],
+        }
+      : {}),
   };
   const [records, total, awaiting] = await Promise.all([
     db.attendance.findMany({
@@ -47,6 +55,8 @@ export async function listAttendanceAction(editionId: string, sessionId?: string
         id: true,
         checkedAt: true,
         user: { select: { name: true, email: true } },
+        // Participant inscrit sans compte : son identité est celle de son inscription.
+        participation: { select: { eventApplication: { select: { firstName: true, lastName: true, email: true } } } },
         session: { select: { title: true } },
       },
       orderBy: { checkedAt: "desc" },
@@ -104,7 +114,17 @@ export async function listAttendanceAction(editionId: string, sessionId?: string
   return {
     total,
     accessPasses,
-    records,
+    records: records.map(({ participation, ...record }) => ({
+      ...record,
+      user:
+        record.user ??
+        (participation?.eventApplication
+          ? {
+              name: `${participation.eventApplication.firstName} ${participation.eventApplication.lastName}`,
+              email: participation.eventApplication.email,
+            }
+          : null),
+    })),
     awaiting: awaiting.map(application => ({
       id: application.id,
       fullName: `${application.firstName} ${application.lastName}`,

@@ -324,6 +324,30 @@ export const sendChangeEmailVerification = async (
   });
 };
 
+/** Confirmation d'inscription d'un participant à l'événement, avec le lien pour télécharger son badge. */
+export const sendParticipantBadgeEmail = async (
+  email: string,
+  firstName: string,
+  applicationId: string,
+  badgeNumber: string
+) => {
+  const url = `${domain}/participer/badge/${applicationId}`;
+  await sendMail({
+    kind: "participant_badge",
+    to: email,
+    subject: `${appConfig.appName} — Votre inscription est confirmée`,
+    html: renderEmail({
+      title: "Inscription confirmée",
+      preheader: "Téléchargez votre badge de participant à la JNJL.",
+      body: `
+        <p style="margin:0 0 12px 0;">Bonjour ${escapeHtml(firstName)},</p>
+        <p style="margin:0 0 12px 0;">Votre participation à la <strong>${escapeHtml(appConfig.appName)}</strong> est confirmée. Votre numéro de badge : <strong>${escapeHtml(badgeNumber)}</strong>.</p>
+        <p style="margin:0;">Téléchargez votre badge avec le bouton ci-dessous et présentez-le à l'accueil de l'événement.</p>`,
+      cta: { label: "Télécharger mon badge", href: url },
+    }),
+  });
+};
+
 /** Accusé de réception d'une candidature ambassadeur (aucun compte n'existe encore à ce stade). */
 export const sendApplicationReceivedEmail = async (email: string, firstName: string) => {
   await sendMail({

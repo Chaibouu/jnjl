@@ -630,6 +630,13 @@ model EventApplication {
 
   participation EventParticipation?
 
+  // Date du consentement donné au formulaire (exigé à l'envoi).
+  consentAt DateTime?
+  // Téléphone normalisé (8 derniers chiffres) : un numéro ne sert qu'à une inscription par édition.
+  phoneKey  String?
+
+  @@unique([editionId, email])
+  @@unique([editionId, phoneKey])
   @@index([editionId, status])
 }
 

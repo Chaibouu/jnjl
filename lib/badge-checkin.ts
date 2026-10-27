@@ -39,6 +39,10 @@ export async function recordBadgeCheckIn(params: {
       where: { OR: [{ number: ref }, { qrCode: ref }] },
       select: { id: true, fullName: true, editionId: true, status: true, checkedInAt: true },
     });
+    if (!pass) {
+      const participant = await checkInParticipant(ref, params);
+      if (participant) return participant;
+    }
     if (!pass || (params.editionId && pass.editionId !== params.editionId)) {
       throw new CheckInError("Badge inconnu pour cette édition", "UNKNOWN_BADGE");
     }
@@ -92,5 +96,52 @@ export async function recordBadgeCheckIn(params: {
       : []),
   ]);
 
+  return { name };
+}
+
+/**
+ * Badge de participant à l'événement (inscription publique, sans compte) : retrouvé par son numéro `JNJL-…-PART-…` ou
+ * par le jeton ScanHub de son QR. Pointe sa présence sur l'événement ou la session ; null si la référence n'est pas
+ * celle d'un participant.
+ */
+async function checkInParticipant(
+  ref: string,
+  params: { editionId?: string; sessionId?: string | null; checkedById: string; at?: Date; assertRegion?: (regionId: string) => void }
+) {
+  const participation = await db.eventParticipation.findFirst({
+    where: { OR: [{ badgeNumber: ref }, { qrCode: ref }] },
+    select: {
+      id: true,
+      editionId: true,
+      userId: true,
+      eventApplication: { select: { firstName: true, lastName: true, regionId: true } },
+    },
+  });
+  if (!participation) return null;
+  if (params.editionId && participation.editionId !== params.editionId) {
+    throw new CheckInError("Badge inconnu pour cette édition", "UNKNOWN_BADGE");
+  }
+
+  const name = participation.eventApplication
+    ? `${participation.eventApplication.firstName} ${participation.eventApplication.lastName}`
+    : ref;
+  if (participation.eventApplication?.regionId) params.assertRegion?.(participation.eventApplication.regionId);
+
+  const sessionId = params.sessionId ?? null;
+  const already = await db.attendance.findFirst({
+    where: { editionId: participation.editionId, participationId: participation.id, sessionId },
+  });
+  if (already) throw new CheckInError(`${name} est déjà pointé(e)`, "ALREADY");
+
+  await db.attendance.create({
+    data: {
+      editionId: participation.editionId,
+      userId: participation.userId,
+      participationId: participation.id,
+      sessionId,
+      checkedById: params.checkedById,
+      ...(params.at ? { checkedAt: params.at } : {}),
+    },
+  });
   return { name };
 }
