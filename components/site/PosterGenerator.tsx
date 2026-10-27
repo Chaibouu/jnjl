@@ -15,32 +15,63 @@ import {
 import { Button } from "@/components/ui/button";
 import charter from "@/settings/charter";
 
-/** Gabarit de l'affiche (public/) et taille en pixels de l'image. */
-const POSTER_SRC = "/affiche-jy-serai-2026.jpg";
-const POSTER_SIZE = 1280;
-/** Cadre bleu réservé à la photo, en pixels du gabarit. */
-const FRAME = { x: 54, y: 569, width: 520, height: 564, radius: 34 };
-const FRAME_RATIO = FRAME.width / FRAME.height;
+/** Un gabarit d'affiche : image (public/), taille en pixels, cadre réservé à la photo et textes. */
+export type PosterConfig = {
+  src: string;
+  size: number;
+  /** Cadre réservé à la photo, en pixels du gabarit. */
+  frame: { x: number; y: number; width: number; height: number; radius: number };
+  fileName: string;
+  title: string;
+  alt: string;
+  shareTitle: string;
+  /** Texte du cadre vide : clair sur un cadre sombre, foncé sur un cadre blanc. */
+  placeholderTone: "light" | "dark";
+};
+
+/** Affiche « J'y serai » (site public). */
+export const JY_SERAI_POSTER: PosterConfig = {
+  src: "/affiche-jy-serai-2026.jpg",
+  size: 1280,
+  frame: { x: 54, y: 569, width: 520, height: 564, radius: 34 },
+  fileName: "affiche-jy-serai-jnjl-2026.jpg",
+  title: "Créez votre affiche",
+  alt: "Aperçu de votre affiche « J'y serai » de la Journée Nationale du Jeune Leader",
+  shareTitle: "J'y serai — JNJL 2026",
+  placeholderTone: "light",
+};
+
+/** Affiche « Je suis ambassadeur JNJL » (espace ambassadeur). Cadre blanc mesuré sur le gabarit, 1 px de marge. */
+export const AMBASSADOR_POSTER: PosterConfig = {
+  src: "/affiche-ambassadeur-2026.jpg",
+  size: 1280,
+  frame: { x: 115, y: 487, width: 459, height: 568, radius: 40 },
+  fileName: "affiche-ambassadeur-jnjl-2026.jpg",
+  title: "Créez votre affiche d'ambassadeur",
+  alt: "Aperçu de votre affiche « Je suis ambassadeur JNJL » de la Journée Nationale du Jeune Leader",
+  shareTitle: "Je suis ambassadeur JNJL 2026",
+  placeholderTone: "dark",
+};
+
 const MIN_SCALE = 1;
 const MAX_SCALE = 3;
 /** Pas de déplacement (flèches et boutons), en fraction du cadre. */
 const MOVE_STEP = 0.03;
 const FILE_NAME = "affiche-jy-serai-jnjl-2026.jpg";
 
-const pct = (value: number) => `${(value / POSTER_SIZE) * 100}%`;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 /** Taille de la photo en « cadres » (1 = largeur ou hauteur du cadre) : elle le recouvre toujours. */
-function coverSize(photo: HTMLImageElement, scale: number) {
+function coverSize(photo: HTMLImageElement, scale: number, frameRatio: number) {
   const ratio = photo.naturalWidth / photo.naturalHeight;
-  return ratio > FRAME_RATIO
-    ? { width: (ratio / FRAME_RATIO) * scale, height: scale }
-    : { width: scale, height: (FRAME_RATIO / ratio) * scale };
+  return ratio > frameRatio
+    ? { width: (ratio / frameRatio) * scale, height: scale }
+    : { width: scale, height: (frameRatio / ratio) * scale };
 }
 
 /** Empêche de sortir la photo du cadre : aucun vide ne peut apparaître. */
-function clampOffset(photo: HTMLImageElement, scale: number, offset: { x: number; y: number }) {
-  const size = coverSize(photo, scale);
+function clampOffset(photo: HTMLImageElement, scale: number, offset: { x: number; y: number }, frameRatio: number) {
+  const size = coverSize(photo, scale, frameRatio);
   const maxX = (size.width - 1) / 2;
   const maxY = (size.height - 1) / 2;
   return { x: clamp(offset.x, -maxX, maxX), y: clamp(offset.y, -maxY, maxY) };
@@ -60,7 +91,10 @@ function loadImage(src: string) {
  * recadrée au doigt ou à la souris, puis exportée en JPEG. Tout se passe dans le navigateur :
  * la photo n'est jamais envoyée au serveur.
  */
-export function PosterGenerator() {
+export function PosterGenerator({ config = JY_SERAI_POSTER }: { config?: PosterConfig }) {
+  const { src: POSTER_SRC, size: POSTER_SIZE, frame: FRAME, fileName: FILE_NAME } = config;
+  const FRAME_RATIO = FRAME.width / FRAME.height;
+  const pct = (value: number) => `${(value / POSTER_SIZE) * 100}%`;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -87,7 +121,7 @@ export function PosterGenerator() {
     } catch {
       setCanShare(false);
     }
-  }, []);
+  }, [POSTER_SRC, FILE_NAME]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -97,7 +131,7 @@ export function PosterGenerator() {
     ctx.drawImage(poster, 0, 0, POSTER_SIZE, POSTER_SIZE);
     if (!photo) return;
 
-    const size = coverSize(photo, scale);
+    const size = coverSize(photo, scale, FRAME_RATIO);
     const width = size.width * FRAME.width;
     const height = size.height * FRAME.height;
     const x = FRAME.x + (FRAME.width - width) / 2 + offset.x * FRAME.width;
@@ -118,14 +152,14 @@ export function PosterGenerator() {
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(photo, x, y, width, height);
     ctx.restore();
-  }, [poster, photo, scale, offset]);
+  }, [poster, photo, scale, offset, POSTER_SRC, POSTER_SIZE, FRAME]);
 
   const applyScale = useCallback(
     (next: number) => {
       if (!photo) return;
       const value = clamp(next, MIN_SCALE, MAX_SCALE);
       setScale(value);
-      setOffset(current => clampOffset(photo, value, current));
+      setOffset(current => clampOffset(photo, value, current, FRAME_RATIO));
     },
     [photo]
   );
@@ -133,7 +167,7 @@ export function PosterGenerator() {
   const moveBy = useCallback(
     (dx: number, dy: number) => {
       if (!photo) return;
-      setOffset(current => clampOffset(photo, scale, { x: current.x + dx, y: current.y + dy }));
+      setOffset(current => clampOffset(photo, scale, { x: current.x + dx, y: current.y + dy }, FRAME_RATIO));
     },
     [photo, scale]
   );
@@ -258,7 +292,7 @@ export function PosterGenerator() {
     setExporting(true);
     try {
       const file = new File([await exportBlob()], FILE_NAME, { type: "image/jpeg" });
-      await navigator.share({ files: [file], title: "J'y serai — JNJL 2026" });
+      await navigator.share({ files: [file], title: config.shareTitle });
     } catch (shareError) {
       // Fermeture de la fenêtre de partage par l'utilisateur : ce n'est pas une erreur.
       if ((shareError as Error)?.name !== "AbortError") {
@@ -284,7 +318,7 @@ export function PosterGenerator() {
           height={POSTER_SIZE}
           className="block aspect-square h-auto w-full"
           role="img"
-          aria-label="Aperçu de votre affiche « J'y serai » de la Journée Nationale du Jeune Leader"
+          aria-label={config.alt}
         />
         <div
           ref={frameRef}
@@ -313,8 +347,11 @@ export function PosterGenerator() {
           onKeyDown={onKeyDown}
         >
           {!photo && (
-            <span className="flex flex-col items-center gap-2 px-3 text-center text-xs font-semibold text-white sm:text-sm">
-              <ImagePlus className="h-7 w-7 sm:h-9 sm:w-9" style={{ color: charter.gold }} aria-hidden="true" />
+            <span className={`flex flex-col items-center gap-2 px-3 text-center text-xs font-semibold sm:text-sm ${
+                config.placeholderTone === "light" ? "text-white" : "text-neutral-700"
+              }`}
+            >
+              <ImagePlus className="h-7 w-7 sm:h-9 sm:w-9" style={{ color: config.placeholderTone === "light" ? charter.gold : charter.orange }} aria-hidden="true" />
               Votre photo ici
             </span>
           )}
@@ -326,7 +363,7 @@ export function PosterGenerator() {
       {/* Commandes */}
       <div className="rounded-2xl border bg-white p-6 shadow-sm" style={{ borderColor: charter.border }}>
         <h2 className="text-lg font-bold" style={{ color: charter.ink }}>
-          Créez votre affiche
+          {config.title}
         </h2>
         <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed" style={{ color: charter.inkSoft }}>
           <li>Choisissez votre photo.</li>

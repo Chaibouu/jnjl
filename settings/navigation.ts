@@ -106,6 +106,13 @@ export const adminNavigation: NavigationItem[] = [
     requiresAmbassadorAccount: true,
   },
   {
+    title: "Mon affiche",
+    icon: "material-symbols:add-photo-alternate",
+    path: "/ambassadeur/affiche",
+    allowedRoles: ["USER"],
+    requiresAmbassadorAccount: true,
+  },
+  {
     title: "Mon attestation",
     icon: "material-symbols:workspace-premium",
     path: "/ambassadeur/attestation",
