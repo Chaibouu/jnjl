@@ -352,6 +352,20 @@ export const adminNavigation: NavigationItem[] = [
     path: "/admin/presence",
     allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
     requiredPermission: "attendance.manage",
+    children: [
+      {
+        title: "Pointage",
+        path: "/admin/presence",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+        requiredPermission: "attendance.manage",
+      },
+      {
+        title: "Participants",
+        path: "/admin/presence/participants",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"],
+        requiredPermission: "attendance.manage",
+      },
+    ],
   },
   {
     title: "Attestations",

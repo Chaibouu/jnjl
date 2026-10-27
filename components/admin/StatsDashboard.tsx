@@ -293,6 +293,7 @@ export function StatsDashboard({
             <Tile label="Embarqués" value={stats.ambassadors.boarded} icon={Bus} color="#0891B2" href={link("boarding", "/admin/embarquement")} />
             <Tile label="Ambassadeurs présents" value={stats.ambassadors.present} icon={UserCheck} color="#0D9488" href={link("attendance", "/admin/presence")} />
             <Tile label="Candidatures participants" value={stats.participants.total} icon={Users} color="#EC4899" href={link("participants", "/admin/candidatures/participants")} />
+            <Tile label="Participants présents" value={stats.participants.present} icon={UserCheck} color="#0EA5E9" href={link("attendance", "/admin/presence/participants")} />
             <Tile label="Candidatures Jeunes Leaders" value={stats.leaders} icon={GraduationCap} color="#6366F1" />
           </div>
 
@@ -410,7 +411,7 @@ export function StatsDashboard({
                       <td className="px-3 py-3 text-right">{row.selected}</td>
                       <td className="px-3 py-3 text-right">{row.boarded}</td>
                       <td className="px-3 py-3 text-right">{row.present}</td>
-                      <td className="px-5 py-3 text-right">{row.participants}</td>
+                      <td className="px-5 py-3 text-right">{row.participants}<span className="text-xs text-muted-foreground"> ({row.participantsPresent} présents)</span></td>
                     </tr>
                   ))}
                   {stats.regions.length === 0 && (

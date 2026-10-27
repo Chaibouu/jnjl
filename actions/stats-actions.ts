@@ -30,7 +30,7 @@ export async function getEditionStatsAction(editionId: string) {
   if (!actor) throw new ForbiddenError("Authentification requise");
   if (!canViewStats(actor)) throw new ForbiddenError("Permission requise : stats.view");
 
-  const [ambassadors, quotas, eventApplications, leaderCount, badgeCount, attendedUsers, attendedGuests, regions] =
+  const [ambassadors, quotas, eventApplications, leaderCount, badgeCount, attendedUsers, attendedParticipants, regions] =
     await Promise.all([
       db.ambassadorApplication.findMany({
         where: { editionId },
@@ -56,11 +56,15 @@ export async function getEditionStatsAction(editionId: string) {
         distinct: ["userId"],
         select: { userId: true },
       }),
-      // Participants inscrits sans compte : une personne = une participation pointée.
+      // Participants à l'événement (inscription publique) pointés, comptés à part des ambassadeurs : une personne =
+      // une participation (inscriptions annulées exclues).
       db.attendance.findMany({
-        where: { editionId, userId: null, participationId: { not: null } },
+        where: {
+          editionId,
+          participation: { is: { eventApplication: { is: { cancelledAt: null } } } },
+        },
         distinct: ["participationId"],
-        select: { participationId: true },
+        select: { participationId: true, participation: { select: { eventApplication: { select: { regionId: true } } } } },
       }),
       db.region.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ]);
@@ -81,6 +85,7 @@ export async function getEditionStatsAction(editionId: string) {
     boarded: number;
     present: number;
     participants: number;
+    participantsPresent: number;
   };
   const rows = new Map<string, Row>(
     regions.map(region => [
@@ -95,6 +100,7 @@ export async function getEditionStatsAction(editionId: string) {
         boarded: 0,
         present: 0,
         participants: 0,
+        participantsPresent: 0,
       },
     ])
   );
@@ -136,6 +142,12 @@ export async function getEditionStatsAction(editionId: string) {
     }
   }
 
+  for (const attendance of attendedParticipants) {
+    const regionId = attendance.participation?.eventApplication?.regionId;
+    const row = regionId ? rows.get(regionId) : undefined;
+    if (row) row.participantsPresent += 1;
+  }
+
   const regionRows = Array.from(rows.values()).filter(
     row => row.candidatures > 0 || row.quota > 0 || row.participants > 0
   );
@@ -154,12 +166,13 @@ export async function getEditionStatsAction(editionId: string) {
     },
     participants: {
       total: eventApplications.length,
+      present: attendedParticipants.length,
       byStatus: Array.from(eventByStatus, ([status, count]) => ({ status, count })),
       byGender: Array.from(participantsByGender, ([gender, count]) => ({ gender, count })),
     },
     leaders: leaderCount,
     badges: badgeCount,
-    attendedPeople: attendedUsers.length + attendedGuests.length,
+    attendedPeople: attendedUsers.length,
     regions: regionRows,
   };
 }
