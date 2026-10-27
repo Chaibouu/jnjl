@@ -78,6 +78,8 @@ async function sendMail(message: {
   replyTo?: string;
   /** Nature de l'email (« access », « contact »…) : sert au suivi dans l'administration. */
   kind?: string;
+  /** Pièces jointes (contenu en base64). */
+  attachments?: { filename: string; content: string }[];
 }) {
   const kind = message.kind ?? "other";
   const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -97,6 +99,7 @@ async function sendMail(message: {
     // Version texte brut : les filtres anti-spam se méfient des emails 100 % HTML.
     text: message.text ?? htmlToText(message.html),
     ...(message.replyTo ? { reply_to: message.replyTo } : {}),
+    ...(message.attachments?.length ? { attachments: message.attachments } : {}),
   });
 
   // Une coupure réseau passagère ou une limite de débit (429 / 5xx) ne doit pas faire perdre un email
@@ -329,12 +332,14 @@ export const sendParticipantBadgeEmail = async (
   email: string,
   firstName: string,
   applicationId: string,
-  badgeNumber: string
+  badgeNumber: string,
+  badgePdf?: { filename: string; base64: string }
 ) => {
   const url = `${domain}/participer/badge/${applicationId}`;
   await sendMail({
     kind: "participant_badge",
     to: email,
+    ...(badgePdf ? { attachments: [{ filename: badgePdf.filename, content: badgePdf.base64 }] } : {}),
     subject: `${appConfig.appName} — Votre inscription est confirmée`,
     html: renderEmail({
       title: "Inscription confirmée",
@@ -342,7 +347,7 @@ export const sendParticipantBadgeEmail = async (
       body: `
         <p style="margin:0 0 12px 0;">Bonjour ${escapeHtml(firstName)},</p>
         <p style="margin:0 0 12px 0;">Votre participation à la <strong>${escapeHtml(appConfig.appName)}</strong> est confirmée. Votre numéro de badge : <strong>${escapeHtml(badgeNumber)}</strong>.</p>
-        <p style="margin:0;">Téléchargez votre badge avec le bouton ci-dessous et présentez-le à l'accueil de l'événement.</p>`,
+        <p style="margin:0;">${badgePdf ? "Votre badge est joint à cet e-mail en PDF. Vous pouvez aussi le télécharger" : "Téléchargez votre badge"} avec le bouton ci-dessous et présentez-le à l'accueil de l'événement.</p>`,
       cta: { label: "Télécharger mon badge", href: url },
     }),
   });

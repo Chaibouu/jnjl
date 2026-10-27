@@ -13,6 +13,7 @@ type State = {
   participantsOpen: boolean;
   ambassadorsNote: string;
   participantsNote: string;
+  participantsEmails: boolean;
   participantsCapacity: number;
   posterOpen: boolean;
   posterNote: string;
@@ -74,6 +75,17 @@ export function RegistrationSettings({ initial }: { initial: State }) {
         onNoteChange={value => update("participantsNote", value)}
         notePlaceholder="Ex. Ouverture des inscriptions prévue en novembre 2026."
       />
+      <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+        <div>
+          <p className="text-sm font-semibold">E-mail de confirmation aux participants</p>
+          <p className="text-xs text-muted-foreground">
+            {state.participantsEmails
+              ? "Activé : chaque participant reçoit un e-mail avec son badge en PDF."
+              : "Désactivé : aucun e-mail n'est envoyé (utile si le quota d'e-mails est limité). Le badge reste téléchargeable après l'inscription."}
+          </p>
+        </div>
+        <Switch checked={state.participantsEmails} onCheckedChange={value => update("participantsEmails", value)} />
+      </div>
       <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
         <p className="text-sm font-semibold">Nombre maximum de participants</p>
         <p className="text-xs text-muted-foreground">

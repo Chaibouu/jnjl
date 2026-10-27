@@ -8,6 +8,8 @@ import { rateLimitRedis } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
 import { getRegistrationState } from "@/lib/site-settings";
 import { sendParticipantBadgeEmail } from "@/lib/mail";
+import { downloadParticipantBadgeAction } from "@/actions/participant-badge-actions";
+import { phoneKey } from "@/lib/phone";
 
 /**
  * Inscriptions à l'événement : jusqu'à 60 envois par heure et par adresse IP. C'est volontairement plus large que la
@@ -53,6 +55,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "La région sélectionnée est invalide" }, { status: 400 });
     }
 
+    // Doublons : même e-mail ou même téléphone déjà inscrit pour l'édition (la base garde la dernière barrière
+    // en cas d'envois simultanés, voir registerParticipant).
+    const key = phoneKey(data.phone);
+    const duplicate = await db.eventApplication.findFirst({
+      where: { editionId: edition.id, OR: [{ email }, ...(key ? [{ phoneKey: key }] : [])] },
+      select: { email: true },
+    });
+    if (duplicate) {
+      const sameEmail = duplicate.email.toLowerCase() === email;
+      return NextResponse.json(
+        {
+          error: sameEmail
+            ? "Une candidature existe déjà pour cet e-mail. Utilisez « Badge perdu ? Le retrouver »."
+            : "Une candidature existe déjà pour ce numéro de téléphone. Utilisez « Badge perdu ? Le retrouver ».",
+        },
+        { status: 409 }
+      );
+    }
+
     // Places limitées par l'administrateur (0 = illimité).
     if (registration.participantsCapacity > 0) {
       const registered = await db.eventApplication.count({ where: { editionId: edition.id } });
@@ -85,10 +106,20 @@ export async function POST(request: NextRequest) {
     // QR ScanHub du badge (réutilisable) : ne bloque jamais l'inscription.
     await syncParticipantQr(result.participationId, `${data.firstName} ${data.lastName}`);
 
-    // E-mail de confirmation avec le lien du badge : envoyé après la réponse, un échec ne change rien à l'inscription.
+    // E-mail de confirmation avec le badge en PDF : envoyé après la réponse, un échec ne change rien à l'inscription.
+    // L'administrateur peut le désactiver (quota d'e-mails limité) dans les Paramètres.
     after(async () => {
+      if (!registration.participantsEmails) return;
       try {
-        await sendParticipantBadgeEmail(email, data.firstName, result.applicationId, result.badgeNumber);
+        // Sans le PDF (génération impossible), l'e-mail part quand même avec le lien de téléchargement.
+        const pdf = await downloadParticipantBadgeAction(result.applicationId).catch(() => null);
+        await sendParticipantBadgeEmail(
+          email,
+          data.firstName,
+          result.applicationId,
+          result.badgeNumber,
+          pdf ? { filename: pdf.filename, base64: pdf.base64 } : undefined
+        );
       } catch (error) {
         console.error("E-mail de confirmation participant non envoyé:", error);
       }
