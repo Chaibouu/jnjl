@@ -9,6 +9,7 @@ import {
   updateCurrentProfileAction,
 } from "@/actions/profile-actions";
 import { AvatarPicker } from "@/components/profile/AvatarPicker";
+import { NameChangeRequestForm } from "@/components/profile/NameChangeRequestForm";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,8 @@ export type ProfileData = {
   isActive: boolean;
   emailVerified: Date | null;
   isTwoFactorEnabled: boolean;
+  /** Ambassadeur : le nom est celui de sa candidature et ne se modifie pas ici (demande de correction à un admin). */
+  nameLocked?: boolean;
   profile: {
     city: string | null;
     institution: string | null;
@@ -303,6 +306,16 @@ export function ProfilePageView({ initialProfile }: Props) {
       {activeTab === "infos" && (
         <form onSubmit={handleProfileSubmit}>
           <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-8 md:grid-cols-2">
+            {profile.nameLocked && (
+              <div className="space-y-3 md:col-span-2">
+                <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-600">
+                  Votre nom est celui de votre candidature ambassadeur : il figure sur vos documents officiels (attestations,
+                  engagement, badge) et ne peut pas être modifié directement. En cas d&apos;erreur, envoyez une demande de
+                  correction : un administrateur l&apos;examinera.
+                </p>
+                <NameChangeRequestForm />
+              </div>
+            )}
             <FormField label="Nom complet">
               <Input
                 className={inputClass}
@@ -310,6 +323,7 @@ export function ProfilePageView({ initialProfile }: Props) {
                 onChange={e => updateField("name", e.target.value)}
                 autoComplete="name"
                 required
+                disabled={profile.nameLocked}
               />
             </FormField>
             <FormField label="Prénom">
@@ -318,6 +332,7 @@ export function ProfilePageView({ initialProfile }: Props) {
                 value={form.firstName}
                 onChange={e => updateField("firstName", e.target.value)}
                 autoComplete="given-name"
+                disabled={profile.nameLocked}
               />
             </FormField>
             <FormField label="Nom">
@@ -326,6 +341,7 @@ export function ProfilePageView({ initialProfile }: Props) {
                 value={form.lastName}
                 onChange={e => updateField("lastName", e.target.value)}
                 autoComplete="family-name"
+                disabled={profile.nameLocked}
               />
             </FormField>
             <FormField label="Ville">
