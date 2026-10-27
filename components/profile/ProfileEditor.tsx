@@ -8,6 +8,7 @@ import {
 } from "@/actions/profile-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NameChangeRequestForm } from "@/components/profile/NameChangeRequestForm";
 
 type Profile = {
   name: string | null;
@@ -19,6 +20,8 @@ type Profile = {
   isActive: boolean;
   emailVerified: Date | null;
   isTwoFactorEnabled: boolean;
+  /** Ambassadeur : le nom est celui de sa candidature et ne se modifie pas ici. */
+  nameLocked?: boolean;
   profile: {
     city: string | null;
     institution: string | null;
@@ -164,22 +167,35 @@ export function ProfileEditor({ profile }: Props) {
         )}
         {tab === "profile" ? (
           <form onSubmit={submitProfile} className="space-y-5">
+            {profile.nameLocked && (
+              <div className="space-y-3">
+                <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                  Votre nom est celui de votre candidature ambassadeur : il figure sur vos documents officiels (attestations,
+                  engagement, badge) et ne peut pas être modifié directement. En cas d&apos;erreur, envoyez une demande de
+                  correction : un administrateur l&apos;examinera.
+                </p>
+                <NameChangeRequestForm />
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <Field
                 label="Nom complet"
                 value={form.name}
                 onChange={value => update("name", value)}
                 required
+                disabled={profile.nameLocked}
               />
               <Field
                 label="Prénom"
                 value={form.firstName}
                 onChange={value => update("firstName", value)}
+                disabled={profile.nameLocked}
               />
               <Field
                 label="Nom"
                 value={form.lastName}
                 onChange={value => update("lastName", value)}
+                disabled={profile.nameLocked}
               />
               <Field
                 label="Email"

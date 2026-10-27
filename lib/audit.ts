@@ -61,7 +61,9 @@ export type AuditAction =
   | "SELECTION_RUN"
   | "NOTIFICATION_BROADCAST"
   | "SELECTION_REMOVED"
-  | "SELECTION_RESTORED";
+  | "SELECTION_RESTORED"
+  | "NAME_CHANGE_APPROVED"
+  | "NAME_CHANGE_REJECTED";
 
 interface AuditParams {
   userId?: string;
@@ -110,6 +112,8 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   ACCOUNTS_UNBLOCKED: "Comptes de candidats débloqués",
   APPLICATION_ACCEPTED: "Candidature acceptée",
   APPLICATION_REJECTED: "Candidature rejetée",
+  NAME_CHANGE_APPROVED: "Correction de nom acceptée",
+  NAME_CHANGE_REJECTED: "Correction de nom refusée",
   SELECTION_REMOVED: "Ambassadeur retiré de la sélection",
   SELECTION_RESTORED: "Ambassadeur remis dans la sélection",
   NOTIFICATION_BROADCAST: "Message envoyé aux ambassadeurs",

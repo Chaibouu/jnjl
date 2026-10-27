@@ -720,6 +720,7 @@ model AmbassadorApplication {
   engagement           Engagement?
   boarding             Boarding?
   documents            Document[]
+  nameChangeRequests   NameChangeRequest[]
 
   @@index([editionId, email])
   @@index([editionId, regionId, status])
@@ -1281,4 +1282,32 @@ model AccessPass {
   updatedAt    DateTime           @updatedAt
 
   @@index([editionId, category])
+}
+
+enum NameChangeStatus {
+  EN_ATTENTE
+  APPROUVEE
+  REFUSEE
+}
+
+// Demande de correction du nom d'un ambassadeur : le nom de la candidature figure sur ses documents officiels,
+// il ne se change donc que sur décision d'un administrateur.
+model NameChangeRequest {
+  id                      String                @id @default(cuid())
+  ambassadorApplicationId String
+  ambassadorApplication   AmbassadorApplication @relation(fields: [ambassadorApplicationId], references: [id], onDelete: Cascade)
+  userId                  String
+  oldFirstName            String
+  oldLastName             String
+  firstName               String
+  lastName                String
+  reason                  String                @db.Text
+  status                  NameChangeStatus      @default(EN_ATTENTE)
+  decidedById             String?
+  decidedAt               DateTime?
+  decisionComment         String?               @db.Text
+  createdAt               DateTime              @default(now())
+
+  @@index([status, createdAt])
+  @@index([userId])
 }

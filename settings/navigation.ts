@@ -187,6 +187,12 @@ export const adminNavigation: NavigationItem[] = [
         requiredPermission: "applications.ambassador.manage",
       },
       {
+        title: "Corrections de noms",
+        path: "/admin/ambassadeurs/corrections-noms",
+        allowedRoles: ["SUPER_ADMIN", "ADMIN"],
+        requiredPermission: "applications.ambassador.manage",
+      },
+      {
         title: "Comptes",
         path: "/admin/ambassadeurs/comptes",
         allowedRoles: ["SUPER_ADMIN", "ADMIN"],

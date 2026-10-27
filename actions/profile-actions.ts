@@ -41,6 +41,25 @@ async function getConnectedUserId() {
   return userId;
 }
 
+/**
+ * Identité officielle d'un ambassadeur : le nom saisi à sa candidature. C'est celui qui figure sur ses documents
+ * (attestations, engagement, badge) ; il ne se modifie pas depuis le profil, sinon on pourrait faire éditer des
+ * documents au nom de quelqu'un d'autre. Null pour un compte sans candidature ambassadeur.
+ */
+async function getOfficialIdentity(userId: string) {
+  const application = await db.ambassadorApplication.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: { firstName: true, lastName: true },
+  });
+  if (!application) return null;
+  return {
+    firstName: application.firstName,
+    lastName: application.lastName,
+    name: `${application.firstName} ${application.lastName}`.trim(),
+  };
+}
+
 export async function getCurrentProfileAction() {
   const userId = await getConnectedUserId();
   const user = await db.user.findUnique({
@@ -48,18 +67,22 @@ export async function getCurrentProfileAction() {
     select: profileSelect,
   });
   if (!user) throw new Error("Utilisateur introuvable");
-  return user;
+  const identity = await getOfficialIdentity(userId);
+  // Ambassadeur : on affiche toujours le nom officiel de la candidature, verrouillé.
+  return { ...user, ...(identity ?? {}), nameLocked: !!identity };
 }
 
 export async function updateCurrentProfileAction(input: ProfileInput) {
   const userId = await getConnectedUserId();
   const data = profileSchema.parse(input);
-  return db.user.update({
+  const identity = await getOfficialIdentity(userId);
+  const updated = await db.user.update({
     where: { id: userId },
     data: {
-      name: data.name,
-      firstName: emptyToNull(data.firstName),
-      lastName: emptyToNull(data.lastName),
+      // Ambassadeur : le nom reste celui de la candidature (le formulaire ne peut pas le changer).
+      name: identity?.name ?? data.name,
+      firstName: identity ? identity.firstName : emptyToNull(data.firstName),
+      lastName: identity ? identity.lastName : emptyToNull(data.lastName),
       profile: {
         upsert: {
           create: profileData(data),
@@ -69,6 +92,7 @@ export async function updateCurrentProfileAction(input: ProfileInput) {
     },
     select: profileSelect,
   });
+  return { ...updated, nameLocked: !!identity };
 }
 
 export async function changeCurrentPasswordAction(input: PasswordChangeInput) {
