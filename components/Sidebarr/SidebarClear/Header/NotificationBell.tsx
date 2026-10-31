@@ -12,7 +12,13 @@ import {
 
 type BellData = Awaited<ReturnType<typeof getNotificationBellAction>>;
 
-const REFRESH_MS = 60_000;
+/**
+ * Rafraîchissement automatique : toutes les 5 minutes, et seulement quand l'onglet est visible. Chaque appel réveille la
+ * base (calcul facturé chez Neon) : un onglet laissé ouvert en arrière-plan ne doit pas la garder éveillée.
+ */
+const REFRESH_MS = 5 * 60_000;
+/** Au retour sur l'onglet, on rafraîchit tout de suite si la dernière mise à jour date de plus de 2 minutes. */
+const STALE_MS = 2 * 60_000;
 
 /** Cloche de notifications du header : pastille des non lues, aperçu des dernières, accès à la liste. */
 export default function NotificationBell() {
@@ -29,10 +35,25 @@ export default function NotificationBell() {
     }
   }, []);
 
+  const lastRefresh = useRef(0);
+
   useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, REFRESH_MS);
-    return () => clearInterval(timer);
+    const run = () => {
+      lastRefresh.current = Date.now();
+      void refresh();
+    };
+    run();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") run();
+    }, REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefresh.current > STALE_MS) run();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [refresh]);
 
   useEffect(() => {
