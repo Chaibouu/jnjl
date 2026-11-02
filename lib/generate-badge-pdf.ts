@@ -37,6 +37,10 @@ function hexToRgb(hex: string | null | undefined) {
   );
 }
 
+const LATIN_FALLBACK: Record<string, string> = {
+  Ɗ: "D", ɗ: "d", Ɓ: "B", ɓ: "b", Ƙ: "K", ƙ: "k", Ŋ: "N", ŋ: "n", Ɲ: "N", ɲ: "n", Ɛ: "E", ɛ: "e", Ɔ: "O", ɔ: "o",
+};
+
 /** Remplace les caractères que la police standard ne sait pas écrire (évite une erreur de génération). */
 function safe(text: string, font: PDFFont): string {
   try {
@@ -49,7 +53,14 @@ function safe(text: string, font: PDFFont): string {
           font.encodeText(char);
           return char;
         } catch {
-          return "?";
+          // Lettres africaines (haoussa, zarma…) absentes de la police standard : équivalent latin le plus proche.
+          const ascii = LATIN_FALLBACK[char] ?? char.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          try {
+            font.encodeText(ascii);
+            return ascii;
+          } catch {
+            return "?";
+          }
         }
       })
       .join("");

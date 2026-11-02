@@ -24,11 +24,11 @@ export function RecoverBadgeForm() {
     setFound(null);
     startTransition(async () => {
       try {
-        setFound(await findParticipantBadgeByPhoneAction(phone, lastName));
-      } catch (actionError) {
-        setError(
-          actionError instanceof Error ? actionError.message : "Une erreur est survenue"
-        );
+        const result = await findParticipantBadgeByPhoneAction(phone, lastName);
+        if (result.ok) setFound({ id: result.id, firstName: result.firstName, lastName: result.lastName });
+        else setError(result.error);
+      } catch {
+        setError("Une erreur est survenue, veuillez réessayer.");
       }
     });
   };

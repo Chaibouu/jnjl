@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/actions/requirePermission";
+import { assertRegionAccess, getActorRegionScope } from "@/lib/region-scope";
 
 const applicationInclude = {
   region: { select: { id: true, name: true, code: true } },
@@ -19,20 +20,26 @@ const applicationInclude = {
  * consulter, filtrer et exporter la liste des participants.
  */
 export async function listEventApplicationsAction() {
-  await requirePermission("applications.event.manage");
+  const actor = await requirePermission("applications.event.manage");
+  const regionId = getActorRegionScope(actor);
   return db.eventApplication.findMany({
+    // Un acteur rattaché à une région ne voit que ses participants (admins : tout le pays).
+    where: regionId ? { regionId } : {},
     include: applicationInclude,
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getEventApplicationAction(id: string) {
-  await requirePermission("applications.event.manage");
+  const actor = await requirePermission("applications.event.manage");
   const application = await db.eventApplication.findUnique({
     where: { id },
     include: applicationInclude,
   });
   if (!application) throw new Error("Candidature introuvable");
+  // Fiche sans région (région supprimée) : refusée à un acteur régional.
+  if (getActorRegionScope(actor) && !application.regionId) throw new Error("Candidature introuvable");
+  assertRegionAccess(actor, application.regionId);
   return application;
 }
 
@@ -41,9 +48,11 @@ type ExportResult = { ok: true; filename: string; base64: string } | { ok: false
 
 /** Participants à exporter, avec les mêmes filtres que la page (région, sexe, recherche). */
 async function loadParticipantsForExport(filters: ParticipantExportFilters) {
-  await requirePermission("applications.event.manage");
+  const actor = await requirePermission("applications.event.manage");
+  const scopeRegionId = getActorRegionScope(actor);
   const rows = await db.eventApplication.findMany({
     where: {
+      ...(scopeRegionId ? { regionId: scopeRegionId } : {}),
       ...(filters.regionName ? { region: { name: filters.regionName } } : {}),
       ...(filters.gender ? { gender: filters.gender } : {}),
     },

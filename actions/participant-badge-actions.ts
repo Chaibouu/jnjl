@@ -1,116 +1,81 @@
 "use server";
 
-import { db } from "@/lib/db";
-import { generateBadgePdf } from "@/lib/generate-badge-pdf";
-import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { headers } from "next/headers";
-import { loadBadgePhoto } from "@/lib/badge-photo";
+import { db } from "@/lib/db";
+import { EditionStatus } from "@prisma/client";
+import { buildParticipantBadgePdf } from "@/lib/participant-badge-pdf";
 import { nameKey, phoneKey } from "@/lib/phone";
 import { rateLimitRedis } from "@/lib/rateLimit-redis";
 
 /**
- * Résumé public du badge d'un participant. Aucune authentification requise : accessible
- * juste après l'inscription via l'identifiant (non devinable) de la candidature, comme
- * la confirmation affichée sur la page `/participer`.
+ * Badges des participants (inscription publique, sans compte). Les actions renvoient `{ ok:false, error }` au lieu de
+ * lever : en production, Next masque le message d'une erreur levée et le visiteur ne verrait qu'un texte générique.
  */
-export async function getParticipantBadgeAction(applicationId: string) {
-  const application = await db.eventApplication.findUnique({
-    where: { id: applicationId },
-    include: {
-      edition: true,
-      region: { select: { name: true } },
-      participation: true,
-    },
-  });
-  if (!application || !application.participation?.badgeNumber || application.cancelledAt) {
-    throw new Error("Badge introuvable");
-  }
 
-  const edition = application.edition;
-  const eventDate =
-    edition.startDate && edition.endDate
-      ? edition.startDate.getTime() === edition.endDate.getTime()
-        ? edition.startDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })
-        : `${edition.startDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${edition.endDate.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`
-      : null;
+type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-  return {
-    fullName: `${application.firstName} ${application.lastName}`,
-    region: application.region?.name ?? "Niger",
-    editionId: edition.id,
-    editionName: `${edition.name} (${edition.year})`,
-    editionLocation: edition.location,
-    eventDate,
-    badgeBackgroundColor: edition.badgeBackgroundColor,
-    photoUrl: application.photoUrl,
-    number: application.participation.badgeNumber,
-    qrValue: application.participation.qrCode ?? application.participation.badgeNumber,
-    awardedAt: application.participation.createdAt,
-  };
+async function clientIp() {
+  const requestHeaders = await headers();
+  return requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "inconnue";
+}
+
+/** Mots d'un nom, sans accents ni casse ; un nom sans lettres latines (arabe…) est comparé tel quel. */
+function nameWords(value: string): string[] {
+  const key = nameKey(value);
+  return (key || value.trim().toLowerCase()).split(/\s+/).filter(Boolean);
 }
 
 /**
- * Retrouve la candidature (et son badge) d'un participant qui a perdu son badge : numéro de téléphone d'inscription
- * ET nom de famille (deuxième vérification, pour qu'un tiers qui connaît un numéro ne récupère pas le badge d'un
- * autre). Le numéro est comparé sur ses 8 derniers chiffres : avec ou sans indicatif ni espaces, c'est le même.
- * Le message d'échec est volontairement identique dans tous les cas.
+ * Retrouve l'inscription d'un participant qui a perdu son badge : numéro de téléphone d'inscription ET nom de famille.
+ * Le nom saisi doit contenir tous les mots du nom de famille enregistré (un simple prénom courant ne suffit pas).
+ * Le numéro est comparé sur ses 8 derniers chiffres. Le message d'échec est identique dans tous les cas.
  */
-export async function findParticipantBadgeByPhoneAction(phone: string, lastName: string) {
+export async function findParticipantBadgeByPhoneAction(
+  phone: string,
+  lastName: string
+): Promise<Result<{ id: string; firstName: string; lastName: string }>> {
   // Au plus 10 essais par quart d'heure et par adresse IP : empêche de deviner un couple téléphone / nom.
-  const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "inconnue";
-  if (await rateLimitRedis(`badge-recover:${ip}`, { windowMs: 15 * 60 * 1000, max: 10 })) {
-    throw new Error("Trop d'essais : réessayez dans quelques minutes");
+  if (await rateLimitRedis(`badge-recover:${await clientIp()}`, { windowMs: 15 * 60 * 1000, max: 10 })) {
+    return { ok: false, error: "Trop d'essais : réessayez dans quelques minutes" };
   }
 
   const key = phoneKey(phone);
-  const name = nameKey(lastName);
-  if (!key || !name) {
-    throw new Error("Merci de renseigner votre numéro de téléphone et votre nom");
+  const typed = nameWords(lastName);
+  if (!key || typed.length === 0) {
+    return { ok: false, error: "Merci de renseigner votre numéro de téléphone et votre nom" };
   }
 
-  const notFound = new Error("Aucun badge trouvé : vérifiez le numéro et le nom saisis lors de votre inscription");
-  const application = await db.eventApplication.findFirst({
-    where: { phoneKey: key, cancelledAt: null, participation: { badgeNumber: { not: null } } },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, firstName: true, lastName: true },
+  const edition = await db.edition.findFirst({
+    where: { status: EditionStatus.ACTIVE, isDeleted: false },
+    orderBy: { year: "desc" },
+    select: { id: true },
   });
-  // Tous les mots du nom saisi doivent figurer dans le nom de l'inscrit (certains inversent prénom et nom).
-  const registeredWords = application ? nameKey(`${application.lastName} ${application.firstName}`).split(" ") : [];
-  if (!application || !name.split(" ").every(word => registeredWords.includes(word))) {
-    throw notFound;
+  const application = edition
+    ? await db.eventApplication.findFirst({
+        where: { editionId: edition.id, phoneKey: key, cancelledAt: null, participation: { badgeNumber: { not: null } } },
+        select: { id: true, firstName: true, lastName: true },
+      })
+    : null;
+
+  const registered = application ? nameWords(application.lastName) : [];
+  if (!application || registered.length === 0 || !registered.every(word => typed.includes(word))) {
+    return { ok: false, error: "Aucun badge trouvé : vérifiez le numéro et le nom saisis lors de votre inscription" };
   }
-  return application;
+  return { ok: true, id: application.id, firstName: application.firstName, lastName: application.lastName };
 }
 
-/** Génère le badge PDF (A6) du participant pour un téléchargement immédiat après l'inscription. */
-export async function downloadParticipantBadgeAction(applicationId: string) {
-  const data = await getParticipantBadgeAction(applicationId);
-
-  // Même badge officiel dans les deux cas : avec photo, elle est dans le cercle ; sans photo, le grand logo de la JNJL
-  // prend sa place. Le QR est à côté.
-  const photo = await loadBadgePhoto(data.photoUrl);
-  const pdf = await generateBadgePdf({
-    editionId: data.editionId,
-    variant: photo ? ("generic" as const) : ("participant" as const),
-    title: "PARTICIPANT",
-    ...(photo ? { photo } : {}),
-    label: "Participant JNJL",
-    fullName: data.fullName,
-    region: data.region,
-    editionName: data.editionName,
-    editionLocation: data.editionLocation,
-    eventDate: data.eventDate,
-    backgroundColor: data.badgeBackgroundColor,
-    number: data.number,
-    awardedAt: data.awardedAt,
-    qrValue: data.qrValue,
-    logo: await loadPublicImage("jnjl.jpg"),
-    partnerLogos: await Promise.all(PARTNER_LOGO_PATHS.map(loadPublicImage)),
-  });
-
-  return {
-    filename: `badge-${data.number}.pdf`,
-    base64: Buffer.from(pdf).toString("base64"),
-  };
+/** Génère le badge PDF (A6) du participant pour un téléchargement (après l'inscription, ou depuis le lien reçu). */
+export async function downloadParticipantBadgeAction(
+  applicationId: string
+): Promise<Result<{ filename: string; base64: string }>> {
+  // 30 générations par heure et par adresse IP : le PDF est coûteux à produire.
+  if (await rateLimitRedis(`badge-download:${await clientIp()}`, { windowMs: 60 * 60 * 1000, max: 30 })) {
+    return { ok: false, error: "Trop de téléchargements : réessayez dans quelques minutes" };
+  }
+  try {
+    return { ok: true, ...(await buildParticipantBadgePdf(applicationId)) };
+  } catch (error) {
+    console.error("Badge participant : génération impossible", error);
+    return { ok: false, error: "Badge introuvable ou impossible à générer. Réessayez dans un instant." };
+  }
 }

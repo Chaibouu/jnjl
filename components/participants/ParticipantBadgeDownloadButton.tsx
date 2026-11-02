@@ -15,16 +15,21 @@ export function ParticipantBadgeDownloadButton({ applicationId }: { applicationI
     setError("");
     startTransition(async () => {
       try {
-        const { filename, base64 } = await downloadParticipantBadgeAction(applicationId);
-        const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+        const result = await downloadParticipantBadgeAction(applicationId);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        const bytes = Uint8Array.from(atob(result.base64), char => char.charCodeAt(0));
         const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
         const link = document.createElement("a");
         link.href = url;
-        link.download = filename;
+        link.download = result.filename;
         link.click();
-        URL.revokeObjectURL(url);
-      } catch (actionError) {
-        setError(actionError instanceof Error ? actionError.message : "Téléchargement impossible");
+        // Libération différée : l'annuler tout de suite peut interrompre le téléchargement sur certains navigateurs.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch {
+        setError("Téléchargement impossible, veuillez réessayer.");
       }
     });
   };

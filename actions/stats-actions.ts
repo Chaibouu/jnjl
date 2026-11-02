@@ -6,6 +6,7 @@ import { formatGender } from "@/lib/gender";
 import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import { canViewStats } from "@/lib/permissions";
+import { getActorRegionScope } from "@/lib/region-scope";
 import type { User } from "@/types/user";
 
 const STAGE_ORDER = [
@@ -46,7 +47,8 @@ export async function getEditionStatsAction(editionId: string) {
       }),
       db.regionalQuota.findMany({ where: { editionId }, select: { regionId: true, quota: true } }),
       db.eventApplication.findMany({
-        where: { editionId },
+        // Les inscriptions annulées ne comptent pas dans les chiffres (leurs fiches restent consultables).
+        where: { editionId, cancelledAt: null },
         select: { status: true, gender: true, regionId: true },
       }),
       db.leaderApplication.count({ where: { editionId } }),
@@ -244,10 +246,11 @@ export async function exportAmbassadorsCsvAction(editionId: string) {
 }
 
 export async function exportParticipantsCsvAction(editionId: string) {
-  await requirePermission("applications.event.manage");
+  const actor = await requirePermission("applications.event.manage");
+  const scopeRegionId = getActorRegionScope(actor);
 
   const applications = await db.eventApplication.findMany({
-    where: { editionId },
+    where: { editionId, ...(scopeRegionId ? { regionId: scopeRegionId } : {}) },
     select: {
       firstName: true,
       lastName: true,
@@ -256,6 +259,7 @@ export async function exportParticipantsCsvAction(editionId: string) {
       gender: true,
       profession: true,
       hasParticipatedBefore: true,
+      cancelledAt: true,
       status: true,
       createdAt: true,
       region: { select: { name: true } },
@@ -274,7 +278,7 @@ export async function exportParticipantsCsvAction(editionId: string) {
       a.region?.name ?? "",
       a.profession ?? "",
       a.hasParticipatedBefore == null ? "" : a.hasParticipatedBefore ? "Oui" : "Non",
-      a.status,
+      a.cancelledAt ? "Annulée" : "Confirmée",
       formatDate(a.createdAt),
     ])
   );

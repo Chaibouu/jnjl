@@ -70,7 +70,7 @@ export function EventApplicationManager({
               text:
                 result.synced === 0 && result.remaining === 0
                   ? "Tous les badges ont déjà leur QR ScanHub."
-                  : `${result.synced} QR synchronisé(s), ${result.remaining} restant(s)${result.remaining ? " (relancez pour continuer)" : ""}.`,
+                  : `${result.synced} QR synchronisé(s), ${result.emailed} badge(s) renvoyé(s) par e-mail, ${result.remaining} restant(s)${result.remaining ? " (relancez pour continuer)" : ""}.`,
             }
           : { ok: false, text: result.error }
       );

@@ -29,14 +29,18 @@ export function ParticipantPhotoUpload({
     if (!file) return;
     setMessage(null);
     startTransition(async () => {
-      const formData = new FormData();
-      formData.set("file", await shrinkImage(file));
-      const result = await uploadParticipantPhotoAction(applicationId, formData);
-      if (result.ok) {
-        setPhotoUrl(result.photoUrl);
-        setMessage({ ok: true, text: "Photo enregistrée : elle apparaîtra sur votre badge." });
-      } else {
-        setMessage({ ok: false, text: result.error });
+      try {
+        const formData = new FormData();
+        formData.set("file", await shrinkImage(file));
+        const result = await uploadParticipantPhotoAction(applicationId, formData);
+        if (result.ok) {
+          setPhotoUrl(result.photoUrl);
+          setMessage({ ok: true, text: "Photo enregistrée : elle apparaîtra sur votre badge." });
+        } else {
+          setMessage({ ok: false, text: result.error });
+        }
+      } catch {
+        setMessage({ ok: false, text: "Envoi impossible, veuillez réessayer." });
       }
     });
   };
@@ -44,12 +48,16 @@ export function ParticipantPhotoUpload({
   const remove = () => {
     setMessage(null);
     startTransition(async () => {
-      const result = await removeParticipantPhotoAction(applicationId);
-      if (result.ok) {
-        setPhotoUrl(null);
-        setMessage({ ok: true, text: "Photo retirée : votre badge affichera le logo de la JNJL." });
-      } else {
-        setMessage({ ok: false, text: result.error });
+      try {
+        const result = await removeParticipantPhotoAction(applicationId);
+        if (result.ok) {
+          setPhotoUrl(null);
+          setMessage({ ok: true, text: "Photo retirée : votre badge affichera le logo de la JNJL." });
+        } else {
+          setMessage({ ok: false, text: result.error });
+        }
+      } catch {
+        setMessage({ ok: false, text: "Action impossible, veuillez réessayer." });
       }
     });
   };

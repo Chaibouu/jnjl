@@ -43,7 +43,7 @@ export function ParticipantAdminActions({
     startTransition(async () => {
       const result = await cancelParticipantAction(applicationId, reason);
       if (!result.ok) return setMessage({ ok: false, text: result.error });
-      setMessage({ ok: true, text: "Inscription annulée." });
+      setMessage(result.warning ? { ok: false, text: result.warning } : { ok: true, text: "Inscription annulée." });
       router.refresh();
     });
   };
@@ -59,7 +59,7 @@ export function ParticipantAdminActions({
     startTransition(async () => {
       const result = await restoreParticipantAction(applicationId);
       if (!result.ok) return setMessage({ ok: false, text: result.error });
-      setMessage({ ok: true, text: "Inscription rétablie." });
+      setMessage(result.warning ? { ok: false, text: result.warning } : { ok: true, text: "Inscription rétablie." });
       router.refresh();
     });
   };

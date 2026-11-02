@@ -136,15 +136,30 @@ async function checkInParticipant(
   });
   if (already) throw new CheckInError(`${name} est déjà pointé(e)`, "ALREADY");
 
-  await db.attendance.create({
+  // Le pointage d'un participant se rattache par `participationId` seulement : un `userId` le mélangerait avec le parcours
+  // d'un ambassadeur qui aurait le même compte.
+  const created = await db.attendance.create({
     data: {
       editionId: participation.editionId,
-      userId: participation.userId,
+      userId: null,
       participationId: participation.id,
       sessionId,
       checkedById: params.checkedById,
       ...(params.at ? { checkedAt: params.at } : {}),
     },
+    select: { id: true },
   });
+
+  // Deux scans simultanés (webhook, rattrapage, pointage manuel) peuvent passer le contrôle « déjà pointé » ensemble :
+  // on garde le premier pointage, les autres sont supprimés et leur appelant reçoit « déjà pointé ».
+  const same = await db.attendance.findMany({
+    where: { editionId: participation.editionId, participationId: participation.id, sessionId },
+    orderBy: [{ checkedAt: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  if (same.length > 1) {
+    await db.attendance.deleteMany({ where: { id: { in: same.slice(1).map(item => item.id) } } });
+    if (same[0].id !== created.id) throw new CheckInError(`${name} est déjà pointé(e)`, "ALREADY");
+  }
   return { name };
 }

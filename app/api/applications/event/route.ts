@@ -8,7 +8,7 @@ import { rateLimitRedis } from "@/lib/rateLimit-redis";
 import { getClientIP } from "@/lib/geo";
 import { getRegistrationState } from "@/lib/site-settings";
 import { sendParticipantBadgeEmail } from "@/lib/mail";
-import { downloadParticipantBadgeAction } from "@/actions/participant-badge-actions";
+import { buildParticipantBadgePdf } from "@/lib/participant-badge-pdf";
 import { phoneKey } from "@/lib/phone";
 
 /**
@@ -16,6 +16,9 @@ import { phoneKey } from "@/lib/phone";
  * limite des e-mails d'authentification : une salle ou un campus partage souvent la même IP.
  */
 const EVENT_APPLICATION_LIMIT = { windowMs: 60 * 60 * 1000, max: 60 };
+
+/** L'inscription attend ScanHub (QR du badge) : on laisse à la fonction le temps de le faire. */
+export const maxDuration = 30;
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +31,10 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = await rateLimitRedis(`event-application:${getClientIP(request)}`, EVENT_APPLICATION_LIMIT);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
+    }
 
     // Anti-robot : le champ piège doit rester vide et le formulaire ne se remplit pas en moins de 3 secondes.
     // Piège rempli : on feint un succès (le robot ne sait pas qu'il est repéré) sans rien enregistrer.
@@ -70,7 +76,7 @@ export async function POST(request: NextRequest) {
     // en cas d'envois simultanés, voir registerParticipant).
     const key = phoneKey(data.phone);
     const duplicate = await db.eventApplication.findFirst({
-      where: { editionId: edition.id, OR: [{ email }, ...(key ? [{ phoneKey: key }] : [])] },
+      where: { editionId: edition.id, cancelledAt: null, OR: [{ email }, ...(key ? [{ phoneKey: key }] : [])] },
       select: { email: true },
     });
     if (duplicate) {
@@ -113,6 +119,7 @@ export async function POST(request: NextRequest) {
       profession: data.profession,
       hasParticipatedBefore: data.hasParticipatedBefore,
       motivation: data.motivation?.trim() || null,
+      capacity: registration.participantsCapacity,
     });
 
     // QR ScanHub du badge (réutilisable) : ne bloque jamais l'inscription.
@@ -124,7 +131,7 @@ export async function POST(request: NextRequest) {
       if (!registration.participantsEmails) return;
       try {
         // Sans le PDF (génération impossible), l'e-mail part quand même avec le lien de téléchargement.
-        const pdf = await downloadParticipantBadgeAction(result.applicationId).catch(() => null);
+        const pdf = await buildParticipantBadgePdf(result.applicationId).catch(() => null);
         await sendParticipantBadgeEmail(
           email,
           data.firstName,

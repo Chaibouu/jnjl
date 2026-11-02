@@ -13,7 +13,7 @@ export async function loadBadgePhoto(url: string | null | undefined): Promise<Ui
   try {
     let bytes: Uint8Array | null;
     if (/^https?:\/\//i.test(source)) {
-      const response = await fetch(source);
+      const response = await fetch(source, { signal: AbortSignal.timeout(8000) });
       bytes = response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
     } else {
       bytes = await loadPublicImage(source.replace(/^\/+/, ""));

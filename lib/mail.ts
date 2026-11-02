@@ -105,13 +105,16 @@ async function sendMail(message: {
   // Une coupure réseau passagère ou une limite de débit (429 / 5xx) ne doit pas faire perdre un email
   // d'accès : on réessaie deux fois avant d'abandonner.
   const delays = [0, 700, 2000];
+  // Même clé pour tous les essais d'un même e-mail : si Resend a déjà pris en charge le premier envoi (coupure avant la
+  // réponse), les essais suivants ne l'envoient pas une seconde fois.
+  const idempotencyKey = crypto.randomUUID();
   let lastError = "";
   for (const [attempt, delay] of delays.entries()) {
     if (delay) await new Promise(resolve => setTimeout(resolve, delay));
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
         body: payload,
         cache: "no-store",
       });

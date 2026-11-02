@@ -66,13 +66,26 @@ export async function uploadParticipantPhotoAction(applicationId: string, formDa
     return { ok: false, error: "Cette image est illisible ou invalide" };
   }
 
-  const photoUrl = await saveFile({
-    folder: storagePaths.participantPhoto(),
-    filename: `${randomUUID()}.jpg`,
-    body: new Uint8Array(output),
-    contentType: "image/jpeg",
-  });
-  await db.eventApplication.update({ where: { id: applicationId }, data: { photoUrl } });
+  let photoUrl: string;
+  try {
+    photoUrl = await saveFile({
+      folder: storagePaths.participantPhoto(),
+      filename: `${randomUUID()}.jpg`,
+      body: new Uint8Array(output),
+      contentType: "image/jpeg",
+    });
+  } catch (error) {
+    console.error("Photo participant : stockage indisponible", error);
+    return { ok: false, error: "Stockage indisponible, réessayez plus tard" };
+  }
+  try {
+    await db.eventApplication.update({ where: { id: applicationId }, data: { photoUrl } });
+  } catch (error) {
+    // Fichier déjà écrit mais fiche non mise à jour : on retire l'orphelin.
+    console.error("Photo participant : enregistrement impossible", error);
+    await removeStoredPhoto(photoUrl);
+    return { ok: false, error: "Enregistrement impossible, réessayez plus tard" };
+  }
   await removeStoredPhoto(application.photoUrl);
   revalidatePath("/participer/badge/" + applicationId);
   return { ok: true, photoUrl };
@@ -80,8 +93,11 @@ export async function uploadParticipantPhotoAction(applicationId: string, formDa
 
 /** Retire la photo : le badge reprend le logo de la JNJL. */
 export async function removeParticipantPhotoAction(applicationId: string): Promise<Result> {
-  const application = await db.eventApplication.findUnique({ where: { id: applicationId }, select: { photoUrl: true } });
-  if (!application) return { ok: false, error: "Inscription introuvable" };
+  const application = await db.eventApplication.findUnique({
+    where: { id: applicationId },
+    select: { photoUrl: true, cancelledAt: true },
+  });
+  if (!application || application.cancelledAt) return { ok: false, error: "Inscription introuvable" };
   await db.eventApplication.update({ where: { id: applicationId }, data: { photoUrl: null } });
   await removeStoredPhoto(application.photoUrl);
   revalidatePath("/participer/badge/" + applicationId);

@@ -638,10 +638,13 @@ model EventApplication {
   cancelledAt     DateTime?
   cancelledById   String?
   cancelledReason String?   @db.Text
-  // Téléphone normalisé (8 derniers chiffres) : un numéro ne sert qu'à une inscription par édition.
-  phoneKey  String?
+  // Téléphone normalisé (8 derniers chiffres) et e-mail « actifs » : un numéro / une adresse ne sert qu'à UNE inscription
+  // active par édition. Une annulation les remet à null (la vraie personne peut alors s'inscrire) ; `email` et `phone`
+  // restent toujours conservés, un rétablissement recalcule ces deux clés.
+  phoneKey    String?
+  activeEmail String?
 
-  @@unique([editionId, email])
+  @@unique([editionId, activeEmail])
   @@unique([editionId, phoneKey])
   @@index([editionId, status])
 }
