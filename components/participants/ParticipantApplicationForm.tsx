@@ -4,7 +4,6 @@ import { useRef, useState, useTransition } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
@@ -19,6 +18,7 @@ import { ParticipantBadgeDownloadButton } from "@/components/participants/Partic
 import { ParticipantPhotoUpload } from "@/components/participants/ParticipantPhotoUpload";
 import { uploadParticipantPhotoAction } from "@/actions/participant-photo-actions";
 import { shrinkImage } from "@/lib/client-image";
+import { ENTREPRENEURSHIP_OPTIONS, PROFESSIONS, type EntrepreneurshipCommitment } from "@/lib/participant-options";
 import charter from "@/settings/charter";
 
 const inputClass =
@@ -40,7 +40,7 @@ const emptyForm = {
   regionId: "",
   profession: "",
   hasParticipatedBefore: "" as "" | "OUI" | "NON",
-  motivation: "",
+  entrepreneurshipCommitment: "" as "" | EntrepreneurshipCommitment,
   consent: false,
 };
 
@@ -81,6 +81,14 @@ export function ParticipantApplicationForm({
     }
     if (!form.regionId) {
       setError("Veuillez choisir votre région.");
+      return;
+    }
+    if (!form.profession) {
+      setError("Veuillez choisir votre profession.");
+      return;
+    }
+    if (!form.entrepreneurshipCommitment) {
+      setError("Merci de préciser si vous souhaitez prendre un engagement à l'entrepreneuriat.");
       return;
     }
     if (!form.hasParticipatedBefore) {
@@ -184,6 +192,26 @@ export function ParticipantApplicationForm({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field className="sm:col-span-2">
+            <FieldLabel>Région de rattachement</FieldLabel>
+            <Select value={form.regionId} onValueChange={value => update("regionId", value as string)}>
+              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+                <SelectValue placeholder="Choisir votre région">
+                  {(value: string) => {
+                    const region = regions.find(item => item.id === value);
+                    return region ? `${region.name} ${region.code ? `(${region.code})` : ""}` : "Choisir votre région";
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="rounded-none">
+                {regions.map(region => (
+                  <SelectItem key={region.id} value={region.id}>
+                    {region.name} {region.code ? `(${region.code})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <Field>
             <FieldLabel>Prénom</FieldLabel>
             <Input
@@ -244,34 +272,21 @@ export function ParticipantApplicationForm({
             </Select>
           </Field>
           <Field>
-            <FieldLabel>Région</FieldLabel>
-            <Select value={form.regionId} onValueChange={value => update("regionId", value as string)}>
+            <FieldLabel>Profession</FieldLabel>
+            <Select value={form.profession} onValueChange={value => update("profession", value as string)}>
               <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-                <SelectValue placeholder="Choisir votre région">
-                  {(value: string) => {
-                    const region = regions.find(item => item.id === value);
-                    return region ? `${region.name} (${region.code})` : "Choisir votre région";
-                  }}
+                <SelectValue placeholder="Choisir votre profession">
+                  {(value: string) => value || "Choisir votre profession"}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
-                {regions.map(region => (
-                  <SelectItem key={region.id} value={region.id}>
-                    {region.name} ({region.code})
+              <SelectContent className="max-h-72 rounded-none">
+                {PROFESSIONS.map(profession => (
+                  <SelectItem key={profession} value={profession}>
+                    {profession}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </Field>
-          <Field>
-            <FieldLabel>Profession</FieldLabel>
-            <Input
-              value={form.profession}
-              onChange={event => update("profession", event.target.value)}
-              required
-              placeholder="Votre profession"
-              className={inputClass}
-            />
           </Field>
           <Field>
             <FieldLabel>Avez-vous déjà participé à la JNJL ?</FieldLabel>
@@ -296,13 +311,24 @@ export function ParticipantApplicationForm({
         </div>
 
         <Field>
-          <FieldLabel>Motivation (optionnel)</FieldLabel>
-          <Textarea
-            value={form.motivation}
-            onChange={event => update("motivation", event.target.value)}
-            placeholder="Pourquoi souhaitez-vous participer à la JNJL ?"
-            className="min-h-[110px] rounded-none border border-border bg-muted/40 transition-colors focus-visible:border-ring focus-visible:bg-white"
-          />
+          <FieldLabel>Souhaitez-vous prendre un engagement à l&apos;entrepreneuriat lors de cette cérémonie ?</FieldLabel>
+          <Select
+            value={form.entrepreneurshipCommitment}
+            onValueChange={value => update("entrepreneurshipCommitment", value as EntrepreneurshipCommitment)}
+          >
+            <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+              <SelectValue placeholder="Choisir">
+                {(value: string) => ENTREPRENEURSHIP_OPTIONS.find(([code]) => code === value)?.[1] ?? "Choisir"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="rounded-none">
+              {ENTREPRENEURSHIP_OPTIONS.map(([code, label]) => (
+                <SelectItem key={code} value={code}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field>

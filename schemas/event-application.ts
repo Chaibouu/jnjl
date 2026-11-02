@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { GENDER_VALUES } from "@/lib/gender";
+import { ENTREPRENEURSHIP_VALUES } from "@/lib/participant-options";
 
 export const eventApplicationSchema = z.object({
   firstName: z.string().trim().min(2, "Le prénom est requis").max(100),
@@ -20,7 +21,9 @@ export const eventApplicationSchema = z.object({
   hasParticipatedBefore: z.boolean({
     errorMap: () => ({ message: "Merci de préciser si vous avez déjà participé à la JNJL" }),
   }),
-  motivation: z.string().trim().max(1000).optional().or(z.literal("")),
+  entrepreneurshipCommitment: z.enum(ENTREPRENEURSHIP_VALUES, {
+    errorMap: () => ({ message: "Merci de préciser si vous souhaitez prendre un engagement à l'entrepreneuriat" }),
+  }),
   consent: z.boolean().refine(value => value === true, {
     message: "Le consentement est requis",
   }),

@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       gender: data.gender,
       profession: data.profession,
       hasParticipatedBefore: data.hasParticipatedBefore,
-      motivation: data.motivation?.trim() || null,
+      entrepreneurshipCommitment: data.entrepreneurshipCommitment,
       capacity: registration.participantsCapacity,
     });
 

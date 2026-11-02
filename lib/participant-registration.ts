@@ -25,7 +25,7 @@ export type ParticipantRegistration = {
   gender: string;
   profession: string;
   hasParticipatedBefore: boolean;
-  motivation: string | null;
+  entrepreneurshipCommitment: string;
   /** Nombre maximum de participants (0 = illimité), revérifié dans la transaction. */
   capacity: number;
 };
@@ -85,7 +85,7 @@ export async function registerParticipant(data: ParticipantRegistration) {
             gender: data.gender,
             profession: data.profession,
             hasParticipatedBefore: data.hasParticipatedBefore,
-            motivation: data.motivation,
+            entrepreneurshipCommitment: data.entrepreneurshipCommitment,
             status: ApplicationStatus.RETENU,
             reviewedAt: new Date(),
             consentAt: new Date(),

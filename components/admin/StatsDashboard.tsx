@@ -377,6 +377,26 @@ export function StatsDashboard({
             </div>
           </div>
 
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Users className="h-4.5 w-4.5" style={{ color: charter.orange }} />
+              Engagement à l&apos;entrepreneuriat — Participants
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Participants souhaitant prendre un engagement à l&apos;entrepreneuriat lors de la cérémonie.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              {stats.participants.byEntrepreneurship.map(item => (
+                <div key={item.value} className="rounded-xl border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {item.value === "OUI" ? "Oui" : item.value === "NON" ? "Non" : item.value === "PEUT_ETRE" ? "Peut-être" : "Non renseigné"}
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">{item.count}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             <div className="border-b p-5">
               <h2 className="flex items-center gap-2 text-lg font-semibold">

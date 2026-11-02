@@ -1,5 +1,6 @@
 "use server";
 
+import { formatEntrepreneurship } from "@/lib/participant-options";
 import ExcelJS from "exceljs";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { db } from "@/lib/db";
@@ -72,6 +73,7 @@ async function loadParticipantsForExport(filters: ParticipantExportFilters) {
       email: item.email,
       region: item.region?.name ?? "",
       profession: item.profession ?? "",
+      entrepreneurship: formatEntrepreneurship(item.entrepreneurshipCommitment),
       badge: item.participation?.badgeNumber ?? "",
       status: item.cancelledAt ? "Annulée" : "Confirmée",
       date: item.createdAt.toLocaleDateString("fr-FR"),
@@ -90,6 +92,7 @@ export async function exportEventApplicationsExcelAction(filters: ParticipantExp
     { header: "Email", key: "email", width: 32 },
     { header: "Région", key: "region", width: 16 },
     { header: "Profession", key: "profession", width: 24 },
+    { header: "Engagement entrepreneuriat", key: "entrepreneurship", width: 24 },
     { header: "N° badge", key: "badge", width: 24 },
     { header: "Statut", key: "status", width: 12 },
     { header: "Inscrit le", key: "date", width: 12 },

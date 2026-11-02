@@ -1,3 +1,4 @@
+import { formatEntrepreneurship } from "@/lib/participant-options";
 import { ParticipantAdminActions } from "@/components/admin/ParticipantAdminActions";
 import Link from "next/link";
 import { Briefcase, Calendar, History, IdCard, Mail, MapPin, MessageSquare, Phone, User, UserCheck } from "lucide-react";
@@ -108,6 +109,18 @@ export default async function EventApplicationDetailsPage({
                 }
               />
             </InfoCategory>
+
+            {application.entrepreneurshipCommitment && (
+              <InfoCategory title="Engagement à l'entrepreneuriat">
+                <div className="col-span-full flex items-start gap-3 rounded-xl border bg-muted/30 p-4 sm:col-span-2 lg:col-span-4">
+                  <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm leading-relaxed">
+                    Souhaite prendre un engagement à l&apos;entrepreneuriat lors de la cérémonie :{" "}
+                    <strong>{formatEntrepreneurship(application.entrepreneurshipCommitment)}</strong>
+                  </p>
+                </div>
+              </InfoCategory>
+            )}
 
             {application.motivation && (
               <InfoCategory title="Motivation">
