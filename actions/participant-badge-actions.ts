@@ -87,11 +87,14 @@ export async function findParticipantBadgeByPhoneAction(phone: string, lastName:
 export async function downloadParticipantBadgeAction(applicationId: string) {
   const data = await getParticipantBadgeAction(applicationId);
 
-  // Avec photo : modèle officiel à photo ronde. Sans photo : le badge historique, qui garde le logo de la JNJL.
+  // Même badge officiel dans les deux cas : avec photo, elle est dans le cercle ; sans photo, le grand logo de la JNJL
+  // prend sa place. Le QR est à côté.
   const photo = await loadBadgePhoto(data.photoUrl);
   const pdf = await generateBadgePdf({
     editionId: data.editionId,
-    ...(photo ? { variant: "generic" as const, title: "PARTICIPANT", photo } : {}),
+    variant: photo ? ("generic" as const) : ("participant" as const),
+    title: "PARTICIPANT",
+    ...(photo ? { photo } : {}),
     label: "Participant JNJL",
     fullName: data.fullName,
     region: data.region,

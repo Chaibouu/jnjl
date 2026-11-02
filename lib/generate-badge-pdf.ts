@@ -68,7 +68,7 @@ function fitSize(text: string, font: PDFFont, maxWidth: number, max: number, min
 // le titre (AMBASSADEUR, POINT FOCAL, COMMISSION, SPEAKER) et le logo. Sont dessinés par-dessus :
 // le texte du bandeau (région ou nom de la commission), la photo (speaker), le QR code, puis le nom
 // complet et les autres données. Les coordonnées sont en pixels de l'image.
-export type DesignVariant = "ambassador" | "commission" | "speaker" | "generic";
+export type DesignVariant = "ambassador" | "commission" | "speaker" | "generic" | "participant";
 
 const DESIGN_W = 908;
 const DESIGN_H = 1280;
@@ -119,6 +119,16 @@ const DESIGNS: Record<DesignVariant, DesignConfig> = {
     image: "badge-generique.jpg",
     pill: { x: 320, y: 548, w: 267, h: 63, color: PILL_BLUE },
     photoCircle: { cx: 250, cy: 878, r: 196 },
+    qr: { x: 558, y: 848, size: 230, caption: false },
+    identityBaseline: 1195,
+    compact: true,
+    dynamicTitle: true,
+  },
+  // Participant sans photo : même badge que « générique », mais le grand logo de la JNJL occupe la place de la photo
+  // (déjà dans l'image, pas de cercle à remplir) ; le QR est posé à côté.
+  participant: {
+    image: "badge-participant.jpg",
+    pill: { x: 320, y: 548, w: 267, h: 63, color: PILL_BLUE },
     qr: { x: 558, y: 848, size: 230, caption: false },
     identityBaseline: 1195,
     compact: true,
