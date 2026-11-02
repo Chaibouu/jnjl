@@ -129,7 +129,8 @@ const DESIGNS: Record<DesignVariant, DesignConfig> = {
   participant: {
     image: "badge-participant.jpg",
     pill: { x: 320, y: 548, w: 267, h: 63, color: PILL_BLUE },
-    qr: { x: 558, y: 848, size: 230, caption: false },
+    // QR agrandi, centré en hauteur sur le logo (le grand logo occupe le côté gauche, rien ne gêne à droite).
+    qr: { x: 500, y: 708, size: 340, caption: false },
     identityBaseline: 1195,
     compact: true,
     dynamicTitle: true,
