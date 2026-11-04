@@ -212,7 +212,12 @@ export function BadgesManager({
     startTransition(async () => {
       try {
         const result = await awardAllAmbassadorBadgesAction(editionId);
-        refresh(editionId, `${result.count} badge(s) attribué(s)`);
+        if (result.failed > 0) {
+          refresh(editionId, "");
+          setError(`${result.count} badge(s) attribué(s), ${result.failed} en échec : ${result.error ?? "erreur inconnue"}`);
+        } else {
+          refresh(editionId, `${result.count} badge(s) attribué(s)`);
+        }
       } catch (actionError) {
         setError(
           actionError instanceof Error ? actionError.message : "Une erreur est survenue"
@@ -267,9 +272,11 @@ export function BadgesManager({
           <Award className="mr-2 h-4 w-4" />
           Attribuer à tous ({pendingCount})
         </Button>
-        <Button type="button" variant="outline" loading={isPending} onClick={resync} className="ml-2 rounded-none">
-          Resynchroniser les QR (ScanHub)
-        </Button>
+        {isSuperAdmin && (
+          <Button type="button" variant="outline" loading={isPending} onClick={resync} className="ml-2 rounded-none">
+            Resynchroniser les QR (ScanHub)
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-end">

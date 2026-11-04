@@ -178,17 +178,27 @@ export async function awardAllAmbassadorBadgesAction(editionId: string) {
     orderBy: { createdAt: "asc" },
   });
 
-  // Attribution séquentielle : la numérotation dépend du nombre de badges déjà émis.
+  // Attribution séquentielle : la numérotation dépend du nombre de badges déjà émis. Un échec isolé n'arrête pas les
+  // autres : il est compté et le premier motif est renvoyé.
+  let awarded = 0;
+  let failed = 0;
+  let firstError: string | null = null;
   for (const application of pending) {
-    await awardBadge(actor, application.id);
+    try {
+      await awardBadge(actor, application.id);
+      awarded += 1;
+    } catch (error) {
+      failed += 1;
+      firstError ??= error instanceof Error ? error.message : "Erreur inconnue";
+    }
   }
 
   await auditAdminAction({
     actorId: actor.id,
     action: "BADGE_AWARDED",
-    target: { editionId, regionId, count: pending.length, bulk: true },
+    target: { editionId, regionId, count: awarded, failed, bulk: true },
   });
-  return { count: pending.length };
+  return { count: awarded, failed, error: firstError };
 }
 
 /** Annule le badge d'un seul ambassadeur. Réservé au Super Admin. */
@@ -234,11 +244,12 @@ export async function cancelAllAmbassadorBadgesAction(editionId: string) {
 
 /**
  * Rejoue la synchronisation ScanHub des badges dont le QR n'a pas encore été créé côté ScanHub
- * (le QR imprimé est encore le simple numéro). Actif seulement pour les ambassadeurs embarqués.
+ * (le QR imprimé est encore le simple numéro). Actif seulement pour les ambassadeurs embarqués. Réservé au Super Admin.
  */
 export async function resyncBadgeQrsAction(editionId: string) {
-  const actor = await requirePermission("badges.manage");
-  const regionId = getActorRegionScope(actor);
+  // Réservé au Super Admin (la région n'a plus à être filtrée : il voit tout).
+  await requireSuperAdmin();
+  const regionId: string | null = null;
 
   const badges = await db.userBadge.findMany({
     where: { editionId, badge: { code: "AMBASSADEUR" } },
