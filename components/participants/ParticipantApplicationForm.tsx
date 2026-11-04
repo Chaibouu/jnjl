@@ -6,14 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { GENDER_OPTIONS, formatGender, type Gender } from "@/lib/gender";
+import { ChoiceSelect } from "@/components/ui/choice-select";
+import { GENDER_OPTIONS, type Gender } from "@/lib/gender";
 import { ParticipantBadgeDownloadButton } from "@/components/participants/ParticipantBadgeDownloadButton";
 import { ParticipantPhotoUpload } from "@/components/participants/ParticipantPhotoUpload";
 import { uploadParticipantPhotoAction } from "@/actions/participant-photo-actions";
@@ -204,23 +198,13 @@ export function ParticipantApplicationForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field className="sm:col-span-2">
             <FieldLabel>Région de rattachement</FieldLabel>
-            <Select value={form.regionId} onValueChange={value => update("regionId", value as string)}>
-              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-                <SelectValue placeholder="Choisir votre région">
-                  {(value: string) => {
-                    const region = regions.find(item => item.id === value);
-                    return region ? `${region.name} ${region.code ? `(${region.code})` : ""}` : "Choisir votre région";
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                {regions.map(region => (
-                  <SelectItem key={region.id} value={region.id}>
-                    {region.name} {region.code ? `(${region.code})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ChoiceSelect
+              inputId="region"
+              value={form.regionId}
+              onChange={value => update("regionId", value)}
+              placeholder="Choisir votre région"
+              options={regions.map(region => ({ value: region.id, label: region.name }))}
+            />
           </Field>
           <Field>
             <FieldLabel>Prénom</FieldLabel>
@@ -266,77 +250,49 @@ export function ParticipantApplicationForm({
           </Field>
           <Field>
             <FieldLabel>Sexe</FieldLabel>
-            <Select value={form.gender} onValueChange={value => update("gender", value as Gender)}>
-              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-                <SelectValue placeholder="Choisir">
-                  {(value: string) => formatGender(value) === "—" ? "Choisir" : formatGender(value)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {GENDER_OPTIONS.map(([code, label]) => (
-                  <SelectItem key={code} value={code}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ChoiceSelect
+              inputId="gender"
+              searchable={false}
+              value={form.gender}
+              onChange={value => update("gender", value as Gender)}
+              options={GENDER_OPTIONS.map(([value, label]) => ({ value, label }))}
+            />
           </Field>
           <Field>
             <FieldLabel>Profession</FieldLabel>
-            <Select value={form.profession} onValueChange={value => update("profession", value as string)}>
-              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-                <SelectValue placeholder="Choisir votre profession">
-                  {(value: string) => value || "Choisir votre profession"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-72 rounded-none">
-                {PROFESSIONS.map(profession => (
-                  <SelectItem key={profession} value={profession}>
-                    {profession}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ChoiceSelect
+              inputId="profession"
+              value={form.profession}
+              onChange={value => update("profession", value)}
+              placeholder="Choisir votre profession"
+              options={PROFESSIONS.map(profession => ({ value: profession, label: profession }))}
+            />
           </Field>
           <Field>
             <FieldLabel>Avez-vous déjà participé à la JNJL ?</FieldLabel>
-            <Select
+            <ChoiceSelect
+              inputId="participated"
+              searchable={false}
               value={form.hasParticipatedBefore}
-              onValueChange={value => update("hasParticipatedBefore", value as "OUI" | "NON")}
-            >
-              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-                <SelectValue placeholder="Choisir">
-                  {(value: string) => PARTICIPATED_OPTIONS.find(([code]) => code === value)?.[1] ?? "Choisir"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {PARTICIPATED_OPTIONS.map(([code, label]) => (
-                  <SelectItem key={code} value={code}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={value => update("hasParticipatedBefore", value as "OUI" | "NON")}
+              options={PARTICIPATED_OPTIONS.map(([value, label]) => ({ value, label }))}
+            />
           </Field>
         </div>
 
         {needsTravelConfirmation && (
           <Field>
             <FieldLabel>Comptez-vous faire le déplacement sur Niamey à vos frais ?</FieldLabel>
-            <Select
+            <ChoiceSelect
+              inputId="travel"
+              searchable={false}
               value={form.willTravelToNiamey}
-              onValueChange={value => update("willTravelToNiamey", value as "OUI" | "NON")}
-            >
-              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-                <SelectValue placeholder="Choisir">
-                  {(value: string) => (value === "OUI" ? "Oui" : value === "NON" ? "Non" : "Choisir")}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="rounded-none">
-                <SelectItem value="OUI">Oui</SelectItem>
-                <SelectItem value="NON">Non</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={value => update("willTravelToNiamey", value as "OUI" | "NON")}
+              options={[
+                { value: "OUI", label: "Oui" },
+                { value: "NON", label: "Non" },
+              ]}
+            />
             <p className="mt-1 text-xs" style={{ color: charter.inkSoft }}>
               La cérémonie a lieu à Niamey ; le transport et l&apos;hébergement des participants de l&apos;intérieur du pays sont à leur charge.
             </p>
@@ -345,23 +301,13 @@ export function ParticipantApplicationForm({
 
         <Field>
           <FieldLabel>Souhaitez-vous prendre un engagement à l&apos;entrepreneuriat lors de cette cérémonie ?</FieldLabel>
-          <Select
+          <ChoiceSelect
+            inputId="entrepreneurship"
+            searchable={false}
             value={form.entrepreneurshipCommitment}
-            onValueChange={value => update("entrepreneurshipCommitment", value as EntrepreneurshipCommitment)}
-          >
-            <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
-              <SelectValue placeholder="Choisir">
-                {(value: string) => ENTREPRENEURSHIP_OPTIONS.find(([code]) => code === value)?.[1] ?? "Choisir"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="rounded-none">
-              {ENTREPRENEURSHIP_OPTIONS.map(([code, label]) => (
-                <SelectItem key={code} value={code}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={value => update("entrepreneurshipCommitment", value as EntrepreneurshipCommitment)}
+            options={ENTREPRENEURSHIP_OPTIONS.map(([value, label]) => ({ value, label }))}
+          />
         </Field>
 
         <Field>
