@@ -2,6 +2,7 @@
 
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
+import { loadRegionTravelDates, parseTravelDate } from "@/lib/region-travel-dates";
 import { getUser } from "@/actions/getUser";
 import { ForbiddenError } from "@/lib/forbidden-error";
 import { saveFile } from "@/lib/storage";
@@ -85,10 +86,14 @@ async function loadContext(user: User) {
   const endDate = editionRecord.endDate ?? startDate;
   // Dates spécifiques à l'ordre de mission / à l'autorisation d'absence (réglages > Paramètres)
   // — repli sur les dates de l'édition si l'admin ne les a pas renseignées séparément.
-  const missionDepartureDate = editionRecord.missionDepartureDate ?? startDate;
-  const missionReturnDate = editionRecord.missionReturnDate ?? endDate;
-  const absenceStartDate = editionRecord.absenceStartDate ?? startDate;
-  const absenceEndDate = editionRecord.absenceEndDate ?? endDate;
+  // Les dates de la région de l'ambassadeur (départ / retour) priment sur les réglages généraux, pour les deux documents.
+  const regionDates = (await loadRegionTravelDates(editionRecord.id))[application.regionId];
+  const regionDeparture = parseTravelDate(regionDates?.departure);
+  const regionReturn = parseTravelDate(regionDates?.return);
+  const missionDepartureDate = regionDeparture ?? editionRecord.missionDepartureDate ?? startDate;
+  const missionReturnDate = regionReturn ?? editionRecord.missionReturnDate ?? endDate;
+  const absenceStartDate = regionDeparture ?? editionRecord.absenceStartDate ?? startDate;
+  const absenceEndDate = regionReturn ?? editionRecord.absenceEndDate ?? endDate;
   const edition = {
     ...editionRecord,
     startDate,

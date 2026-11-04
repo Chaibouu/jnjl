@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/actions/requirePermission";
+import { loadRegionTravelDates, parseTravelDate, saveRegionTravelDates } from "@/lib/region-travel-dates";
 import {
   editionDocumentSettingsSchema,
   type EditionDocumentSettingsInput,
@@ -82,4 +83,44 @@ export async function updateEditionDocumentSettingsAction(
   });
 
   return { success: true };
+}
+
+/** Dates de départ / retour de chaque région pour l'édition (vides = dates générales). */
+export async function getRegionTravelDatesAction(editionId: string) {
+  await requireSuperAdmin();
+  const [regions, dates] = await Promise.all([
+    db.region.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    loadRegionTravelDates(editionId),
+  ]);
+  return regions.map(region => ({
+    regionId: region.id,
+    name: region.name,
+    departure: dates[region.id]?.departure ?? "",
+    return: dates[region.id]?.return ?? "",
+  }));
+}
+
+export async function updateRegionTravelDatesAction(
+  editionId: string,
+  rows: { regionId: string; departure: string; return: string }[]
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  const edition = await db.edition.findFirst({ where: { id: editionId, isDeleted: false }, select: { id: true } });
+  if (!edition) return { ok: false, error: "Édition introuvable" };
+
+  const regions = new Set((await db.region.findMany({ select: { id: true } })).map(region => region.id));
+  const dates: Record<string, { departure?: string; return?: string }> = {};
+  for (const row of rows) {
+    if (!regions.has(row.regionId)) continue;
+    const departure = parseTravelDate(row.departure) ? row.departure : "";
+    const returnDate = parseTravelDate(row.return) ? row.return : "";
+    if (row.departure && !departure) return { ok: false, error: "Date de départ invalide" };
+    if (row.return && !returnDate) return { ok: false, error: "Date de retour invalide" };
+    if (departure && returnDate && returnDate < departure) {
+      return { ok: false, error: "La date de retour doit être après la date de départ" };
+    }
+    if (departure || returnDate) dates[row.regionId] = { departure, return: returnDate };
+  }
+  await saveRegionTravelDates(editionId, dates);
+  return { ok: true };
 }

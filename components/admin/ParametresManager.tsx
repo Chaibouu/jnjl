@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RegionTravelDates } from "@/components/admin/RegionTravelDates";
 import charter from "@/settings/charter";
 
 type EditionOption = { id: string; name: string; year: number };
@@ -285,6 +286,8 @@ export function ParametresManager({
           </Button>
         </form>
       )}
+
+      <RegionTravelDates key={editionId} editionId={editionId} />
     </section>
   );
 }
