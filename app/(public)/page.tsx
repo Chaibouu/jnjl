@@ -12,6 +12,7 @@ import { getActiveEditionOverviewAction } from "@/actions/edition-actions";
 import { listPublishedNewsAction } from "@/actions/news-actions";
 import { listActiveEditionPartnersAction } from "@/actions/partner-actions";
 import { getRegistrationState } from "@/lib/site-settings";
+import { getPublicCounts } from "@/lib/public-stats";
 import { getPrimaryCta } from "@/lib/registration-cta";
 import { listActiveEditionSpeakersAction } from "@/actions/speaker-actions";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ export default async function HomePage() {
     getRegistrationState(),
   ]);
 
+  const counts = edition ? await getPublicCounts(edition.id) : null;
+
   // Un compteur à zéro donne une mauvaise impression : on ne l'affiche qu'une fois alimenté.
   const cta = getPrimaryCta(registration);
 
@@ -74,6 +77,15 @@ export default async function HomePage() {
       : []),
     ...(partners.length > 0
       ? [{ label: "Partenaires", value: `${partners.length}+`, count: partners.length, suffix: "+" }]
+      : []),
+    ...(counts && counts.ambassadors > 0
+      ? [{ label: "Ambassadeurs", value: `${counts.ambassadors}`, count: counts.ambassadors }]
+      : []),
+    ...(counts && counts.regions > 0
+      ? [{ label: "Régions du Niger", value: `${counts.regions}`, count: counts.regions }]
+      : []),
+    ...(counts && counts.participants > 0
+      ? [{ label: "Participants", value: `${counts.participants}`, count: counts.participants }]
       : []),
   ];
 
