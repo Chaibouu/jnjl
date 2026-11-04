@@ -41,6 +41,7 @@ const emptyForm = {
   profession: "",
   hasParticipatedBefore: "" as "" | "OUI" | "NON",
   entrepreneurshipCommitment: "" as "" | EntrepreneurshipCommitment,
+  willTravelToNiamey: "" as "" | "OUI" | "NON",
   consent: false,
 };
 
@@ -67,6 +68,10 @@ export function ParticipantApplicationForm({
   const update = <K extends keyof typeof form>(field: K, value: (typeof form)[K]) =>
     setForm(current => ({ ...current, [field]: value }));
 
+  // Hors Niamey, le participant confirme qu'il fera le déplacement à ses frais.
+  const selectedRegion = regions.find(item => item.id === form.regionId);
+  const needsTravelConfirmation = !!selectedRegion && selectedRegion.name.trim().toLowerCase() !== "niamey";
+
   const cardClass = embedded ? "p-6 sm:p-8" : "rounded-2xl border bg-white p-10 text-center shadow-sm";
   const cardStyle = embedded ? undefined : { borderColor: charter.border };
   const formCardClass = embedded ? "space-y-5 p-6 sm:p-8" : "space-y-5 rounded-2xl border bg-white p-6 shadow-sm sm:p-8";
@@ -81,6 +86,10 @@ export function ParticipantApplicationForm({
     }
     if (!form.regionId) {
       setError("Veuillez choisir votre région.");
+      return;
+    }
+    if (needsTravelConfirmation && !form.willTravelToNiamey) {
+      setError("Merci de confirmer si vous comptez faire le déplacement à Niamey à vos frais.");
       return;
     }
     if (!form.profession) {
@@ -103,6 +112,7 @@ export function ParticipantApplicationForm({
           body: JSON.stringify({
             ...form,
             hasParticipatedBefore: form.hasParticipatedBefore === "OUI",
+            willTravelToNiamey: needsTravelConfirmation ? form.willTravelToNiamey === "OUI" : undefined,
             // Anti-robot : champ piège (vide pour un humain) et durée de remplissage.
             website: trap,
             elapsedMs: Date.now() - startedAt.current,
@@ -309,6 +319,29 @@ export function ParticipantApplicationForm({
             </Select>
           </Field>
         </div>
+
+        {needsTravelConfirmation && (
+          <Field>
+            <FieldLabel>Comptez-vous faire le déplacement sur Niamey à vos frais ?</FieldLabel>
+            <Select
+              value={form.willTravelToNiamey}
+              onValueChange={value => update("willTravelToNiamey", value as "OUI" | "NON")}
+            >
+              <SelectTrigger className="h-11 w-full rounded-none border border-border bg-muted/40 px-3.5">
+                <SelectValue placeholder="Choisir">
+                  {(value: string) => (value === "OUI" ? "Oui" : value === "NON" ? "Non" : "Choisir")}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="rounded-none">
+                <SelectItem value="OUI">Oui</SelectItem>
+                <SelectItem value="NON">Non</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs" style={{ color: charter.inkSoft }}>
+              La cérémonie a lieu à Niamey ; le transport et l&apos;hébergement des participants de l&apos;intérieur du pays sont à leur charge.
+            </p>
+          </Field>
+        )}
 
         <Field>
           <FieldLabel>Souhaitez-vous prendre un engagement à l&apos;entrepreneuriat lors de cette cérémonie ?</FieldLabel>

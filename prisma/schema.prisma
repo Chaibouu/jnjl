@@ -622,6 +622,8 @@ model EventApplication {
   motivation            String?           @db.Text // ancien champ libre (les anciennes fiches le gardent)
   // Engagement à l'entrepreneuriat lors de la cérémonie : OUI | NON | PEUT_ETRE
   entrepreneurshipCommitment String?
+  // Hors Niamey : confirme venir à Niamey à ses frais (true/false) ; null pour Niamey et les anciennes fiches.
+  willTravelToNiamey Boolean?
   documents             Document[]
   status                ApplicationStatus @default(SOUMIS)
   reviewedById          String?

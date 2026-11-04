@@ -385,6 +385,11 @@ export function StatsDashboard({
             <p className="text-sm text-muted-foreground">
               Participants souhaitant prendre un engagement à l&apos;entrepreneuriat lors de la cérémonie.
             </p>
+            <p className="mt-2 text-sm">
+              Hors Niamey, déplacement à leurs frais confirmé :{" "}
+              <strong>{stats.participants.travelToNiamey.yes} oui</strong>,{" "}
+              <strong>{stats.participants.travelToNiamey.no} non</strong> (inscriptions à vérifier).
+            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-4">
               {stats.participants.byEntrepreneurship.map(item => (
                 <div key={item.value} className="rounded-xl border bg-muted/30 p-4">

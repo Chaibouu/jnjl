@@ -72,6 +72,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "La région sélectionnée est invalide" }, { status: 400 });
     }
 
+    // Hors Niamey : le participant confirme qu'il viendra à Niamey à ses frais. Un « Non » n'empêche pas l'inscription :
+    // la réponse est conservée pour repérer les inscriptions peu sérieuses dans l'intérieur du pays.
+    const inNiamey = region.name.trim().toLowerCase() === "niamey";
+    if (!inNiamey && typeof data.willTravelToNiamey !== "boolean") {
+      return NextResponse.json(
+        { error: "Merci de confirmer si vous comptez faire le déplacement à Niamey à vos frais." },
+        { status: 400 }
+      );
+    }
+
+    // Les ambassadeurs sélectionnés ont leur propre parcours : ils ne s'inscrivent pas comme participants.
+    const session = await getUser();
+    const userId = session?.user?.user?.id ?? null;
+    const selected = await db.selection.findMany({
+      where: { status: "SELECTIONNE", ambassadorApplication: { is: { editionId: edition.id } } },
+      select: { ambassadorApplication: { select: { email: true, phone: true, userId: true } } },
+    });
+    const phoneOf = phoneKey(data.phone);
+    const isSelectedAmbassador = selected.some(({ ambassadorApplication: ambassador }) => {
+      if (userId && ambassador.userId === userId) return true;
+      if (ambassador.email.toLowerCase() === email) return true;
+      return phoneOf !== null && phoneKey(ambassador.phone) === phoneOf;
+    });
+    if (isSelectedAmbassador) {
+      return NextResponse.json(
+        {
+          error:
+            "Vous êtes ambassadeur sélectionné : votre participation à la cérémonie est déjà prévue, il n'est pas nécessaire de vous inscrire ici.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Doublons : même e-mail ou même téléphone déjà inscrit pour l'édition (la base garde la dernière barrière
     // en cas d'envois simultanés, voir registerParticipant).
     const key = phoneKey(data.phone);
@@ -100,9 +133,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Rattache la candidature au compte existant si le visiteur est connecté.
-    const session = await getUser();
-    const userId = session?.user?.user?.id ?? null;
+    // La candidature est rattachée au compte existant si le visiteur est connecté (userId, lu plus haut).
 
     // Plus de validation admin : l'inscription vaut confirmation immédiate de participation (§8 du guide admin),
     // avec attribution du badge dans la foulée (candidature et badge créés ensemble).
@@ -119,6 +150,7 @@ export async function POST(request: NextRequest) {
       profession: data.profession,
       hasParticipatedBefore: data.hasParticipatedBefore,
       entrepreneurshipCommitment: data.entrepreneurshipCommitment,
+      willTravelToNiamey: inNiamey ? null : (data.willTravelToNiamey ?? null),
       capacity: registration.participantsCapacity,
     });
 

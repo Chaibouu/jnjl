@@ -21,6 +21,8 @@ export const eventApplicationSchema = z.object({
   hasParticipatedBefore: z.boolean({
     errorMap: () => ({ message: "Merci de préciser si vous avez déjà participé à la JNJL" }),
   }),
+  // Obligatoire hors Niamey : vérifié côté serveur (la région est connue en base).
+  willTravelToNiamey: z.boolean().optional(),
   entrepreneurshipCommitment: z.enum(ENTREPRENEURSHIP_VALUES, {
     errorMap: () => ({ message: "Merci de préciser si vous souhaitez prendre un engagement à l'entrepreneuriat" }),
   }),

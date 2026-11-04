@@ -50,7 +50,7 @@ export async function getEditionStatsAction(editionId: string) {
       db.eventApplication.findMany({
         // Les inscriptions annulées ne comptent pas dans les chiffres (leurs fiches restent consultables).
         where: { editionId, cancelledAt: null },
-        select: { status: true, gender: true, regionId: true, entrepreneurshipCommitment: true },
+        select: { status: true, gender: true, regionId: true, entrepreneurshipCommitment: true, willTravelToNiamey: true },
       }),
       db.leaderApplication.count({ where: { editionId } }),
       db.userBadge.count({ where: { editionId } }),
@@ -136,10 +136,13 @@ export async function getEditionStatsAction(editionId: string) {
   const eventByStatus = new Map<string, number>();
   const participantsByGender = new Map<string, number>();
   const entrepreneurship = new Map<string, number>();
+  const travel = { yes: 0, no: 0 };
   for (const application of eventApplications) {
     eventByStatus.set(application.status, (eventByStatus.get(application.status) ?? 0) + 1);
     const genderGroup = genderKey(application.gender);
     participantsByGender.set(genderGroup, (participantsByGender.get(genderGroup) ?? 0) + 1);
+    if (application.willTravelToNiamey === true) travel.yes += 1;
+    if (application.willTravelToNiamey === false) travel.no += 1;
     const commitment = application.entrepreneurshipCommitment ?? "NON_RENSEIGNE";
     entrepreneurship.set(commitment, (entrepreneurship.get(commitment) ?? 0) + 1);
     if (application.regionId) {
@@ -175,6 +178,7 @@ export async function getEditionStatsAction(editionId: string) {
       present: attendedParticipants.length,
       byStatus: Array.from(eventByStatus, ([status, count]) => ({ status, count })),
       byGender: Array.from(participantsByGender, ([gender, count]) => ({ gender, count })),
+      travelToNiamey: travel,
       byEntrepreneurship: ["OUI", "PEUT_ETRE", "NON", "NON_RENSEIGNE"].map(value => ({
         value,
         count: entrepreneurship.get(value) ?? 0,
@@ -267,6 +271,7 @@ export async function exportParticipantsCsvAction(editionId: string) {
       gender: true,
       profession: true,
       entrepreneurshipCommitment: true,
+      willTravelToNiamey: true,
       hasParticipatedBefore: true,
       cancelledAt: true,
       status: true,
@@ -277,7 +282,7 @@ export async function exportParticipantsCsvAction(editionId: string) {
   });
 
   return toCsv(
-    ["Nom", "Prénom", "Email", "Téléphone", "Sexe", "Région", "Profession", "Engagement entrepreneuriat", "Déjà participé", "Statut", "Date de candidature"],
+    ["Nom", "Prénom", "Email", "Téléphone", "Sexe", "Région", "Profession", "Engagement entrepreneuriat", "Déplacement à Niamey", "Déjà participé", "Statut", "Date de candidature"],
     applications.map(a => [
       a.lastName,
       a.firstName,
@@ -287,6 +292,7 @@ export async function exportParticipantsCsvAction(editionId: string) {
       a.region?.name ?? "",
       a.profession ?? "",
       formatEntrepreneurship(a.entrepreneurshipCommitment),
+      a.willTravelToNiamey == null ? "" : a.willTravelToNiamey ? "Oui" : "Non",
       a.hasParticipatedBefore == null ? "" : a.hasParticipatedBefore ? "Oui" : "Non",
       a.cancelledAt ? "Annulée" : "Confirmée",
       formatDate(a.createdAt),

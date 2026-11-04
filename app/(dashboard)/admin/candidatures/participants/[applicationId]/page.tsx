@@ -110,6 +110,18 @@ export default async function EventApplicationDetailsPage({
               />
             </InfoCategory>
 
+            {application.willTravelToNiamey != null && (
+              <InfoCategory title="Déplacement à Niamey">
+                <div className="col-span-full flex items-start gap-3 rounded-xl border bg-muted/30 p-4 sm:col-span-2 lg:col-span-4">
+                  <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm leading-relaxed">
+                    Compte faire le déplacement à Niamey à ses frais :{" "}
+                    <strong>{application.willTravelToNiamey ? "Oui" : "Non (inscription à vérifier)"}</strong>
+                  </p>
+                </div>
+              </InfoCategory>
+            )}
+
             {application.entrepreneurshipCommitment && (
               <InfoCategory title="Engagement à l'entrepreneuriat">
                 <div className="col-span-full flex items-start gap-3 rounded-xl border bg-muted/30 p-4 sm:col-span-2 lg:col-span-4">
