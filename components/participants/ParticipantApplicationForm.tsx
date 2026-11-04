@@ -25,6 +25,15 @@ const PARTICIPATED_OPTIONS: [string, string][] = [
   ["OUI", "Oui"],
 ];
 
+/** Astérisque rouge des champs obligatoires. */
+function RequiredMark() {
+  return (
+    <span className="text-destructive" aria-hidden="true">
+      {" "}*
+    </span>
+  );
+}
+
 const emptyForm = {
   firstName: "",
   lastName: "",
@@ -197,7 +206,7 @@ export function ParticipantApplicationForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field className="sm:col-span-2">
-            <FieldLabel>Région de rattachement</FieldLabel>
+            <FieldLabel>Région de rattachement<RequiredMark /></FieldLabel>
             <ChoiceSelect
               inputId="region"
               value={form.regionId}
@@ -207,7 +216,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Prénom</FieldLabel>
+            <FieldLabel>Prénom<RequiredMark /></FieldLabel>
             <Input
               value={form.firstName}
               onChange={event => update("firstName", event.target.value)}
@@ -217,7 +226,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Nom</FieldLabel>
+            <FieldLabel>Nom<RequiredMark /></FieldLabel>
             <Input
               value={form.lastName}
               onChange={event => update("lastName", event.target.value)}
@@ -227,7 +236,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Email</FieldLabel>
+            <FieldLabel>Email<RequiredMark /></FieldLabel>
             <Input
               type="email"
               value={form.email}
@@ -238,7 +247,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Téléphone</FieldLabel>
+            <FieldLabel>Téléphone<RequiredMark /></FieldLabel>
             <Input
               type="tel"
               value={form.phone}
@@ -249,7 +258,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Sexe</FieldLabel>
+            <FieldLabel>Sexe<RequiredMark /></FieldLabel>
             <ChoiceSelect
               inputId="gender"
               searchable={false}
@@ -259,7 +268,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Profession</FieldLabel>
+            <FieldLabel>Profession<RequiredMark /></FieldLabel>
             <ChoiceSelect
               inputId="profession"
               value={form.profession}
@@ -269,7 +278,7 @@ export function ParticipantApplicationForm({
             />
           </Field>
           <Field>
-            <FieldLabel>Avez-vous déjà participé à la JNJL ?</FieldLabel>
+            <FieldLabel>Avez-vous déjà participé à la JNJL ?<RequiredMark /></FieldLabel>
             <ChoiceSelect
               inputId="participated"
               searchable={false}
@@ -282,7 +291,7 @@ export function ParticipantApplicationForm({
 
         {needsTravelConfirmation && (
           <Field>
-            <FieldLabel>Comptez-vous faire le déplacement sur Niamey à vos frais ?</FieldLabel>
+            <FieldLabel>Comptez-vous faire le déplacement sur Niamey à vos frais ?<RequiredMark /></FieldLabel>
             <ChoiceSelect
               inputId="travel"
               searchable={false}
@@ -300,7 +309,7 @@ export function ParticipantApplicationForm({
         )}
 
         <Field>
-          <FieldLabel>Souhaitez-vous prendre un engagement à l&apos;entrepreneuriat lors de cette cérémonie ?</FieldLabel>
+          <FieldLabel>Souhaitez-vous prendre un engagement à l&apos;entrepreneuriat lors de cette cérémonie ?<RequiredMark /></FieldLabel>
           <ChoiceSelect
             inputId="entrepreneurship"
             searchable={false}
