@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { auditAdminAction } from "@/lib/audit";
 import QRCode from "qrcode";
 import { generateBadgePdf } from "@/lib/generate-badge-pdf";
@@ -45,12 +46,16 @@ async function getAmbassadorBadge() {
  * le QR ScanHub (identifiant externe) de l'ancien porteur.
  */
 async function nextBadgeNumber(editionYear: number, badgeId: string, editionId: string) {
-  const [count, burned] = await Promise.all([
-    db.userBadge.count({ where: { badgeId, editionId } }),
+  const prefix = `JNJL-${editionYear}-AMB-`;
+  const [existing, burned] = await Promise.all([
+    // Plus grand numéro réellement présent : le simple nombre de badges ne suffit pas dès qu'il y a des trous
+    // (badges annulés, supprimés ou numérotés autrement), le numéro suivant tomberait sur un badge existant.
+    db.userBadge.findMany({ where: { number: { startsWith: prefix } }, select: { number: true } }),
     db.setting.findUnique({ where: { key: burnedCounterKey(editionId) }, select: { value: true } }),
   ]);
-  const next = Math.max(count, Number(burned?.value ?? 0)) + 1;
-  return `JNJL-${editionYear}-AMB-${String(next).padStart(4, "0")}`;
+  const highest = existing.reduce((max, item) => Math.max(max, Number(item.number?.slice(prefix.length)) || 0), 0);
+  const next = Math.max(highest, Number(burned?.value ?? 0)) + 1;
+  return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -119,23 +124,33 @@ async function awardBadge(actor: User, applicationId: string) {
   });
   if (existing) return existing;
 
-  const number = await nextBadgeNumber(application.edition.year, badge.id, application.editionId);
-
-  const [userBadge] = await db.$transaction([
-    db.userBadge.create({
-      data: {
-        userId: application.userId,
-        badgeId: badge.id,
-        editionId: application.editionId,
-        number,
-        qrCode: number,
-      },
-    }),
-    db.ambassadorApplication.update({
-      where: { id: application.id },
-      data: { stage: application.stage === "BADGE" ? "EMBARQUEMENT" : application.stage },
-    }),
-  ]);
+  // Nouvel essai si deux attributions simultanées (deux administrateurs) visent le même numéro.
+  let number = "";
+  let userBadge: Awaited<ReturnType<typeof db.userBadge.create>> | null = null;
+  for (let attempt = 0; attempt < 5 && !userBadge; attempt++) {
+    number = await nextBadgeNumber(application.edition.year, badge.id, application.editionId);
+    try {
+      [userBadge] = await db.$transaction([
+        db.userBadge.create({
+          data: {
+            userId: application.userId,
+            badgeId: badge.id,
+            editionId: application.editionId,
+            number,
+            qrCode: number,
+          },
+        }),
+        db.ambassadorApplication.update({
+          where: { id: application.id },
+          data: { stage: application.stage === "BADGE" ? "EMBARQUEMENT" : application.stage },
+        }),
+      ]);
+    } catch (error) {
+      const duplicate = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+      if (!duplicate || attempt === 4) throw error;
+    }
+  }
+  if (!userBadge) throw new Error("Numéro de badge indisponible, réessayez");
 
   // QR contrôlé par ScanHub : actif seulement une fois l'embarquement validé.
   await syncBadgeQr(userBadge.id, ["PRESENCE", "ATTESTATION"].includes(application.stage));
