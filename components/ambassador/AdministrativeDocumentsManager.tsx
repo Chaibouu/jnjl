@@ -161,7 +161,6 @@ function MissionOrderCard({
 }) {
   const [etablissement, setEtablissement] = useState(data.institution);
   const [moyenTransport, setMoyenTransport] = useState("");
-  const [financement, setFinancement] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -170,7 +169,7 @@ function MissionOrderCard({
     setError("");
     startTransition(async () => {
       try {
-        const { fileUrl } = await generateMyMissionOrderAction({ etablissement, moyenTransport, financement });
+        const { fileUrl } = await generateMyMissionOrderAction({ etablissement, moyenTransport });
         onGenerated({ fileUrl, generatedAt: new Date() } as never);
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
@@ -199,12 +198,7 @@ function MissionOrderCard({
         </Field>
         <Field>
           <FieldLabel>Financement</FieldLabel>
-          <Input
-            value={financement}
-            onChange={event => setFinancement(event.target.value)}
-            placeholder="ex. JNJL"
-            required
-          />
+          <Input value="LEADER D'AFRIQUE" readOnly disabled />
         </Field>
         {error && <p className="bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <Button type="submit" loading={isPending} className="w-full">

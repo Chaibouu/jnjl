@@ -243,20 +243,20 @@ export async function generateMyPermissionRequestAction(input: {
   return { fileUrl };
 }
 
+/** Financement des missions : toujours le même, non modifiable par l'ambassadeur. */
+const MISSION_FINANCEMENT = "LEADER D'AFRIQUE";
+
 export async function generateMyMissionOrderAction(input: {
   etablissement: string;
   moyenTransport: string;
-  financement: string;
 }) {
   const user = await getCurrentUser();
   const { edition, application } = await loadContext(user);
 
   const etablissement = input.etablissement.trim();
   const moyenTransport = input.moyenTransport.trim();
-  const financement = input.financement.trim();
   if (etablissement.length < 2) throw new Error("Précisez le nom de l'établissement");
   if (moyenTransport.length < 2) throw new Error("Précisez le moyen de transport");
-  if (financement.length < 2) throw new Error("Précisez le financement");
 
   const reference = await resolveReference(application.id, "MISSION_ORDER", edition.year);
 
@@ -270,7 +270,7 @@ export async function generateMyMissionOrderAction(input: {
     date_debut: formatDate(edition.missionDepartureDate),
     date_fin: formatDate(edition.missionReturnDate),
     moyen_transport: moyenTransport,
-    financement,
+    financement: MISSION_FINANCEMENT,
     date_lettre: formatDate(new Date()),
   });
 
