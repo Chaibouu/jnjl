@@ -385,11 +385,6 @@ export function StatsDashboard({
             <p className="text-sm text-muted-foreground">
               Participants souhaitant prendre un engagement à l&apos;entrepreneuriat lors de la cérémonie.
             </p>
-            <p className="mt-2 text-sm">
-              Hors Niamey, déplacement à leurs frais confirmé :{" "}
-              <strong>{stats.participants.travelToNiamey.yes} oui</strong>,{" "}
-              <strong>{stats.participants.travelToNiamey.no} non</strong> (inscriptions à vérifier).
-            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-4">
               {stats.participants.byEntrepreneurship.map(item => (
                 <div key={item.value} className="rounded-xl border bg-muted/30 p-4">
@@ -399,6 +394,27 @@ export function StatsDashboard({
                   <p className="mt-1 text-2xl font-bold">{item.count}</p>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <MapPin className="h-4.5 w-4.5" style={{ color: charter.orange }} />
+              Déplacement à Niamey — Participants hors Niamey
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Participants de l&apos;intérieur du pays qui comptent venir à Niamey à leurs frais. Les « Non » sont inscrits,
+              mais probablement peu sérieux : le détail par région est dans le tableau ci-dessous.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Viendront à Niamey</p>
+                <p className="mt-1 text-2xl font-bold">{stats.participants.travelToNiamey.yes}</p>
+              </div>
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Ne viendront pas</p>
+                <p className="mt-1 text-2xl font-bold">{stats.participants.travelToNiamey.no}</p>
+              </div>
             </div>
           </div>
 
@@ -436,7 +452,7 @@ export function StatsDashboard({
                       <td className="px-3 py-3 text-right">{row.selected}</td>
                       <td className="px-3 py-3 text-right">{row.boarded}</td>
                       <td className="px-3 py-3 text-right">{row.present}</td>
-                      <td className="px-5 py-3 text-right">{row.participants}<span className="text-xs text-muted-foreground"> ({row.participantsPresent} présents)</span></td>
+                      <td className="px-5 py-3 text-right">{row.participants}<span className="text-xs text-muted-foreground"> ({row.participantsPresent} présents)</span>{row.participantsNoTravel > 0 && <span className="block text-xs text-red-600">{row.participantsNoTravel} ne viendront pas</span>}</td>
                     </tr>
                   ))}
                   {stats.regions.length === 0 && (

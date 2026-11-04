@@ -89,6 +89,7 @@ export async function getEditionStatsAction(editionId: string) {
     present: number;
     participants: number;
     participantsPresent: number;
+    participantsNoTravel: number;
   };
   const rows = new Map<string, Row>(
     regions.map(region => [
@@ -104,6 +105,7 @@ export async function getEditionStatsAction(editionId: string) {
         present: 0,
         participants: 0,
         participantsPresent: 0,
+        participantsNoTravel: 0,
       },
     ])
   );
@@ -147,7 +149,10 @@ export async function getEditionStatsAction(editionId: string) {
     entrepreneurship.set(commitment, (entrepreneurship.get(commitment) ?? 0) + 1);
     if (application.regionId) {
       const row = rows.get(application.regionId);
-      if (row) row.participants += 1;
+      if (row) {
+        row.participants += 1;
+        if (application.willTravelToNiamey === false) row.participantsNoTravel += 1;
+      }
     }
   }
 

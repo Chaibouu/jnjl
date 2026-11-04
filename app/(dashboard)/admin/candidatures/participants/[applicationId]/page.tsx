@@ -116,7 +116,7 @@ export default async function EventApplicationDetailsPage({
                   <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <p className="text-sm leading-relaxed">
                     Compte faire le déplacement à Niamey à ses frais :{" "}
-                    <strong>{application.willTravelToNiamey ? "Oui" : "Non (inscription à vérifier)"}</strong>
+                    <strong>{application.willTravelToNiamey ? "Oui" : "Non"}</strong>
                   </p>
                 </div>
               </InfoCategory>
