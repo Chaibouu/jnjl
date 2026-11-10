@@ -1,4 +1,5 @@
 import { generateDesignBadgesPdf, type DesignBadgeItem } from "@/lib/generate-badge-pdf";
+import { badgePrintScale, isBadgeLayout } from "@/lib/badge-layouts";
 
 /**
  * Nombre de badges générés par appel serveur. Le dessin d'un badge prend ~80 ms : 40 badges tiennent largement
@@ -17,12 +18,17 @@ export type BadgePart = {
   count: number;
 };
 
-/** Rend la partie `part` (de BADGES_PER_PART badges) de la liste ordonnée `items`. */
-export async function renderBadgePart(items: DesignBadgeItem[], part: number): Promise<BadgePart | null> {
+/**
+ * Rend la partie `part` (de BADGES_PER_PART badges) de la liste ordonnée `items`. `layout` est la mise en page
+ * choisie à l'impression : le texte est agrandi si le badge sera imprimé réduit.
+ */
+export async function renderBadgePart(items: DesignBadgeItem[], part: number, layout?: unknown): Promise<BadgePart | null> {
   const totalParts = Math.max(1, Math.ceil(items.length / BADGES_PER_PART));
   const chunk = items.slice(part * BADGES_PER_PART, (part + 1) * BADGES_PER_PART);
   if (chunk.length === 0) return null;
-  const result = await generateDesignBadgesPdf(chunk);
+  const result = await generateDesignBadgesPdf(chunk, {
+    printScale: badgePrintScale(isBadgeLayout(layout) ? layout : null),
+  });
   if (!result) return null;
   return { base64: Buffer.from(result.pdf).toString("base64"), part, totalParts, count: result.rendered };
 }

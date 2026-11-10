@@ -329,7 +329,7 @@ export async function downloadAccessPassBadgeAction(passId: string) {
  * révoqués sont exclus ; ceux dont le QR n'existe pas dans ScanHub sont ignorés et comptés, pour ne jamais
  * imprimer un QR que l'entrée refuserait.
  */
-export async function printAccessPassBadgesAction(editionId: string, passIds?: string[], part = 0) {
+export async function printAccessPassBadgesAction(editionId: string, passIds?: string[], part = 0, layout?: string) {
   await requirePermission(PERMISSION);
   const passes = await db.accessPass.findMany({
     where: { editionId, ...(passIds && passIds.length > 0 ? { id: { in: passIds } } : {}) },
@@ -369,7 +369,7 @@ export async function printAccessPassBadgesAction(editionId: string, passIds?: s
   }
 
   return {
-    part: await renderBadgePart(items, part),
+    part: await renderBadgePart(items, part, layout),
     printed: items.length,
     revokedSkipped: passes.length - active.length,
     notSynced,

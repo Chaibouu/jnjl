@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { Input } from "@/components/ui/input";
 import { BADGE_LAYOUT_OPTIONS, downloadBadgesInParts, type BadgeLayout } from "@/lib/download-pdf";
+import { BADGE_PRINT_HINT } from "@/lib/badge-layouts";
 import { shrinkImage } from "@/lib/client-image";
 
 type EditionOption = { id: string; name: string; year: number };
@@ -209,7 +210,7 @@ export function AccessPassManager({
       let summary = { printed: 0, revokedSkipped: 0, notSynced: 0, error: null as string | null };
       const downloaded = await downloadBadgesInParts(
         async part => {
-          const result = await printAccessPassBadgesAction(editionId, ids, part);
+          const result = await printAccessPassBadgesAction(editionId, ids, part, layout);
           summary = result;
           return result.part;
         },
@@ -511,6 +512,7 @@ export function AccessPassManager({
               {passes.filter(pass => pass.checkedInAt).length} pointée
               {passes.filter(pass => pass.checkedInAt).length > 1 ? "s" : ""}
             </p>
+            <p className="mt-1 max-w-md text-xs text-muted-foreground">{BADGE_PRINT_HINT}</p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <select

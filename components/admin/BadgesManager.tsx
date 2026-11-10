@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { BADGE_LAYOUT_OPTIONS, downloadBadgesInParts, type BadgeLayout } from "@/lib/download-pdf";
+import { BADGE_PRINT_HINT } from "@/lib/badge-layouts";
 import {
   Select,
   SelectContent,
@@ -239,7 +240,7 @@ export function BadgesManager({
         let notSynced = 0;
         const downloaded = await downloadBadgesInParts(
           async part => {
-            const result = await printAmbassadorBadgesAction(editionId, printRegionId || null, part);
+            const result = await printAmbassadorBadgesAction(editionId, printRegionId || null, part, layout);
             printed = result.printed;
             notSynced = result.notSynced;
             return result.part;
@@ -349,7 +350,8 @@ export function BadgesManager({
         )}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:items-end">
+      <div className="space-y-3 rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
           Impression en lot — région
           <select
@@ -402,6 +404,11 @@ export function BadgesManager({
             Annuler tous les badges
           </Button>
         )}
+        </div>
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Printer className="h-3.5 w-3.5 shrink-0" />
+          {BADGE_PRINT_HINT}
+        </p>
       </div>
 
       {message && (

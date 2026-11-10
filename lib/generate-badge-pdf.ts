@@ -194,7 +194,13 @@ async function createDesignContext(): Promise<DesignContext> {
 }
 
 /** Dessine un badge sur une nouvelle page du document ; faux si l'image de fond est introuvable. */
-async function drawDesignBadgePage(ctx: DesignContext, variant: DesignVariant, params: DesignParams): Promise<boolean> {
+async function drawDesignBadgePage(
+  ctx: DesignContext,
+  variant: DesignVariant,
+  params: DesignParams,
+  /** Taille imprimée / taille de la page (1 = A5) : garde le texte lisible sur les badges imprimés réduits. */
+  printScale = 1
+): Promise<boolean> {
   const design = DESIGNS[variant];
   const { doc, font, bold, mono } = ctx;
 
@@ -371,52 +377,86 @@ async function drawDesignBadgePage(ctx: DesignContext, variant: DesignVariant, p
   }
 
   // Identité : nom complet (réduit puis sur deux lignes si besoin), fonction, matricule et date.
+  // Quand le badge est imprimé réduit (`printScale` < 1), chaque texte garde une taille imprimée minimale
+  // (MIN_PRINTED_PT) et les interlignes grandissent dans la même proportion. À taille réelle, rien ne change.
   const centerX = DESIGN_W / 2;
   const maxWidth = px(DESIGN_W - 120);
+  const minSize = (base: number, printed: number) => Math.max(base, printed / printScale);
+  const nameMin = minSize(10, MIN_PRINTED_PT.name);
   const name = safe(params.fullName.toUpperCase(), bold);
   const words = name.split(" ");
-  let baseline = design.identityBaseline;
-  if (design.compact && bold.widthOfTextAtSize(name, 15) > maxWidth && words.length > 1) baseline -= 24; // deux lignes
-  if (bold.widthOfTextAtSize(name, 15) > maxWidth && words.length > 1) {
+  const twoLines = bold.widthOfTextAtSize(name, Math.max(15, nameMin)) > maxWidth && words.length > 1;
+
+  // Lignes à écrire, avec l'écart (px) depuis la ligne de base précédente et le facteur d'agrandissement appliqué.
+  type IdentityLine = { text: string; size: number; font: PDFFont; color: ReturnType<typeof rgb>; gap: number; grow: number };
+  const lines: IdentityLine[] = [];
+  const push = (text: string, base: number, size: number, usedFont: PDFFont, color: ReturnType<typeof rgb>, gap: number) => {
+    const grow = size / base;
+    const previousGrow = lines.length > 0 ? lines[lines.length - 1].grow : 1;
+    lines.push({ text, size, font: usedFont, color, gap: lines.length === 0 ? 0 : gap * Math.max(1, grow, previousGrow), grow });
+  };
+
+  if (twoLines) {
     const half = Math.ceil(words.length / 2);
     for (const line of [words.slice(0, half).join(" "), words.slice(half).join(" ")]) {
-      centeredAt(line, centerX, baseline, fitSize(line, bold, maxWidth, 22, 10), bold);
-      baseline += 46;
+      const base = fitSize(line, bold, maxWidth, 22, 10);
+      push(line, base, Math.max(base, nameMin), bold, NAVY, 46);
     }
-    baseline -= 46;
   } else {
-    centeredAt(name, centerX, baseline, fitSize(name, bold, maxWidth, 26, 10), bold);
+    const base = fitSize(name, bold, maxWidth, 26, 10);
+    push(name, base, Math.max(base, nameMin), bold, NAVY, 0);
   }
 
-  let cursor = baseline;
   const jobTitle = params.jobTitle?.trim();
   if (jobTitle) {
-    cursor += design.compact ? 26 : 32;
     const text = safe(jobTitle, font);
-    centeredAt(text, centerX, cursor, fitSize(text, font, maxWidth, 11, 7), font, GRAY);
+    const base = fitSize(text, font, maxWidth, 11, 7);
+    push(text, base, Math.max(base, minSize(7, MIN_PRINTED_PT.jobTitle)), font, GRAY, design.compact ? 26 : 32);
   }
-  if (design.compact) {
-    // Mise en page resserrée : matricule seul sous le nom (pas de trait ni de date).
-    centeredAt(`Matricule : ${params.number}`, centerX, cursor + 28, 10.5, mono, NAVY);
-    return true;
+  const matricule = `Matricule : ${params.number}`;
+  // Mise en page resserrée : matricule seul sous le nom (pas de trait ni de date).
+  push(matricule, 10.5, minSize(10.5, MIN_PRINTED_PT.matricule), mono, NAVY, design.compact ? 28 : 58);
+  const matriculeIndex = lines.length - 1;
+  if (!design.compact) {
+    const date = `Délivré le ${params.awardedAt.toLocaleDateString("fr-FR")}`;
+    push(date, 8, minSize(8, MIN_PRINTED_PT.date), font, GRAY, 26);
   }
-  page.drawRectangle({ x: px(centerX - 120), y: py(cursor + 22), width: px(240), height: 1.2, color: ORANGE });
-  centeredAt(`Matricule : ${params.number}`, centerX, cursor + 58, 10.5, mono, NAVY);
-  centeredAt(`Délivré le ${params.awardedAt.toLocaleDateString("fr-FR")}`, centerX, cursor + 84, 8, font, GRAY);
+
+  // Ligne de base de chaque ligne ; le bloc remonte s'il dépasse le bas du badge (textes agrandis).
+  let baseline = design.identityBaseline - (design.compact && twoLines ? 24 : 0);
+  const baselines = lines.map(line => (baseline += line.gap));
+  const last = lines[lines.length - 1];
+  const overflow = baselines[baselines.length - 1] + (0.25 * last.size) / k - (DESIGN_H - 14);
+  const shift = overflow > 0 ? overflow : 0;
+
+  lines.forEach((line, index) => {
+    centeredAt(line.text, centerX, baselines[index] - shift, line.size, line.font, line.color);
+  });
+  if (!design.compact) {
+    // Trait orange entre la fonction (ou le nom) et le matricule, aux 22/58 de l'écart d'origine.
+    const above = baselines[matriculeIndex - 1] - shift;
+    const ruleY = above + (lines[matriculeIndex].gap * 22) / 58;
+    page.drawRectangle({ x: px(centerX - 120), y: py(ruleY), width: px(240), height: 1.2, color: ORANGE });
+  }
 
   return true;
 }
+
+/** Taille imprimée minimale (en points) des textes d'identité quand le badge est imprimé réduit. */
+const MIN_PRINTED_PT = { name: 7, jobTitle: 5.5, matricule: 6, date: 5 };
 
 export type DesignBadgeItem = { variant: DesignVariant; params: DesignParams };
 
 /** Un seul PDF pour plusieurs badges (une page par badge), prêt à imprimer. `null` si aucune maquette n'est lisible. */
 export async function generateDesignBadgesPdf(
-  items: DesignBadgeItem[]
+  items: DesignBadgeItem[],
+  options: { printScale?: number } = {}
 ): Promise<{ pdf: Uint8Array; rendered: number } | null> {
   const ctx = await createDesignContext();
+  const printScale = options.printScale && options.printScale > 0 ? Math.min(1, options.printScale) : 1;
   let rendered = 0;
   for (const item of items) {
-    if (await drawDesignBadgePage(ctx, item.variant, item.params)) rendered += 1;
+    if (await drawDesignBadgePage(ctx, item.variant, item.params, printScale)) rendered += 1;
   }
   if (rendered === 0) return null;
   return { pdf: await ctx.doc.save(), rendered };

@@ -14,40 +14,10 @@ function downloadPdfBytes(bytes: Uint8Array, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/**
- * Mise en page de l'impression en lot :
- * - « a9 »   : 9 badges (6 × 8,4 cm) par feuille A4 en portrait, 3 × 3, espacés pour la découpe ;
- * - « a6x4 » : 4 badges A6 (10,5 × 14,8 cm) par feuille A4 en portrait, 2 × 2 ;
- * - « a5 »   : un badge A5 par page (taille d'origine).
- * Les deux premières ajoutent de petits repères de coupe sur les bords de la feuille.
- */
-export type BadgeLayout = "a9" | "a6x4" | "a5";
+// Les mises en page sont définies dans un module partagé avec le serveur (taille d'impression du texte).
+import { SHEETS, type BadgeLayout } from "@/lib/badge-layouts";
 
-export const BADGE_LAYOUT_OPTIONS: { value: BadgeLayout; label: string }[] = [
-  { value: "a9", label: "9 badges (6 × 8,4 cm) par feuille A4 (recommandé)" },
-  { value: "a6x4", label: "4 badges A6 par feuille A4" },
-  { value: "a5", label: "1 badge A5 par page" },
-];
-
-// Formats en points PDF (1 pt = 1/72 pouce).
-const MM = 72 / 25.4;
-const A4_WIDTH = 595.28;
-const A4_HEIGHT = 841.89;
-const A6_WIDTH = 297.64;
-const A6_HEIGHT = 419.53;
-// Petit badge : 59,6 × 84 mm, mêmes proportions que le badge (420 × 592,07 pt).
-const SMALL_WIDTH = 59.6 * MM;
-const SMALL_HEIGHT = SMALL_WIDTH * (592.07 / 420);
-
-/** Feuille A4 découpée en cases : taille d'une case, grille et espacement entre les cases (la grille est centrée). */
-const SHEETS: Record<
-  Exclude<BadgeLayout, "a5">,
-  { sheetW: number; sheetH: number; cellW: number; cellH: number; cols: number; rows: number; gapX: number; gapY: number }
-> = {
-  a6x4: { sheetW: A4_WIDTH, sheetH: A4_HEIGHT, cellW: A6_WIDTH, cellH: A6_HEIGHT, cols: 2, rows: 2, gapX: 0, gapY: 0 },
-  // 3 mm entre les colonnes et 10 mm entre les lignes : de quoi découper aux ciseaux ou à la massicot.
-  a9: { sheetW: A4_WIDTH, sheetH: A4_HEIGHT, cellW: SMALL_WIDTH, cellH: SMALL_HEIGHT, cols: 3, rows: 3, gapX: 3 * MM, gapY: 10 * MM },
-};
+export { BADGE_LAYOUT_OPTIONS, type BadgeLayout } from "@/lib/badge-layouts";
 
 const LAYOUT_SUFFIX: Record<BadgeLayout, string> = { a9: "-9par-A4", a6x4: "-A6x4", a5: "-A5" };
 
