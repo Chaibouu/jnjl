@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Award, BadgeCheck, Printer, Undo2 } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { Award, BadgeCheck, Printer, Search, Undo2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ListPagination } from "@/components/admin/ListPagination";
 import {
   awardAllAmbassadorBadgesAction,
   awardAmbassadorBadgeAction,
@@ -22,6 +24,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import charter from "@/settings/charter";
+
+/** Minuscules sans accents : « Aïssatou » se trouve en tapant « aissatou ». */
+const normalize = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+
+const STAGE_LABELS: Record<string, string> = {
+  BADGE: "Badge",
+  EMBARQUEMENT: "Embarquement",
+  PRESENCE: "Présence",
+  ATTESTATION: "Attestation",
+};
+
+const filterSelectClass =
+  "h-10 w-full rounded-md border border-input bg-background px-3 text-sm font-normal text-foreground";
 
 type EditionOption = { id: string; name: string; year: number };
 type Candidate = {
@@ -59,6 +79,56 @@ export function BadgesManager({
   const regionOptions = Array.from(
     new Map(candidates.map(candidate => [candidate.region.id, candidate.region.name])).entries()
   ).sort((a, b) => a[1].localeCompare(b[1], "fr"));
+
+  // ─── Recherche, filtres et pagination (sur la liste déjà chargée) ───────────
+  const [search, setSearch] = useState("");
+  const [badgeFilter, setBadgeFilter] = useState<"ALL" | "AWARDED" | "PENDING">("ALL");
+  const [regionFilter, setRegionFilter] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  const filtered = useMemo(() => {
+    const words = normalize(search).split(/\s+/).filter(Boolean);
+    return candidates.filter(candidate => {
+      if (badgeFilter === "AWARDED" && !candidate.badge) return false;
+      if (badgeFilter === "PENDING" && candidate.badge) return false;
+      if (regionFilter && candidate.region.id !== regionFilter) return false;
+      if (stageFilter && candidate.stage !== stageFilter) return false;
+      if (words.length === 0) return true;
+      const haystack = normalize(
+        [
+          candidate.firstName,
+          candidate.lastName,
+          candidate.email,
+          candidate.region.name,
+          candidate.badge?.number ?? "",
+        ].join(" ")
+      );
+      return words.every(word => haystack.includes(word));
+    });
+  }, [candidates, search, badgeFilter, regionFilter, stageFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const hasFilters = search.trim() !== "" || badgeFilter !== "ALL" || regionFilter !== "" || stageFilter !== "";
+
+  // Tout changement de filtre ramène à la première page.
+  const withFirstPage =
+    <T,>(setter: (value: T) => void) =>
+    (value: T) => {
+      setter(value);
+      setPage(1);
+    };
+
+  const resetFilters = () => {
+    setSearch("");
+    setBadgeFilter("ALL");
+    setRegionFilter("");
+    setStageFilter("");
+    setPage(1);
+  };
 
   const refresh = (newEditionId: string, successMessage?: string) => {
     setError("");
@@ -342,8 +412,74 @@ export function BadgesManager({
       )}
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        {candidates.length > 0 && (
+          <div className="space-y-3 border-b p-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Rechercher un nom, un e-mail, un n° de badge…"
+                  value={search}
+                  onChange={event => withFirstPage(setSearch)(event.target.value)}
+                  aria-label="Rechercher un ambassadeur"
+                />
+              </div>
+              <select
+                value={badgeFilter}
+                onChange={event => withFirstPage(setBadgeFilter)(event.target.value as typeof badgeFilter)}
+                className={filterSelectClass}
+                aria-label="Filtrer par état du badge"
+              >
+                <option value="ALL">Tous ({candidates.length})</option>
+                <option value="AWARDED">Badge attribué ({awardedCount})</option>
+                <option value="PENDING">À attribuer ({pendingCount})</option>
+              </select>
+              <select
+                value={regionFilter}
+                onChange={event => withFirstPage(setRegionFilter)(event.target.value)}
+                className={filterSelectClass}
+                aria-label="Filtrer par région"
+              >
+                <option value="">Toutes les régions</option>
+                {regionOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={stageFilter}
+                onChange={event => withFirstPage(setStageFilter)(event.target.value)}
+                className={filterSelectClass}
+                aria-label="Filtrer par étape"
+              >
+                <option value="">Toutes les étapes</option>
+                {Object.entries(STAGE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {filtered.length} sur {candidates.length} ambassadeur{candidates.length > 1 ? "s" : ""}
+              </span>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="font-medium text-foreground underline-offset-2 hover:underline"
+                >
+                  Réinitialiser les filtres
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         <div className="divide-y">
-          {candidates.map(candidate => (
+          {pageItems.map(candidate => (
             <div key={candidate.id} className="flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
                 <p className="font-medium">
@@ -391,7 +527,19 @@ export function BadgesManager({
               Aucun ambassadeur n&apos;a encore signé son engagement.
             </p>
           )}
+          {candidates.length > 0 && filtered.length === 0 && (
+            <p className="px-5 py-12 text-center text-muted-foreground">
+              Aucun ambassadeur ne correspond à ces filtres.
+            </p>
+          )}
         </div>
+        <ListPagination
+          page={currentPage}
+          pageSize={pageSize}
+          total={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={withFirstPage(setPageSize)}
+        />
       </div>
     </section>
   );
