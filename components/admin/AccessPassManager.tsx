@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import { Ban, Camera, Download, ListPlus, Pencil, Printer, RotateCcw, Search, Upload, UserPlus, X } from "lucide-react";
+import { Ban, Camera, Download, ListPlus, Pencil, Printer, RotateCcw, Search, Trash2, Upload, UserPlus, X } from "lucide-react";
 import {
   createAccessPassAction,
   createAccessPassesBulkAction,
+  deleteAccessPassAction,
   downloadAccessPassBadgeAction,
   listAccessPassesAction,
   printAccessPassBadgesAction,
@@ -21,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { BADGE_LAYOUT_OPTIONS, downloadBadgesInParts, type BadgeLayout } from "@/lib/download-pdf";
 import { BADGE_PRINT_HINT } from "@/lib/badge-layouts";
 import { shrinkImage } from "@/lib/client-image";
+import charter from "@/settings/charter";
 
 type EditionOption = { id: string; name: string; year: number };
 
@@ -51,6 +53,7 @@ export function AccessPassManager({
   const [passes, setPasses] = useState(initialPasses);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL);
+  const [presenceFilter, setPresenceFilter] = useState<"ALL" | "CHECKED" | "PENDING">("ALL");
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [form, setForm] = useState({
     fullName: "",
@@ -77,12 +80,14 @@ export function AccessPassManager({
     const query = search.trim().toLowerCase();
     return passes.filter(pass => {
       if (categoryFilter !== ALL && pass.category !== categoryFilter) return false;
+      if (presenceFilter === "CHECKED" && !pass.checkedInAt) return false;
+      if (presenceFilter === "PENDING" && pass.checkedInAt) return false;
       if (!query) return true;
       return `${pass.fullName} ${pass.organization ?? ""} ${pass.jobTitle ?? ""} ${pass.number} ${pass.phone ?? ""}`
         .toLowerCase()
         .includes(query);
     });
-  }, [passes, search, categoryFilter]);
+  }, [passes, search, categoryFilter, presenceFilter]);
 
   const counts = useMemo(() => {
     const byCategory = new Map<string, number>();
@@ -243,6 +248,31 @@ export function AccessPassManager({
       else if (result.failed === 0) setMessage(`${result.synced} QR synchronisé(s) avec ScanHub.`);
       else setError(`${result.synced} synchronisé(s), ${result.failed} en échec : ${result.error ?? "erreur inconnue"}`);
     });
+
+  const remove = async (pass: AccessPassRow) => {
+    const confirmed = await confirm({
+      title: "Supprimer ce badge ?",
+      description: pass.checkedInAt
+        ? `${pass.fullName} est déjà pointé(e) : sa présence disparaîtra avec le badge. Le QR sera désactivé et le numéro ${pass.number} ne sera pas réutilisé. Cette action est définitive.`
+        : `Le badge de ${pass.fullName} sera supprimé, son QR désactivé et son numéro ${pass.number} ne sera pas réutilisé. Cette action est définitive.`,
+      confirmLabel: "Supprimer le badge",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    run(async () => {
+      const result = await deleteAccessPassAction(pass.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPasses(items => items.filter(item => item.id !== pass.id));
+      setMessage(
+        result.scanHubUpdated
+          ? "Badge supprimé."
+          : "Badge supprimé, mais ScanHub n'a pas répondu : son QR n'est pas encore désactivé (révoquez-le dans ScanHub si besoin)."
+      );
+    });
+  };
 
   const toggle = async (pass: AccessPassRow) => {
     const revoke = pass.status === "ACTIF";
@@ -524,6 +554,33 @@ export function AccessPassManager({
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                ["ALL", "Tous", passes.length],
+                ["CHECKED", "Pointés", passes.filter(pass => pass.checkedInAt).length],
+                ["PENDING", "Pas encore pointés", passes.filter(pass => !pass.checkedInAt).length],
+              ] as const
+            ).map(([value, label, count]) => {
+              const active = presenceFilter === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPresenceFilter(value)}
+                  className="rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors"
+                  style={
+                    active
+                      ? { backgroundColor: charter.orange, borderColor: charter.orange, color: "#fff" }
+                      : { backgroundColor: "transparent" }
+                  }
+                >
+                  {label} <span className={active ? "opacity-90" : "text-muted-foreground"}>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="grid gap-2 sm:grid-cols-2">
             <select value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)} className={selectClass}>
               <option value={ALL}>Toutes les catégories</option>
@@ -656,6 +713,16 @@ export function AccessPassManager({
                         ) : (
                           <RotateCcw className="h-4 w-4 text-primary" />
                         )}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title="Supprimer le badge"
+                        disabled={isPending}
+                        onClick={() => remove(pass)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </td>

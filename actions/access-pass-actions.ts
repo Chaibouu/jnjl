@@ -7,9 +7,12 @@ import { loadPublicImage, PARTNER_LOGO_PATHS } from "@/lib/badge-assets";
 import { uploadFile } from "@/lib/upload";
 import { storagePaths } from "@/lib/storage-paths";
 import { categoryLabel, isAccessCategory, organizationField } from "@/lib/access-categories";
+import { setBadgeQrActive } from "@/lib/scanhub";
+import { auditAdminAction } from "@/lib/audit";
 import {
   DESIGN_VARIANT_BY_CATEGORY,
   GENERIC_TITLES,
+  accessCounterKey,
   nextAccessNumber,
   passDesignParams,
   syncAccessPassQr,
@@ -240,6 +243,55 @@ export async function setAccessPassStatusAction(passId: string, active: boolean)
   await db.accessPass.update({ where: { id: passId }, data: { status: active ? "ACTIF" : "REVOQUE" } });
   const synced = await syncAccessPassQr(passId, active);
   return { status: active ? "ACTIF" : "REVOQUE", synced };
+}
+
+/**
+ * Supprime un badge d'accès (doublon, erreur de saisie…). Le QR ScanHub est désactivé (ScanHub ne permet pas de le
+ * supprimer) et le numéro n'est jamais réattribué. Si la personne était déjà pointée, sa présence disparaît avec le badge.
+ */
+export async function deleteAccessPassAction(
+  passId: string
+): Promise<{ ok: true; scanHubUpdated: boolean } | { ok: false; error: string }> {
+  const actor = await requirePermission(PERMISSION);
+  const pass = await db.accessPass.findUnique({
+    where: { id: passId },
+    select: { id: true, number: true, editionId: true, fullName: true, category: true, checkedInAt: true },
+  });
+  if (!pass) return { ok: false, error: "Badge introuvable (déjà supprimé ?)" };
+
+  // Le numéro est « brûlé » avant la suppression : il ne sera plus jamais redistribué.
+  const burned = Number(pass.number.match(/(\d+)$/)?.[1] ?? 0);
+  const key = accessCounterKey(pass.editionId);
+  const current = Number((await db.setting.findUnique({ where: { key }, select: { value: true } }))?.value ?? 0);
+  await db.setting.upsert({
+    where: { key },
+    create: { key, value: String(Math.max(current, burned)), description: "Dernier numéro de badge d'accès attribué" },
+    update: { value: String(Math.max(current, burned)) },
+  });
+
+  await db.accessPass.delete({ where: { id: pass.id } });
+
+  let scanHubUpdated = true;
+  try {
+    await setBadgeQrActive(pass.number, false);
+  } catch (error) {
+    scanHubUpdated = false;
+    console.error("ScanHub : désactivation du QR d'un badge d'accès supprimé en échec", error);
+  }
+
+  await auditAdminAction({
+    actorId: actor.id,
+    action: "BADGE_CANCELLED",
+    target: {
+      label: `Badge d'accès : ${pass.fullName}`,
+      accessPass: true,
+      number: pass.number,
+      fullName: pass.fullName,
+      category: pass.category,
+      wasCheckedIn: !!pass.checkedInAt,
+    },
+  });
+  return { ok: true, scanHubUpdated };
 }
 
 /** Crée dans ScanHub les QR manquants des badges d'accès de l'édition et affiche la raison en cas d'échec. */

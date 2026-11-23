@@ -5,9 +5,21 @@ import { categoryLabel } from "@/lib/access-categories";
 import type { DesignParams, DesignVariant } from "@/lib/generate-badge-pdf";
 
 /** Numéro de badge suivant pour l'édition : ACC-2026-0001, ACC-2026-0002… */
+export const accessCounterKey = (editionId: string) => `badges.access_counter.${editionId}`;
+
+/**
+ * Numéro suivant : jamais réutilisé, même après la suppression d'un badge (un numéro réutilisé pointerait vers le QR
+ * ScanHub de l'ancien porteur). On part du plus grand numéro présent et du compteur des numéros supprimés.
+ */
 export async function nextAccessNumber(editionId: string, editionYear: number): Promise<string> {
-  const count = await db.accessPass.count({ where: { editionId } });
-  return `ACC-${editionYear}-${String(count + 1).padStart(4, "0")}`;
+  const prefix = `ACC-${editionYear}-`;
+  const [existing, burned] = await Promise.all([
+    db.accessPass.findMany({ where: { number: { startsWith: prefix } }, select: { number: true } }),
+    db.setting.findUnique({ where: { key: accessCounterKey(editionId) }, select: { value: true } }),
+  ]);
+  const highest = existing.reduce((max, item) => Math.max(max, Number(item.number.slice(prefix.length)) || 0), 0);
+  const next = Math.max(highest, Number(burned?.value ?? 0)) + 1;
+  return `${prefix}${String(next).padStart(4, "0")}`;
 }
 
 /**
