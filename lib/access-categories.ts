@@ -8,6 +8,7 @@ export const ACCESS_CATEGORIES = [
   { code: "PERSONNEL_APPUI", label: "Personnel d'appui" },
   { code: "INVITE", label: "Invité / VIP" },
   { code: "AMBASSADEUR_SPONSOR", label: "Ambassadeur sponsor" },
+  { code: "ANIMATION", label: "Animation" },
   { code: "AUTRE", label: "Autre" },
 ] as const;
 
@@ -34,6 +35,7 @@ export const ORGANIZATION_FIELD: Record<AccessCategoryCode, { label: string; pla
   PERSONNEL_APPUI: { label: "Service", placeholder: "Ex. Logistique", required: true },
   INVITE: { label: "Structure (facultatif)", placeholder: "Ex. Ministère de la Jeunesse", required: false },
   AMBASSADEUR_SPONSOR: { label: "Institution / Entreprise", placeholder: "Ex. Ambassade sponsor", required: true }, 
+  ANIMATION: { label: "Groupe / Structure (facultatif)", placeholder: "Ex. Troupe théâtrale", required: false },
   AUTRE: { label: "Précision (facultatif)", placeholder: "Ex. Partenaire technique", required: false },
 };
 
