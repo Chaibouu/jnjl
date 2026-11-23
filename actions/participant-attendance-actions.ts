@@ -16,6 +16,11 @@ export interface ParticipantAttendanceRow {
   gender: string;
   phone: string;
   region: string;
+  profession: string;
+  /** Engagement à l'entrepreneuriat : OUI | NON | PEUT_ETRE | "" (non renseigné). */
+  entrepreneurship: string;
+  /** Déplacement à Niamey à ses frais (hors Niamey) : OUI | NON | "" (sans objet ou non renseigné). */
+  travel: string;
   badgeNumber: string;
   /** Premier passage (null = pas encore pointé). */
   firstCheckIn: Date | null;
@@ -35,6 +40,9 @@ async function loadRows(editionId: string): Promise<ParticipantAttendanceRow[]> 
       lastName: true,
       gender: true,
       phone: true,
+      profession: true,
+      entrepreneurshipCommitment: true,
+      willTravelToNiamey: true,
       region: { select: { name: true } },
       participation: {
         select: { badgeNumber: true, attendances: { select: { checkedAt: true }, orderBy: { checkedAt: "asc" } } },
@@ -51,6 +59,9 @@ async function loadRows(editionId: string): Promise<ParticipantAttendanceRow[]> 
       gender: application.gender === "FEMININ" ? "Féminin" : application.gender === "MASCULIN" ? "Masculin" : "",
       phone: application.phone,
       region: application.region?.name ?? "",
+      profession: application.profession ?? "",
+      entrepreneurship: application.entrepreneurshipCommitment ?? "",
+      travel: application.willTravelToNiamey == null ? "" : application.willTravelToNiamey ? "OUI" : "NON",
       badgeNumber: application.participation?.badgeNumber ?? "",
       firstCheckIn: attendances[0]?.checkedAt ?? null,
       checkIns: attendances.length,
@@ -63,7 +74,15 @@ export async function listParticipantAttendanceAction(editionId: string) {
   return loadRows(editionId);
 }
 
-export type ParticipantAttendanceFilters = { region?: string; status?: "ALL" | "PRESENT" | "ABSENT"; search?: string };
+export type ParticipantAttendanceFilters = {
+  region?: string;
+  status?: "ALL" | "PRESENT" | "ABSENT";
+  search?: string;
+  gender?: string;
+  profession?: string;
+  entrepreneurship?: string;
+  travel?: string;
+};
 
 export async function exportParticipantAttendanceExcelAction(
   editionId: string,
@@ -74,6 +93,10 @@ export async function exportParticipantAttendanceExcelAction(
     row =>
       (!filters.region || row.region === filters.region) &&
       (!filters.status || filters.status === "ALL" || (filters.status === "PRESENT") === !!row.firstCheckIn) &&
+      (!filters.gender || row.gender === filters.gender) &&
+      (!filters.profession || row.profession === filters.profession) &&
+      (!filters.entrepreneurship || row.entrepreneurship === filters.entrepreneurship) &&
+      (!filters.travel || row.travel === filters.travel) &&
       (!query || `${row.fullName} ${row.phone} ${row.badgeNumber}`.toLowerCase().includes(query))
   );
 
@@ -85,6 +108,8 @@ export async function exportParticipantAttendanceExcelAction(
     { header: "Sexe", key: "gender", width: 10 },
     { header: "Téléphone", key: "phone", width: 18 },
     { header: "Région", key: "region", width: 16 },
+    { header: "Profession", key: "profession", width: 24 },
+    { header: "Déplacement à Niamey", key: "travel", width: 20 },
     { header: "N° badge", key: "badge", width: 24 },
     { header: "Présence", key: "present", width: 12 },
     { header: "Premier pointage", key: "first", width: 20 },
@@ -98,6 +123,8 @@ export async function exportParticipantAttendanceExcelAction(
       gender: row.gender,
       phone: row.phone,
       region: row.region,
+      profession: row.profession,
+      travel: row.travel === "OUI" ? "Oui" : row.travel === "NON" ? "Non" : "",
       badge: row.badgeNumber,
       present: row.firstCheckIn ? "Présent" : "Absent",
       first: row.firstCheckIn ? row.firstCheckIn.toLocaleString("fr-FR") : "",
