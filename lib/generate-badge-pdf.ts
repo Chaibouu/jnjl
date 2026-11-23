@@ -74,6 +74,23 @@ function fitSize(text: string, font: PDFFont, maxWidth: number, max: number, min
   return size;
 }
 
+/** Coupe un texte en deux lignes aux espaces, en équilibrant leur largeur (un seul mot : une seule ligne). */
+function splitInTwo(text: string, font: PDFFont, size: number): string[] {
+  const words = text.split(" ").filter(Boolean);
+  if (words.length < 2) return [text];
+  let best: string[] = [text];
+  let bestWidth = Infinity;
+  for (let cut = 1; cut < words.length; cut++) {
+    const lines = [words.slice(0, cut).join(" "), words.slice(cut).join(" ")];
+    const widest = Math.max(...lines.map(line => font.widthOfTextAtSize(line, size)));
+    if (widest < bestWidth) {
+      best = lines;
+      bestWidth = widest;
+    }
+  }
+  return best;
+}
+
 // ─── Designs officiels des badges ─────────────────────────────────────────────
 // Chaque maquette est une image de fond de 908 × 1280 px (public/badge-*.jpg) qui contient l'en-tête,
 // le titre (AMBASSADEUR, POINT FOCAL, COMMISSION, SPEAKER) et le logo. Sont dessinés par-dessus :
@@ -240,11 +257,14 @@ async function drawDesignBadgePage(
     if (bold.widthOfTextAtSize(title, oneLine) <= titleMaxWidth) {
       centeredAt(title, 453, 503, oneLine, bold, ORANGE);
     } else {
-      const parts = title.split(" ");
-      const half = Math.ceil(parts.length / 2);
-      const lines = [parts.slice(0, half).join(" "), parts.slice(half).join(" ")].filter(Boolean);
+      // Titre long (« COMITÉ D'ORGANISATION ») : deux lignes de même taille, assez petites et assez espacées pour ne pas
+      // se chevaucher ni toucher l'en-tête (au-dessus) et le trait orange (au-dessous, vers y = 520).
+      const lines = splitInTwo(title, bold, 22);
+      const widest = lines.reduce((a, b) => (bold.widthOfTextAtSize(a, 22) >= bold.widthOfTextAtSize(b, 22) ? a : b));
+      const size = fitSize(widest, bold, titleMaxWidth, 22, 14);
+      const lineHeight = (size / k) * 1.08;
       lines.forEach((line, index) => {
-        centeredAt(line, 453, lines.length === 1 ? 503 : 462 + index * 40, fitSize(line, bold, titleMaxWidth, 30, 14), bold, ORANGE);
+        centeredAt(line, 453, 503 - (lines.length - 1 - index) * lineHeight, size, bold, ORANGE);
       });
     }
   }
@@ -252,17 +272,45 @@ async function drawDesignBadgePage(
   // Bandeau : recouvre le texte d'origine (« NIAMEY »…) par la même couleur, puis écrit le nouveau texte.
   if (design.pill) {
     const { pill } = design;
-    const inset = 3;
-    const coverW = px(pill.w - inset * 2);
-    const coverH = (pill.h - inset * 2) * k;
+    const label = safe(params.region.toUpperCase(), bold);
+    const centerX = pill.x + pill.w / 2;
+
+    // Texte long (« ÉQUIPE DE PILOTAGE COMMISSION SCIENTIFIQUE ») : le bandeau s'élargit, puis passe sur deux lignes
+    // (et grandit en hauteur) plutôt que de déborder ou de se réduire jusqu'à devenir illisible.
+    const padding = 60; // marge autour du texte, en px
+    const maxPillWidth = 700;
+    const maxTextWidth = px(maxPillWidth - padding);
+    let lines = [label];
+    let size = fitSize(label, bold, maxTextWidth, 21, 14);
+    if (bold.widthOfTextAtSize(label, size) > maxTextWidth) {
+      lines = splitInTwo(label, bold, 18);
+      const widestLine = lines.reduce((a, b) => (bold.widthOfTextAtSize(a, 18) >= bold.widthOfTextAtSize(b, 18) ? a : b));
+      size = fitSize(widestLine, bold, maxTextWidth, 19, 11);
+    }
+    const textWidth = Math.max(...lines.map(line => bold.widthOfTextAtSize(line, size))) / k;
+    const boxWidth = Math.min(maxPillWidth, Math.max(pill.w, textWidth + padding));
+    const boxHeight = lines.length === 1 ? pill.h : 96;
+    const grown = boxWidth > pill.w + 1 || boxHeight > pill.h;
+
+    // Bandeau d'origine recouvert par la même couleur ; s'il grandit, un rectangle plus large recouvre aussi ses bords.
+    const inset = grown ? -1 : 3;
+    const boxLeft = grown ? centerX - boxWidth / 2 : pill.x;
+    const coverW = px(grown ? boxWidth : pill.w - inset * 2);
+    const coverH = (grown ? boxHeight + 2 : pill.h - inset * 2) * k;
     const r = 7 * k;
     page.drawSvgPath(
       `M ${r} 0 H ${coverW - r} Q ${coverW} 0 ${coverW} ${r} V ${coverH - r} Q ${coverW} ${coverH} ${coverW - r} ${coverH} H ${r} Q 0 ${coverH} 0 ${coverH - r} V ${r} Q 0 0 ${r} 0 Z`,
-      { x: px(pill.x + inset), y: py(pill.y + inset), color: pill.color }
+      { x: px(grown ? boxLeft : boxLeft + inset), y: py(pill.y + inset), color: pill.color }
     );
-    const label = safe(params.region.toUpperCase(), bold);
-    const size = fitSize(label, bold, px(pill.w - 40), 21, 9);
-    centeredAt(label, pill.x + pill.w / 2, pill.y + pill.h / 2 + 8, size, bold, rgb(1, 1, 1));
+
+    if (lines.length === 1) {
+      centeredAt(label, centerX, pill.y + pill.h / 2 + 8, size, bold, rgb(1, 1, 1));
+    } else {
+      const lineHeight = (size / k) * 1.2;
+      const capHeight = (size / k) * 0.72;
+      const firstBaseline = pill.y + boxHeight / 2 + (capHeight - lineHeight) / 2;
+      lines.forEach((line, index) => centeredAt(line, centerX, firstBaseline + index * lineHeight, size, bold, rgb(1, 1, 1)));
+    }
   }
 
   // Photo de profil ronde : recadrée au centre sous l'anneau de la maquette ; à défaut, les initiales.
