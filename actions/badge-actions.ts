@@ -216,9 +216,18 @@ export async function awardAllAmbassadorBadgesAction(editionId: string) {
   return { count: awarded, failed, error: firstError };
 }
 
-/** Annule le badge d'un seul ambassadeur. Réservé au Super Admin. */
+/**
+ * Supprime le badge d'un seul ambassadeur (« Supprimer le badge »). Ouvert aux administrateurs qui gèrent les badges
+ * (un point focal reste limité à sa région) ; l'annulation de tous les badges, elle, reste réservée au Super Admin.
+ */
 export async function cancelAmbassadorBadgeAction(applicationId: string): Promise<CancelBadgeResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await requirePermission("badges.manage");
+  const application = await db.ambassadorApplication.findUnique({
+    where: { id: applicationId },
+    select: { regionId: true },
+  });
+  if (!application) return { ok: false, reason: "Candidature introuvable" };
+  assertRegionAccess(actor, application.regionId);
   const result = await cancelBadge(applicationId);
   await auditAdminAction({
     actorId: actor.id,

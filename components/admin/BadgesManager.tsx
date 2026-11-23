@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Award, BadgeCheck, Printer, Search, Undo2 } from "lucide-react";
+import { Award, BadgeCheck, Printer, Search, Trash2, Undo2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/admin/ListPagination";
 import {
@@ -184,9 +184,9 @@ export function BadgesManager({
 
   const cancelOne = async (candidate: Candidate) => {
     const confirmed = await confirm({
-      title: "Annuler ce badge ?",
+      title: "Supprimer ce badge ?",
       description: `${candidate.firstName} ${candidate.lastName} reviendra à l'étape « Badge », comme si le badge n'avait pas été attribué. Son numéro ne sera pas réutilisé et son QR sera désactivé.`,
-      confirmLabel: "Annuler le badge",
+      confirmLabel: "Supprimer le badge",
       variant: "destructive",
     });
     if (!confirmed) return;
@@ -199,7 +199,7 @@ export function BadgesManager({
           setError(result.reason);
           return;
         }
-        refresh(editionId, "Badge annulé");
+        refresh(editionId, "Badge supprimé");
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Une erreur est survenue");
       }
@@ -502,18 +502,18 @@ export function BadgesManager({
                     <BadgeCheck className="h-3.5 w-3.5" />
                     {candidate.badge.number}
                   </span>
-                  {isSuperAdmin && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      title="Annuler ce badge"
-                      disabled={isPending}
-                      onClick={() => cancelOne(candidate)}
-                    >
-                      <Undo2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    title="Supprimer ce badge"
+                    disabled={isPending}
+                    onClick={() => cancelOne(candidate)}
+                    className="gap-1.5 rounded-none border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer
+                  </Button>
                 </div>
               ) : (
                 <Button

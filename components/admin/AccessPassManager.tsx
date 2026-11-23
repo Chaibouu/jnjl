@@ -503,51 +503,29 @@ export function AccessPassManager({
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Badges d&apos;accès</h2>
-            <p className="text-sm text-muted-foreground">
-              {filtered.length} sur {passes.length} personne{passes.length > 1 ? "s" : ""}
-              {" · "}
-              {passes.filter(pass => pass.checkedInAt).length} pointée
-              {passes.filter(pass => pass.checkedInAt).length > 1 ? "s" : ""}
-            </p>
-            <p className="mt-1 max-w-md text-xs text-muted-foreground">{BADGE_PRINT_HINT}</p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <select
-              value={layout}
-              onChange={event => setLayout(event.target.value as BadgeLayout)}
-              className={`${selectClass} sm:w-64`}
-              title="Mise en page de l'impression"
-            >
-              {BADGE_LAYOUT_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <Button
-              type="button"
-              variant="outline"
-              loading={isPending}
-              disabled={filtered.length === 0}
-              onClick={printFiltered}
-              className="gap-2 rounded-none"
-            >
-              <Printer className="h-4 w-4" />
-              Imprimer la sélection ({filtered.length})
-            </Button>
+        <div className="space-y-4 border-b p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Badges d&apos;accès</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium">
+                <span className="rounded-full bg-muted px-2.5 py-1 text-foreground">
+                  {filtered.length} sur {passes.length} personne{passes.length > 1 ? "s" : ""}
+                </span>
+                <span className="rounded-full bg-green-100 px-2.5 py-1 text-green-700">
+                  {passes.filter(pass => pass.checkedInAt).length} pointée
+                  {passes.filter(pass => pass.checkedInAt).length > 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
             {passes.some(pass => !pass.qrSynced) && (
               <Button type="button" variant="outline" loading={isPending} onClick={resync} className="rounded-none">
                 Resynchroniser les QR (ScanHub)
               </Button>
             )}
-            <select
-              value={categoryFilter}
-              onChange={event => setCategoryFilter(event.target.value)}
-              className={`${selectClass} sm:w-56`}
-            >
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select value={categoryFilter} onChange={event => setCategoryFilter(event.target.value)} className={selectClass}>
               <option value={ALL}>Toutes les catégories</option>
               {ACCESS_CATEGORIES.map(category => (
                 <option key={category.code} value={category.code}>
@@ -555,7 +533,7 @@ export function AccessPassManager({
                 </option>
               ))}
             </select>
-            <div className="relative w-full sm:w-64">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
@@ -564,6 +542,38 @@ export function AccessPassManager({
                 onChange={event => setSearch(event.target.value)}
               />
             </div>
+          </div>
+
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <select
+                value={layout}
+                onChange={event => setLayout(event.target.value as BadgeLayout)}
+                className={selectClass}
+                title="Mise en page de l'impression"
+              >
+                {BADGE_LAYOUT_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="outline"
+                loading={isPending}
+                disabled={filtered.length === 0}
+                onClick={printFiltered}
+                className="gap-2 rounded-none"
+              >
+                <Printer className="h-4 w-4" />
+                Imprimer la sélection ({filtered.length})
+              </Button>
+            </div>
+            <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+              <Printer className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{BADGE_PRINT_HINT}</span>
+            </p>
           </div>
         </div>
         {message && <p className="border-b px-5 py-3 text-sm text-green-600">{message}</p>}
