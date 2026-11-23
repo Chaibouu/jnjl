@@ -7,6 +7,7 @@ export const ACCESS_CATEGORIES = [
   { code: "POINT_FOCAL", label: "Point focal" },
   { code: "PERSONNEL_APPUI", label: "Personnel d'appui" },
   { code: "INVITE", label: "Invité / VIP" },
+  { code: "AMBASSADEUR_SPONSOR", label: "Ambassadeur sponsor" },
   { code: "AUTRE", label: "Autre" },
 ] as const;
 
@@ -32,6 +33,7 @@ export const ORGANIZATION_FIELD: Record<AccessCategoryCode, { label: string; pla
   POINT_FOCAL: { label: "Région", placeholder: "Ex. Niamey", required: true },
   PERSONNEL_APPUI: { label: "Service", placeholder: "Ex. Logistique", required: true },
   INVITE: { label: "Structure (facultatif)", placeholder: "Ex. Ministère de la Jeunesse", required: false },
+  AMBASSADEUR_SPONSOR: { label: "Institution / Entreprise", placeholder: "Ex. Ambassade sponsor", required: true }, 
   AUTRE: { label: "Précision (facultatif)", placeholder: "Ex. Partenaire technique", required: false },
 };
 
