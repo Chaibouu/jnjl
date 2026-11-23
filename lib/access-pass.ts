@@ -59,6 +59,7 @@ export const DESIGN_VARIANT_BY_CATEGORY: Record<string, DesignVariant> = {
   COMITE_ORGANISATION: "generic",
   PERSONNEL_APPUI: "generic",
   INVITE: "generic",
+  AMBASSADEUR_SPONSOR: "generic",
   AUTRE: "generic",
 };
 
@@ -69,6 +70,7 @@ export const GENERIC_TITLES: Record<string, string> = {
   COMITE_ORGANISATION: "Comité d'organisation",
   PERSONNEL_APPUI: "Personnel d'appui",
   INVITE: "Invité",
+  AMBASSADEUR_SPONSOR: "Ambassadeur sponsor",
   AUTRE: "Accès",
 };
 
