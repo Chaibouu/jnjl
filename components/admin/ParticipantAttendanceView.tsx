@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { FileSpreadsheet, Search } from "lucide-react";
+import { FileSpreadsheet, RefreshCw, Search } from "lucide-react";
+import { reconcileScanHubAction } from "@/actions/attendance-actions";
 import {
   exportParticipantAttendanceExcelAction,
+  listParticipantAttendanceAction,
   type ParticipantAttendanceRow,
 } from "@/actions/participant-attendance-actions";
 import { Button } from "@/components/ui/button";
@@ -31,16 +33,39 @@ function Stat({ label, value, hint, accent }: { label: string; value: string | n
 /** Pointage des participants à l'événement : présents / absents, filtres et export Excel. */
 export function ParticipantAttendanceView({
   editionId,
-  rows,
+  rows: initialRows,
 }: {
   editionId: string;
   rows: ParticipantAttendanceRow[];
 }) {
+  const [rows, setRows] = useState(initialRows);
   const [region, setRegion] = useState("");
   const [status, setStatus] = useState<Status>("ALL");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [isExporting, startExport] = useTransition();
+  const [isRefreshing, startRefresh] = useTransition();
+
+  /** Relit les scans de ScanHub (ceux que le webhook n'aurait pas apportés), puis recharge la liste. */
+  const refreshFromScanHub = () =>
+    startRefresh(async () => {
+      setError("");
+      setMessage("");
+      try {
+        const result = await reconcileScanHubAction();
+        setRows(await listParticipantAttendanceAction(editionId));
+        if (result.error) setError(`ScanHub : ${result.error}`);
+        else
+          setMessage(
+            result.checkedIn > 0
+              ? `${result.checkedIn} présence(s) récupérée(s) depuis ScanHub (${result.read} scan(s) relus).`
+              : `Liste à jour : aucune nouvelle présence (${result.read} scan(s) relus).`
+          );
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : "Actualisation impossible, réessayez");
+      }
+    });
 
   const regions = useMemo(() => [...new Set(rows.map(row => row.region).filter(Boolean))].sort(), [rows]);
 
@@ -76,6 +101,17 @@ export function ParticipantAttendanceView({
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 shadow-sm">
+        <Button type="button" loading={isRefreshing} onClick={refreshFromScanHub} className="gap-2 rounded-none">
+          <RefreshCw className="h-4 w-4" />
+          Actualiser depuis ScanHub
+        </Button>
+        <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+          Si un badge scanné n&apos;apparaît pas comme présent, cliquez ici : les scans de ScanHub sont relus et la liste est mise à jour.
+        </p>
+      </div>
+      {message && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Participants inscrits" value={inRegion.length} hint={region || "Toutes les régions"} />
         <Stat label="Présents (pointés)" value={present} accent />
