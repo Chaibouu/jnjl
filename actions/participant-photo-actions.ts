@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import sharp from "sharp";
 import { db } from "@/lib/db";
 import { rateLimitRedis } from "@/lib/rateLimit-redis";
+import { getAppUrl } from "@/lib/app-url";
 import { requirePermission } from "@/actions/requirePermission";
 import { deleteFile, saveFile, storageKeyFromUrl } from "@/lib/storage";
 import { storagePaths } from "@/lib/storage-paths";
@@ -89,6 +90,36 @@ export async function uploadParticipantPhotoAction(applicationId: string, formDa
   await removeStoredPhoto(application.photoUrl);
   revalidatePath("/participer/badge/" + applicationId);
   return { ok: true, photoUrl };
+}
+
+/**
+ * Renvoie la photo enregistrée (en base64) pour la rouvrir dans l'outil de cadrage : le navigateur ne peut pas toujours
+ * relire directement un fichier hébergé sur un autre domaine (stockage R2).
+ */
+export async function loadParticipantPhotoAction(applicationId: string): Promise<Result<{ base64: string; mime: string }>> {
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders.get("x-real-ip") || "inconnue";
+  if (await rateLimitRedis(`participant-photo-read:${ip}`, { windowMs: 60 * 60 * 1000, max: 60 })) {
+    return { ok: false, error: "Trop de demandes : réessayez plus tard" };
+  }
+
+  const application = await db.eventApplication.findUnique({
+    where: { id: applicationId },
+    select: { photoUrl: true, cancelledAt: true },
+  });
+  if (!application || application.cancelledAt || !application.photoUrl) return { ok: false, error: "Aucune photo enregistrée" };
+
+  try {
+    const url = application.photoUrl.startsWith("http") ? application.photoUrl : `${getAppUrl()}${application.photoUrl}`;
+    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) throw new Error(String(response.status));
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > MAX_BYTES) throw new Error("trop volumineuse");
+    return { ok: true, base64: bytes.toString("base64"), mime: response.headers.get("content-type") ?? "image/jpeg" };
+  } catch (error) {
+    console.error("Photo participant : lecture impossible", error);
+    return { ok: false, error: "Impossible de rouvrir la photo actuelle : choisissez-la de nouveau avec « Changer la photo »." };
+  }
 }
 
 /** Retire la photo : le badge reprend le logo de la JNJL. */

@@ -1,11 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
+import { IdCard } from "lucide-react";
 import { EditionStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { ClosedNotice } from "@/components/site/ClosedNotice";
 import { PageHero } from "@/components/site/PageHero";
 import { getRegistrationState } from "@/lib/site-settings";
 import { ParticipantApplicationForm } from "@/components/participants/ParticipantApplicationForm";
-import { RecoverBadgeForm } from "@/components/participants/RecoverBadgeForm";
 import charter from "@/settings/charter";
 import { buildMetadata } from "@/lib/seo";
 
@@ -79,7 +80,16 @@ export default async function ParticiperPage() {
           </ol>
 
           <div className="mt-8">
-            <RecoverBadgeForm />
+            <div className="mb-8 flex justify-center">
+              <Link
+                href="/participer/mon-badge"
+                className="inline-flex h-11 items-center gap-2 border-2 px-5 text-sm font-semibold transition-colors hover:bg-orange-50"
+                style={{ borderColor: charter.orange, color: charter.orange }}
+              >
+                <IdCard className="h-4 w-4" />
+                Déjà inscrit ? Retrouver mon badge et ajuster ma photo
+              </Link>
+            </div>
             <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: charter.border }}>
               <Image
                 src="/header.jpg"
