@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Minus, Plus, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Minus, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import charter from "@/settings/charter";
 
@@ -10,6 +10,8 @@ const VIEW = 300;
 /** Côté (px) de la photo carrée envoyée au serveur. */
 const OUTPUT = 800;
 const MAX_ZOOM = 4;
+/** Pas (px à l'écran) d'un appui sur une flèche. */
+const MOVE_STEP = 12;
 
 type Offset = { x: number; y: number };
 
@@ -131,6 +133,27 @@ export function PhotoCropper({
     setOffset({ x: 0, y: 0 });
   };
 
+  /** Déplace la photo de quelques pixels (boutons fléchés et touches du clavier). */
+  const moveBy = (dx: number, dy: number) => setOffset(current => clamp({ x: current.x + dx, y: current.y + dy }, scale));
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const moves: Record<string, [number, number]> = {
+      ArrowLeft: [-MOVE_STEP, 0],
+      ArrowRight: [MOVE_STEP, 0],
+      ArrowUp: [0, -MOVE_STEP],
+      ArrowDown: [0, MOVE_STEP],
+    };
+    const move = moves[event.key];
+    if (move) {
+      event.preventDefault();
+      moveBy(move[0], move[1]);
+    } else if (event.key === "+" || event.key === "=") {
+      changeZoom(zoom + 0.1);
+    } else if (event.key === "-") {
+      changeZoom(zoom - 0.1);
+    }
+  };
+
   const confirm = () => {
     if (!bitmap) return;
     const canvas = document.createElement("canvas");
@@ -178,7 +201,9 @@ export function PhotoCropper({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onWheel={event => changeZoom(zoom - event.deltaY * 0.002)}
-        aria-label="Zone de cadrage de la photo"
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+        aria-label="Zone de cadrage de la photo : flèches pour déplacer, plus et moins pour zoomer"
       />
       <div className="flex w-full max-w-xs items-center gap-3">
         <button type="button" aria-label="Dézoomer" onClick={() => changeZoom(zoom - 0.25)} className="rounded-full border p-1.5">
@@ -197,9 +222,27 @@ export function PhotoCropper({
         <button type="button" aria-label="Zoomer" onClick={() => changeZoom(zoom + 0.25)} className="rounded-full border p-1.5">
           <Plus className="h-4 w-4" />
         </button>
-        <button type="button" aria-label="Recentrer" title="Recentrer" onClick={reset} className="rounded-full border p-1.5">
-          <RotateCcw className="h-4 w-4" />
-        </button>
+      </div>
+      <div className="grid grid-cols-[repeat(3,2.75rem)] justify-center gap-1.5" role="group" aria-label="Déplacer la photo">
+        <span />
+        <Button type="button" variant="outline" className="size-11" aria-label="Monter la photo" onClick={() => moveBy(0, -MOVE_STEP)}>
+          <ArrowUp aria-hidden="true" />
+        </Button>
+        <span />
+        <Button type="button" variant="outline" className="size-11" aria-label="Déplacer la photo vers la gauche" onClick={() => moveBy(-MOVE_STEP, 0)}>
+          <ArrowLeft aria-hidden="true" />
+        </Button>
+        <Button type="button" variant="outline" className="size-11" aria-label="Réinitialiser le cadrage" onClick={reset}>
+          <RotateCcw aria-hidden="true" />
+        </Button>
+        <Button type="button" variant="outline" className="size-11" aria-label="Déplacer la photo vers la droite" onClick={() => moveBy(MOVE_STEP, 0)}>
+          <ArrowRight aria-hidden="true" />
+        </Button>
+        <span />
+        <Button type="button" variant="outline" className="size-11" aria-label="Descendre la photo" onClick={() => moveBy(0, MOVE_STEP)}>
+          <ArrowDown aria-hidden="true" />
+        </Button>
+        <span />
       </div>
       <div className="flex flex-wrap justify-center gap-2">
         <Button
